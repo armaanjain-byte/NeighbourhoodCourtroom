@@ -21,5 +21,5 @@ def test_conflict_invalid_severity():
             agent_b="climate",
             proposed_value_a=10.0,
             proposed_value_b=40.0,
-            disagreement_severity="medium" # Only low or high allowed
+            disagreement_severity="critical"  # Only low, medium, or high allowed
         )

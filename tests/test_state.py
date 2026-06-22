@@ -2,18 +2,23 @@
 
 Covers:
     - Proposal creation with defaults and custom values
-    - Version increment on every mutation
+    - Version increment on every mutation (only when substantive)
     - Lock enforcement (locked fields silently skipped)
     - Audit history generation (change_log entries)
     - Human override behavior (locks + value set)
     - Cloning preserves version and id
     - Change summary diff computation
+    - Type coercion (float → int for int-typed fields)
+    - No-op and empty changes do not bump version
+    - MUTABLE_PARAMETERS / _INT_PARAMETERS sync with Proposal model
 """
 
 import pytest
 from models.proposal import Proposal
 from engine.state import (
     MUTABLE_PARAMETERS,
+    _INT_PARAMETERS,
+    _coerce_value,
     create_initial_proposal,
     clone_proposal,
     apply_changes,
@@ -42,6 +47,47 @@ def custom_proposal() -> Proposal:
         community_center_sqft=2000.0,
         estimated_cost=10_000_000.0,
     )
+
+
+# ── MUTABLE_PARAMETERS sync guard ──────────────────────────────────────────
+
+class TestMutableParametersSync:
+    def test_mutable_params_are_proposal_fields(self) -> None:
+        """Every entry in MUTABLE_PARAMETERS must be a real Proposal field."""
+        proposal_fields = set(Proposal.model_fields.keys())
+        for param in MUTABLE_PARAMETERS:
+            assert param in proposal_fields, f"{param} not in Proposal"
+
+    def test_int_params_subset_of_mutable(self) -> None:
+        """_INT_PARAMETERS must be a subset of MUTABLE_PARAMETERS."""
+        assert _INT_PARAMETERS.issubset(MUTABLE_PARAMETERS)
+
+    def test_int_params_match_model_types(self) -> None:
+        """Every param in _INT_PARAMETERS should be typed int on Proposal."""
+        for param in _INT_PARAMETERS:
+            field_info = Proposal.model_fields[param]
+            assert field_info.annotation is int, (
+                f"{param} is listed in _INT_PARAMETERS but is "
+                f"{field_info.annotation} on Proposal"
+            )
+
+
+# ── _coerce_value ───────────────────────────────────────────────────────────
+
+class TestCoerceValue:
+    def test_float_param_passes_through(self) -> None:
+        assert _coerce_value("green_space_pct", 25.7) == 25.7
+        assert isinstance(_coerce_value("green_space_pct", 25.7), float)
+
+    def test_int_param_coerced(self) -> None:
+        result = _coerce_value("housing_units", 200.0)
+        assert result == 200
+        assert isinstance(result, int)
+
+    def test_int_param_truncates(self) -> None:
+        result = _coerce_value("parking_spaces", 150.9)
+        assert result == 150
+        assert isinstance(result, int)
 
 
 # ── create_initial_proposal ────────────────────────────────────────────────
@@ -117,32 +163,59 @@ class TestApplyChanges:
         changes = {"green_space_pct": 25.0, "parking_spaces": 200.0}
         updated = apply_changes(base_proposal, changes, "finance")
         assert updated.green_space_pct == 25.0
-        assert updated.parking_spaces == 200.0
+        assert updated.parking_spaces == 200
         # Two changed entries
         changed_entries = [e for e in updated.change_log if e["action"] == "changed"]
         assert len(changed_entries) == 2
 
-    def test_unknown_key_ignored(self, base_proposal: Proposal) -> None:
+    def test_unknown_key_ignored_no_version_bump(self, base_proposal: Proposal) -> None:
         updated = apply_changes(base_proposal, {"nonexistent_field": 99.0}, "climate")
-        # Version still increments but no substantive change logged
-        changed_entries = [e for e in updated.change_log if e["action"] == "changed"]
-        assert len(changed_entries) == 0
+        # No substantive activity → version must NOT increment
+        assert updated.version == base_proposal.version
+        assert updated.change_log == []
 
-    def test_noop_change_skipped(self, base_proposal: Proposal) -> None:
+    def test_noop_change_no_version_bump(self, base_proposal: Proposal) -> None:
         updated = apply_changes(base_proposal, {"green_space_pct": 20.0}, "climate")
-        changed_entries = [e for e in updated.change_log if e["action"] == "changed"]
-        assert len(changed_entries) == 0
+        # Same value → no activity → version must NOT increment
+        assert updated.version == base_proposal.version
+        assert updated.change_log == []
+
+    def test_empty_changes_no_version_bump(self, base_proposal: Proposal) -> None:
+        updated = apply_changes(base_proposal, {}, "climate")
+        assert updated.version == base_proposal.version
+        assert updated.change_log == []
 
     def test_locked_field_skipped(self, base_proposal: Proposal) -> None:
         locked = apply_human_override(base_proposal, "green_space_pct", 30.0)
         updated = apply_changes(locked, {"green_space_pct": 10.0}, "finance")
         # Value should stay at locked value
         assert updated.green_space_pct == 30.0
+        # Version DOES increment because lock-skip is activity
+        assert updated.version == locked.version + 1
         # Should have a skipped_locked entry
         skipped = [e for e in updated.change_log if e["action"] == "skipped_locked"]
         assert len(skipped) == 1
         assert skipped[0]["requested_value"] == 10.0
         assert skipped[0]["locked_value"] == 30.0
+
+    def test_int_field_coercion(self, base_proposal: Proposal) -> None:
+        """Float values for int fields must be coerced to int."""
+        updated = apply_changes(base_proposal, {"housing_units": 200.0}, "finance")
+        assert updated.housing_units == 200
+        assert isinstance(updated.housing_units, int)
+
+    def test_int_field_coercion_parking(self, base_proposal: Proposal) -> None:
+        updated = apply_changes(base_proposal, {"parking_spaces": 75.9}, "finance")
+        assert updated.parking_spaces == 75
+        assert isinstance(updated.parking_spaces, int)
+
+    def test_chained_changes_accumulate_log(self, base_proposal: Proposal) -> None:
+        """Applying changes sequentially accumulates change_log entries."""
+        v2 = apply_changes(base_proposal, {"green_space_pct": 25.0}, "climate")
+        v3 = apply_changes(v2, {"parking_spaces": 100.0}, "finance")
+        v4 = apply_changes(v3, {"estimated_cost": 30_000_000.0}, "finance")
+        assert v4.version == 4
+        assert len(v4.change_log) == 3
 
 
 # ── apply_human_override ───────────────────────────────────────────────────
@@ -173,6 +246,21 @@ class TestApplyHumanOverride:
     def test_invalid_parameter_raises(self, base_proposal: Proposal) -> None:
         with pytest.raises(ValueError, match="Cannot lock unknown parameter"):
             apply_human_override(base_proposal, "nonexistent_field", 10.0)
+
+    def test_relock_overwrites(self, base_proposal: Proposal) -> None:
+        """Re-locking an already-locked parameter should update the lock value."""
+        v2 = apply_human_override(base_proposal, "green_space_pct", 30.0)
+        v3 = apply_human_override(v2, "green_space_pct", 40.0)
+        assert v3.green_space_pct == 40.0
+        assert v3.human_locks["green_space_pct"] == 40.0
+        assert v3.version == 3
+
+    def test_int_field_coercion(self, base_proposal: Proposal) -> None:
+        """Locking an int field with a float should coerce to int."""
+        overridden = apply_human_override(base_proposal, "housing_units", 250.0)
+        assert overridden.housing_units == 250
+        assert isinstance(overridden.housing_units, int)
+        assert overridden.human_locks["housing_units"] == 250
 
 
 # ── calculate_change_summary ──────────────────────────────────────────────

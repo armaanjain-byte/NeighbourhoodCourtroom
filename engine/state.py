@@ -6,7 +6,7 @@ Purpose:
     human locks, maintains full audit history, and tracks versions.
 
 Dependencies:
-    models.proposal.Proposal, models.agent_output.AgentOutput
+    models.proposal.Proposal
 
 Design:
     All updates are immutable — every mutation returns a *new* Proposal
@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from models.proposal import Proposal
-from models.agent_output import AgentOutput
 
 
 # ── Core parameters that agents are allowed to propose changes on ───────────
@@ -33,6 +32,16 @@ MUTABLE_PARAMETERS: set[str] = {
     "community_center_sqft",
     "estimated_cost",
 }
+
+# Parameters whose Proposal field type is int (agents send floats)
+_INT_PARAMETERS: set[str] = {"housing_units", "parking_spaces"}
+
+
+def _coerce_value(param: str, value: float) -> float | int:
+    """Coerce *value* to int when *param* is an integer-typed field."""
+    if param in _INT_PARAMETERS:
+        return int(value)
+    return value
 
 
 def create_initial_proposal(
@@ -105,7 +114,8 @@ def apply_changes(
     """Apply a dict of parameter changes, respecting human locks.
 
     Produces a *new* Proposal with:
-    - version incremented by 1
+    - version incremented by 1 (only when at least one change is applied
+      or a lock-skip is recorded)
     - each accepted change appended to the change_log
     - locked fields silently skipped
 
@@ -122,20 +132,25 @@ def apply_changes(
     Returns
     -------
     Proposal
-        A new Proposal reflecting the accepted changes.
+        A new Proposal reflecting the accepted changes.  If no
+        recognised changes were supplied, returns a deep copy with the
+        same version (no version bump).
     """
     updated = proposal.model_copy(deep=True)
-    updated.version = proposal.version + 1
     timestamp = datetime.now(timezone.utc).isoformat()
+    has_activity = False  # Track whether anything meaningful happened
 
-    for param, new_value in changes.items():
+    for param, raw_value in changes.items():
         if param not in MUTABLE_PARAMETERS:
             continue
 
-        # Respect human locks — skip silently
+        new_value = _coerce_value(param, raw_value)
+
+        # Respect human locks — skip silently but record the attempt
         if param in proposal.human_locks:
+            has_activity = True
             updated.change_log.append({
-                "version": updated.version,
+                "version": proposal.version + 1,
                 "actor": actor,
                 "action": "skipped_locked",
                 "parameter": param,
@@ -151,9 +166,10 @@ def apply_changes(
         if old_value == new_value:
             continue
 
+        has_activity = True
         setattr(updated, param, new_value)
         updated.change_log.append({
-            "version": updated.version,
+            "version": proposal.version + 1,
             "actor": actor,
             "action": "changed",
             "parameter": param,
@@ -161,6 +177,9 @@ def apply_changes(
             "new": new_value,
             "timestamp": timestamp,
         })
+
+    if has_activity:
+        updated.version = proposal.version + 1
 
     return updated
 
@@ -205,7 +224,9 @@ def apply_human_override(
     timestamp = datetime.now(timezone.utc).isoformat()
 
     old_value = getattr(proposal, parameter)
-    setattr(updated, parameter, locked_value)
+    coerced = _coerce_value(parameter, locked_value)
+    setattr(updated, parameter, coerced)
+    locked_value = coerced  # Use coerced value in lock and log
     updated.human_locks[parameter] = locked_value
 
     updated.change_log.append({
