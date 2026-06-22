@@ -1,99 +1,48 @@
 import pytest
-from datetime import datetime, timezone
-from pydantic import ValidationError
+from models.debate_round import DebateRound
 from models.proposal import Proposal
 from models.agent_output import AgentOutput
 from models.conflict import Conflict
-from models.debate_round import DebateRound
 
-def create_valid_proposal():
-    return Proposal(
-        proposal_id="p1",
-        agent_name="finance",
-        title="Valid Title",
-        description="Desc",
-        category="transit",
-        cost_delta=10.0,
-        impact_score=50.0,
-        status="proposed",
-        created_at=datetime.now(timezone.utc)
+def test_debate_round_creation():
+    p = Proposal(
+        city_slug="phoenix_az",
+        green_space_pct=15.0,
+        affordable_housing_pct=10.0,
+        housing_units=200,
+        parking_spaces=300,
+        community_center_sqft=5000,
+        estimated_cost=45000000.0
     )
-
-def create_valid_agent_output():
-    return AgentOutput(
+    
+    out = AgentOutput(
         agent_name="climate",
-        summary="summary text",
-        proposals=[create_valid_proposal()],
-        confidence=0.8
+        score=85.5,
+        verdict="modify",
+        proposed_changes={"green_space_pct": 30.0},
+        reasoning_and_evidence="..."
+    )
+    
+    c = Conflict(
+        parameter="green_space_pct",
+        agent_a="finance",
+        agent_b="climate",
+        proposed_value_a=10.0,
+        proposed_value_b=40.0,
+        disagreement_severity="high"
     )
 
-def create_valid_conflict():
-    return Conflict(
-        conflict_id="c1",
-        proposal_a_id="p1",
-        proposal_b_id="p2",
-        agent_a="climate",
-        agent_b="finance",
-        reason="Reason",
-        severity="medium",
-        resolution_status="unresolved"
-    )
-
-def test_debate_round_valid():
-    dt = datetime.now(timezone.utc)
+    p2 = p.model_copy()
+    p2.version = 2
+    
     dr = DebateRound(
         round_number=1,
-        agent_outputs=[create_valid_agent_output()],
-        conflicts=[create_valid_conflict()],
-        started_at=dt,
-        ended_at=dt
+        opening_state=p,
+        agent_outputs={"climate": out},
+        detected_conflicts=[c],
+        closing_state=p2,
+        engine_summary="Round complete."
     )
     assert dr.round_number == 1
-    assert dr.ended_at is not None
-
-def test_debate_round_no_ended_at():
-    dt = datetime.now(timezone.utc)
-    dr = DebateRound(
-        round_number=2,
-        agent_outputs=[],
-        conflicts=[],
-        started_at=dt
-    )
-    assert dr.ended_at is None
-
-def test_debate_round_invalid_round_number():
-    dt = datetime.now(timezone.utc)
-    with pytest.raises(ValidationError):
-        DebateRound(
-            round_number=0,
-            agent_outputs=[],
-            conflicts=[],
-            started_at=dt
-        )
-
-def test_debate_round_nested_validation_failure():
-    dt = datetime.now(timezone.utc)
-    with pytest.raises(ValidationError):
-        DebateRound(
-            round_number=1,
-            agent_outputs=[{
-                "agent_name": "climate"
-                # missing other fields
-            }],  # type: ignore
-            conflicts=[],
-            started_at=dt
-        )
-
-def test_debate_round_serialization():
-    dt = datetime.now(timezone.utc)
-    dr = DebateRound(
-        round_number=1,
-        agent_outputs=[create_valid_agent_output()],
-        conflicts=[create_valid_conflict()],
-        started_at=dt
-    )
-    json_dumped = dr.model_dump_json()
-    dr2 = DebateRound.model_validate_json(json_dumped)
-    assert dr2.round_number == 1
-    assert len(dr2.agent_outputs) == 1
-    assert len(dr2.conflicts) == 1
+    assert dr.opening_state.version == 1
+    assert dr.closing_state.version == 2

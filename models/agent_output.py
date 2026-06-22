@@ -1,8 +1,9 @@
 from pydantic import BaseModel, Field
-from .proposal import Proposal
+from typing import Dict, Literal
 
 class AgentOutput(BaseModel):
     agent_name: str
-    summary: str
-    proposals: list[Proposal]
-    confidence: float = Field(ge=0, le=1)
+    score: float = Field(ge=0, le=100)
+    verdict: Literal["accept", "modify", "reject"]
+    proposed_changes: dict[str, float]
+    reasoning_and_evidence: str
