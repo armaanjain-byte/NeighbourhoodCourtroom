@@ -1,2 +1,6 @@
 {
+  "detroit_mi": { "max_parking_spaces": 200 },
+  "austin_tx": { "max_parking_spaces": 150 },
+  "seattle_wa": { "max_parking_spaces": 100 },
+  "phoenix_az": { "max_parking_spaces": 300 }
 }

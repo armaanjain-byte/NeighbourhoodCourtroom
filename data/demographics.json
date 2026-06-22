@@ -1,2 +1,18 @@
 {
+  "detroit_mi": {
+    "target_community_center_sqft": 15000.0,
+    "target_affordable_housing_pct": 30.0
+  },
+  "austin_tx": {
+    "target_community_center_sqft": 12000.0,
+    "target_affordable_housing_pct": 15.0
+  },
+  "seattle_wa": {
+    "target_community_center_sqft": 10000.0,
+    "target_affordable_housing_pct": 25.0
+  },
+  "phoenix_az": {
+    "target_community_center_sqft": 8000.0,
+    "target_affordable_housing_pct": 10.0
+  }
 }

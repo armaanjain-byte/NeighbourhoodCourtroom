@@ -1,2 +1,6 @@
 {
+  "detroit_mi": { "name": "Detroit", "state": "MI" },
+  "austin_tx": { "name": "Austin", "state": "TX" },
+  "seattle_wa": { "name": "Seattle", "state": "WA" },
+  "phoenix_az": { "name": "Phoenix", "state": "AZ" }
 }

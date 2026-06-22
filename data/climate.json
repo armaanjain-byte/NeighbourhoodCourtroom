@@ -1,2 +1,6 @@
 {
+  "detroit_mi": { "target_green_space_pct": 30.0 },
+  "austin_tx": { "target_green_space_pct": 25.0 },
+  "seattle_wa": { "target_green_space_pct": 40.0 },
+  "phoenix_az": { "target_green_space_pct": 20.0 }
 }
