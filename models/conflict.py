@@ -7,4 +7,4 @@ class Conflict(BaseModel):
     agent_b: str
     proposed_value_a: float
     proposed_value_b: float
-    disagreement_severity: Literal["low", "high"]
+    disagreement_severity: Literal["low", "medium", "high"]
