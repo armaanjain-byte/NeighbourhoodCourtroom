@@ -18,9 +18,13 @@ Design:
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
 from typing import Any
 
 from models.proposal import Proposal
+from tools.cost_calculator import CostCalculator
+
+logger = logging.getLogger(__name__)
 
 
 # ── Core parameters that agents are allowed to propose changes on ───────────
@@ -110,6 +114,7 @@ def apply_changes(
     proposal: Proposal,
     changes: dict[str, float],
     actor: str,
+    cost_calculator: CostCalculator | None = None,
 ) -> Proposal:
     """Apply a dict of parameter changes, respecting human locks.
 
@@ -139,6 +144,14 @@ def apply_changes(
     updated = proposal.model_copy(deep=True)
     timestamp = datetime.now(timezone.utc).isoformat()
     has_activity = False  # Track whether anything meaningful happened
+
+    # 1. Filter out estimated_cost modifications by agents
+    if "estimated_cost" in changes:
+        logger.warning(
+            f"Agent '{actor}' attempted to modify estimated_cost directly. "
+            "estimated_cost is a derived field and was ignored."
+        )
+        changes = {k: v for k, v in changes.items() if k != "estimated_cost"}
 
     for param, raw_value in changes.items():
         if param not in MUTABLE_PARAMETERS:
@@ -177,6 +190,23 @@ def apply_changes(
             "new": new_value,
             "timestamp": timestamp,
         })
+
+    # 2. Recalculate estimated cost using CostCalculator
+    if cost_calculator is not None:
+        new_cost = cost_calculator.calculate_estimated_cost(updated)
+        old_cost = updated.estimated_cost
+        if old_cost != new_cost:
+            has_activity = True
+            updated.estimated_cost = new_cost
+            updated.change_log.append({
+                "version": proposal.version + 1,
+                "actor": "cost_calculator",
+                "action": "recalculated",
+                "parameter": "estimated_cost",
+                "old": old_cost,
+                "new": new_cost,
+                "timestamp": timestamp,
+            })
 
     if has_activity:
         updated.version = proposal.version + 1

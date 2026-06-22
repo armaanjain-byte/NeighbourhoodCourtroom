@@ -238,3 +238,189 @@ class TestGenerateConflictSummary:
         assert "2 conflict(s) detected" in summary
         assert "1 high" in summary
         assert "1 low" in summary
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  RESOLUTION TESTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+from engine.conflict import (
+    resolve_parameter,
+    requires_human_review,
+    resolve_conflicts,
+    generate_resolution_summary,
+    AGENT_WEIGHTS,
+)
+from engine.state import create_initial_proposal
+
+class TestResolveParameter:
+    def test_high_severity_returns_none(self) -> None:
+        result = resolve_parameter("green_space_pct", {"finance": 10.0, "climate": 50.0}, "high")
+        assert result is None
+
+    def test_low_severity_arithmetic_mean(self) -> None:
+        # 10, 20, 30 -> mean is 20
+        result = resolve_parameter("green_space_pct", {"finance": 10.0, "climate": 20.0, "community": 30.0}, "low")
+        assert result == 20.0
+
+    def test_medium_severity_weighted_mean(self) -> None:
+        # finance(0.4) * 10 + climate(0.3) * 20 + community(0.3) * 30
+        # 4 + 6 + 9 = 19
+        # total weight = 1.0
+        result = resolve_parameter("green_space_pct", {"finance": 10.0, "climate": 20.0, "community": 30.0}, "medium")
+        assert result == 19.0
+
+    def test_medium_severity_partial_agents(self) -> None:
+        # finance(0.4) * 10 + climate(0.3) * 20
+        # 4 + 6 = 10
+        # total weight = 0.7
+        result = resolve_parameter("green_space_pct", {"finance": 10.0, "climate": 20.0}, "medium")
+        assert result == pytest.approx(10.0 / 0.7)
+
+    def test_medium_severity_unknown_agent_fallback(self) -> None:
+        # default weight is 1/3
+        result = resolve_parameter("green_space_pct", {"unknown": 10.0, "other": 20.0}, "medium")
+        assert result == pytest.approx(15.0)
+
+class TestRequiresHumanReview:
+    def test_no_high_conflicts(self) -> None:
+        c1 = Conflict(parameter="green_space_pct", agent_a="a", agent_b="b", proposed_value_a=1, proposed_value_b=2, disagreement_severity="low")
+        c2 = Conflict(parameter="parking_spaces", agent_a="a", agent_b="b", proposed_value_a=1, proposed_value_b=2, disagreement_severity="medium")
+        assert requires_human_review([c1, c2]) == []
+
+    def test_with_high_conflicts(self) -> None:
+        c1 = Conflict(parameter="green_space_pct", agent_a="a", agent_b="b", proposed_value_a=1, proposed_value_b=2, disagreement_severity="high")
+        c2 = Conflict(parameter="parking_spaces", agent_a="a", agent_b="b", proposed_value_a=1, proposed_value_b=2, disagreement_severity="medium")
+        c3 = Conflict(parameter="housing_units", agent_a="a", agent_b="b", proposed_value_a=1, proposed_value_b=2, disagreement_severity="high")
+        assert requires_human_review([c1, c2, c3]) == ["green_space_pct", "housing_units"]
+
+
+class TestResolveConflicts:
+    @pytest.fixture
+    def proposal(self):
+        return create_initial_proposal("phoenix_az")
+
+    def test_single_proposer_no_conflict(self, proposal):
+        outputs = {"finance": _make_output("finance", {"green_space_pct": 25.0})}
+        conflicts = detect_conflicts(outputs)
+        resolution = resolve_conflicts(proposal, outputs, conflicts)
+        
+        assert resolution["resolved_changes"] == {"green_space_pct": 25.0}
+        assert not resolution["requires_human_review"]
+        assert resolution["human_review_params"] == []
+
+    def test_multiple_proposers_agree(self, proposal):
+        outputs = {
+            "finance": _make_output("finance", {"green_space_pct": 25.0}),
+            "climate": _make_output("climate", {"green_space_pct": 25.0})
+        }
+        conflicts = detect_conflicts(outputs)
+        resolution = resolve_conflicts(proposal, outputs, conflicts)
+        
+        assert resolution["resolved_changes"] == {"green_space_pct": 25.0}
+        assert not resolution["requires_human_review"]
+
+    def test_low_conflict_resolution(self, proposal):
+        outputs = {
+            "finance": _make_output("finance", {"green_space_pct": 100.0}),
+            "climate": _make_output("climate", {"green_space_pct": 95.0}) # 5% delta -> low
+        }
+        conflicts = detect_conflicts(outputs)
+        resolution = resolve_conflicts(proposal, outputs, conflicts)
+        
+        assert resolution["resolved_changes"] == {"green_space_pct": 97.5}
+
+    def test_medium_conflict_resolution(self, proposal):
+        outputs = {
+            "finance": _make_output("finance", {"green_space_pct": 100.0}),
+            "climate": _make_output("climate", {"green_space_pct": 80.0}) # 20% delta -> medium
+        }
+        conflicts = detect_conflicts(outputs)
+        resolution = resolve_conflicts(proposal, outputs, conflicts)
+        
+        # Finance 0.4 * 100 = 40. Climate 0.3 * 80 = 24. sum = 64. total weight = 0.7. 64/0.7 = 91.428...
+        assert resolution["resolved_changes"]["green_space_pct"] == pytest.approx(64.0 / 0.7)
+
+    def test_high_conflict_escalation(self, proposal):
+        outputs = {
+            "finance": _make_output("finance", {"green_space_pct": 100.0}),
+            "climate": _make_output("climate", {"green_space_pct": 50.0}) # 50% delta -> high
+        }
+        conflicts = detect_conflicts(outputs)
+        resolution = resolve_conflicts(proposal, outputs, conflicts)
+        
+        assert resolution["resolved_changes"] == {}
+        assert resolution["requires_human_review"] is True
+        assert resolution["human_review_params"] == ["green_space_pct"]
+
+    def test_human_locked_parameter(self, proposal):
+        from engine.state import apply_human_override
+        locked_proposal = apply_human_override(proposal, "green_space_pct", 30.0)
+        
+        outputs = {
+            "finance": _make_output("finance", {"green_space_pct": 100.0, "parking_spaces": 200.0}),
+        }
+        conflicts = detect_conflicts(outputs)
+        resolution = resolve_conflicts(locked_proposal, outputs, conflicts)
+        
+        # green_space_pct is skipped, parking_spaces goes through
+        assert resolution["resolved_changes"] == {"parking_spaces": 200.0}
+        assert resolution["skipped_locked"] == ["green_space_pct"]
+
+    def test_multiple_simultaneous_conflicts(self, proposal):
+        outputs = {
+            "finance": _make_output("finance", {
+                "green_space_pct": 100.0, # vs 95 -> low
+                "affordable_housing_pct": 100.0, # vs 80 -> medium
+                "parking_spaces": 100.0, # vs 50 -> high
+                "housing_units": 500.0, # unopposed
+            }),
+            "climate": _make_output("climate", {
+                "green_space_pct": 95.0,
+                "affordable_housing_pct": 80.0,
+                "parking_spaces": 50.0,
+            })
+        }
+        conflicts = detect_conflicts(outputs)
+        resolution = resolve_conflicts(proposal, outputs, conflicts)
+        
+        # Unooposed: housing_units = 500
+        # Low: green_space_pct = 97.5
+        # Medium: affordable_housing_pct = 64/0.7
+        assert "housing_units" in resolution["resolved_changes"]
+        assert resolution["resolved_changes"]["housing_units"] == 500.0
+        
+        assert "green_space_pct" in resolution["resolved_changes"]
+        assert resolution["resolved_changes"]["green_space_pct"] == 97.5
+        
+        assert "affordable_housing_pct" in resolution["resolved_changes"]
+        assert resolution["resolved_changes"]["affordable_housing_pct"] == pytest.approx(64.0 / 0.7)
+        
+        assert "parking_spaces" not in resolution["resolved_changes"]
+        assert resolution["human_review_params"] == ["parking_spaces"]
+
+
+class TestGenerateResolutionSummary:
+    def test_empty_resolution(self) -> None:
+        res = {
+            "resolved_changes": {},
+            "requires_human_review": False,
+            "human_review_params": [],
+            "skipped_locked": []
+        }
+        assert generate_resolution_summary(res) == "No changes proposed by any agent."
+        
+    def test_full_resolution(self) -> None:
+        res = {
+            "resolved_changes": {"green_space_pct": 25.0},
+            "requires_human_review": True,
+            "human_review_params": ["parking_spaces"],
+            "skipped_locked": ["housing_units"]
+        }
+        summary = generate_resolution_summary(res)
+        assert "1 parameter(s) auto-resolved:" in summary
+        assert "green_space_pct → 25.0" in summary
+        assert "1 parameter(s) require human review:" in summary
+        assert "- parking_spaces" in summary
+        assert "1 parameter(s) skipped (human-locked):" in summary
+        assert "- housing_units" in summary

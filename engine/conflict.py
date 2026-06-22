@@ -1,11 +1,13 @@
-"""Conflict Engine — Deterministic disagreement detection between agents.
+"""Conflict Engine — Deterministic disagreement detection and resolution.
 
 Purpose:
-    Compares the ``proposed_changes`` dictionaries from multiple AgentOutputs
-    and flags parameters where two agents want materially different values.
+    Compares the ``proposed_changes`` dictionaries from multiple AgentOutputs,
+    flags parameters where agents disagree, and resolves those disagreements
+    using deterministic rules.
 
 Dependencies:
-    models.agent_output.AgentOutput, models.conflict.Conflict
+    models.agent_output.AgentOutput, models.conflict.Conflict,
+    models.proposal.Proposal
 
 Design:
     Severity is calculated from the absolute difference between two proposed
@@ -14,6 +16,11 @@ Design:
         LOW    — difference < 10 %
         MEDIUM — difference 10–25 %
         HIGH   — difference > 25 %
+
+    Resolution rules:
+        LOW    → arithmetic mean of all proposing agents' values
+        MEDIUM → weighted mean (finance 0.4, climate 0.3, community 0.3)
+        HIGH   → requires human review, parameter excluded from auto-resolve
 
     Fully deterministic.  No LLM calls.  No network access.
 """
@@ -25,6 +32,17 @@ from typing import Any
 
 from models.agent_output import AgentOutput
 from models.conflict import Conflict
+from models.proposal import Proposal
+
+
+# ── Agent weights for weighted-mean resolution (MEDIUM severity) ────────────
+AGENT_WEIGHTS: dict[str, float] = {
+    "finance": 0.4,
+    "climate": 0.3,
+    "community": 0.3,
+}
+
+DEFAULT_AGENT_WEIGHT: float = 1.0 / 3  # fallback for unknown agent names
 
 
 def calculate_conflict_severity(value_a: float, value_b: float) -> str:
@@ -181,3 +199,223 @@ def generate_conflict_summary(conflicts: list[Conflict]) -> str:
         )
 
     return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  CONFLICT RESOLUTION LAYER
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def resolve_parameter(
+    param: str,
+    agent_values: dict[str, float],
+    worst_severity: str,
+) -> float | None:
+    """Resolve a single contested parameter according to severity rules.
+
+    Parameters
+    ----------
+    param : str
+        The parameter name (for context only; not used in calculation).
+    agent_values : dict[str, float]
+        Mapping of agent name → proposed value for this parameter.
+    worst_severity : str
+        The worst conflict severity across all pairs for this parameter.
+        One of ``"low"``, ``"medium"``, ``"high"``.
+
+    Returns
+    -------
+    float | None
+        The resolved value, or ``None`` if the conflict is HIGH severity
+        and requires human review.
+
+    Resolution Rules
+    ----------------
+    - **low**: arithmetic mean of all proposed values.
+    - **medium**: weighted mean using ``AGENT_WEIGHTS``.
+    - **high**: returns ``None`` (requires human review).
+    """
+    if worst_severity == "high":
+        return None
+
+    if worst_severity == "low":
+        # Rule 3: arithmetic mean
+        values = list(agent_values.values())
+        return sum(values) / len(values)
+
+    # worst_severity == "medium"
+    # Rule 4: weighted mean
+    total_weight = 0.0
+    weighted_sum = 0.0
+    for agent_name, value in agent_values.items():
+        w = AGENT_WEIGHTS.get(agent_name, DEFAULT_AGENT_WEIGHT)
+        weighted_sum += w * value
+        total_weight += w
+
+    if total_weight == 0.0:
+        # Defensive fallback — should not happen with valid agents
+        values = list(agent_values.values())
+        return sum(values) / len(values)
+
+    return weighted_sum / total_weight
+
+
+def requires_human_review(conflicts: list[Conflict]) -> list[str]:
+    """Return the list of parameter names that have HIGH severity conflicts.
+
+    Parameters
+    ----------
+    conflicts : list[Conflict]
+        All detected conflicts.
+
+    Returns
+    -------
+    list[str]
+        Sorted list of parameter names requiring human review.
+    """
+    grouped = group_conflicts_by_parameter(conflicts)
+    params_needing_review: list[str] = []
+    for param, param_conflicts in grouped.items():
+        if any(c.disagreement_severity == "high" for c in param_conflicts):
+            params_needing_review.append(param)
+    return sorted(params_needing_review)
+
+
+def resolve_conflicts(
+    proposal: Proposal,
+    agent_outputs: dict[str, AgentOutput],
+    conflicts: list[Conflict],
+) -> dict[str, Any]:
+    """Produce a resolved set of proposal changes from agent outputs and conflicts.
+
+    This is the deterministic bridge between conflict detection and state
+    updates.  It processes every proposed parameter change and applies the
+    resolution rules.
+
+    Parameters
+    ----------
+    proposal : Proposal
+        The current proposal state (used to check human locks).
+    agent_outputs : dict[str, AgentOutput]
+        Mapping of agent name → AgentOutput.
+    conflicts : list[Conflict]
+        All detected conflicts (output of ``detect_conflicts``).
+
+    Returns
+    -------
+    dict[str, Any]
+        A dict with the following keys:
+
+        - ``"resolved_changes"`` (dict[str, float]): parameter → resolved value.
+          Ready to be passed to ``engine.state.apply_changes``.
+        - ``"requires_human_review"`` (bool): ``True`` if any HIGH severity
+          conflict was encountered.
+        - ``"human_review_params"`` (list[str]): parameters that could not
+          be auto-resolved.
+        - ``"skipped_locked"`` (list[str]): parameters that were skipped
+          because they are human-locked.
+
+    Resolution Rules
+    ----------------
+    1. **Single proposer, no conflict** → accept the value.
+    2. **Multiple proposers agree** → accept the shared value.
+    3. **LOW conflict** → arithmetic mean.
+    4. **MEDIUM conflict** → weighted mean (finance 0.4, climate 0.3, community 0.3).
+    5. **HIGH conflict** → do not resolve; flag for human review.
+    6. **Human-locked** → always preserve lock value; skip the parameter.
+    """
+    # ── Collect all proposed values per parameter ──────────────────────
+    param_proposals: dict[str, dict[str, float]] = {}
+    for agent_name, output in agent_outputs.items():
+        for param, value in output.proposed_changes.items():
+            if param not in param_proposals:
+                param_proposals[param] = {}
+            param_proposals[param][agent_name] = value
+
+    # ── Determine worst severity per parameter from conflicts ─────────
+    conflict_grouped = group_conflicts_by_parameter(conflicts)
+    param_severity: dict[str, str] = {}
+    for param, param_conflicts in conflict_grouped.items():
+        severities = [c.disagreement_severity for c in param_conflicts]
+        if "high" in severities:
+            param_severity[param] = "high"
+        elif "medium" in severities:
+            param_severity[param] = "medium"
+        else:
+            param_severity[param] = "low"
+
+    # ── Resolve each parameter ────────────────────────────────────────
+    resolved_changes: dict[str, float] = {}
+    human_review_params: list[str] = []
+    skipped_locked: list[str] = []
+
+    for param in sorted(param_proposals.keys()):
+        agent_values = param_proposals[param]
+
+        # Rule 6: human-locked parameters are untouchable
+        if param in proposal.human_locks:
+            skipped_locked.append(param)
+            continue
+
+        worst = param_severity.get(param)
+
+        if worst is None:
+            # No conflict for this parameter — Rules 1 & 2
+            # All proposers agree (or only one proposer)
+            # Take any value (they're all the same, or there's only one)
+            resolved_changes[param] = next(iter(agent_values.values()))
+        else:
+            # Conflicted parameter — Rules 3, 4, 5
+            resolved_value = resolve_parameter(param, agent_values, worst)
+            if resolved_value is None:
+                # Rule 5: HIGH → escalate to human
+                human_review_params.append(param)
+            else:
+                resolved_changes[param] = resolved_value
+
+    return {
+        "resolved_changes": resolved_changes,
+        "requires_human_review": len(human_review_params) > 0,
+        "human_review_params": sorted(human_review_params),
+        "skipped_locked": sorted(skipped_locked),
+    }
+
+
+def generate_resolution_summary(resolution: dict[str, Any]) -> str:
+    """Produce a human-readable summary of a resolution result.
+
+    Parameters
+    ----------
+    resolution : dict[str, Any]
+        The output of ``resolve_conflicts``.
+
+    Returns
+    -------
+    str
+        Multi-line human-readable summary.
+    """
+    lines: list[str] = []
+    resolved = resolution["resolved_changes"]
+    human_params = resolution["human_review_params"]
+    locked = resolution["skipped_locked"]
+
+    if resolved:
+        lines.append(f"{len(resolved)} parameter(s) auto-resolved:")
+        for param, value in sorted(resolved.items()):
+            lines.append(f"  - {param} → {value}")
+
+    if human_params:
+        lines.append(f"{len(human_params)} parameter(s) require human review:")
+        for param in human_params:
+            lines.append(f"  - {param}")
+
+    if locked:
+        lines.append(f"{len(locked)} parameter(s) skipped (human-locked):")
+        for param in locked:
+            lines.append(f"  - {param}")
+
+    if not lines:
+        return "No changes proposed by any agent."
+
+    return "\n".join(lines)
+

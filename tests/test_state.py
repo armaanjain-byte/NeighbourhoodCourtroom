@@ -25,6 +25,21 @@ from engine.state import (
     apply_human_override,
     calculate_change_summary,
 )
+from tools.cost_calculator import CostCalculator
+
+
+class MockDataLoader:
+    def get_construction_costs(self, city_slug: str) -> dict:
+        return {"city_index": 1.0}
+
+
+class MockCostCalculator(CostCalculator):
+    def __init__(self):
+        super().__init__(MockDataLoader())
+    
+    def calculate_estimated_cost(self, proposal: Proposal) -> float:
+        # A simple linear formula for testing recalculation
+        return (proposal.housing_units * 1000) + (proposal.parking_spaces * 500) + (proposal.green_space_pct * 100)
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
@@ -213,9 +228,45 @@ class TestApplyChanges:
         """Applying changes sequentially accumulates change_log entries."""
         v2 = apply_changes(base_proposal, {"green_space_pct": 25.0}, "climate")
         v3 = apply_changes(v2, {"parking_spaces": 100.0}, "finance")
-        v4 = apply_changes(v3, {"estimated_cost": 30_000_000.0}, "finance")
-        assert v4.version == 4
-        assert len(v4.change_log) == 3
+        assert v3.version == 3
+        assert len(v3.change_log) == 2
+
+    def test_estimated_cost_modifications_ignored(self, base_proposal: Proposal, caplog: pytest.LogCaptureFixture) -> None:
+        """Agents modifying estimated_cost directly should be ignored with a warning."""
+        changes = {"estimated_cost": 50_000_000.0, "housing_units": 150}
+        updated = apply_changes(base_proposal, changes, "rogue_agent")
+        
+        # estimated_cost should remain unchanged
+        assert updated.estimated_cost == base_proposal.estimated_cost
+        assert updated.housing_units == 150
+        
+        # Warning should be logged
+        assert "rogue_agent" in caplog.text
+        assert "estimated_cost is a derived field" in caplog.text
+
+    def test_cost_recalculation_on_housing_increase(self, base_proposal: Proposal) -> None:
+        calc = MockCostCalculator()
+        updated = apply_changes(base_proposal, {"housing_units": 200}, "agent", cost_calculator=calc)
+        
+        expected_cost = (200 * 1000) + (150 * 500) + (20.0 * 100)
+        assert updated.estimated_cost == expected_cost
+        
+        # Verify recalculation logged
+        recalc_log = [e for e in updated.change_log if e["action"] == "recalculated"]
+        assert len(recalc_log) == 1
+        assert recalc_log[0]["parameter"] == "estimated_cost"
+
+    def test_cost_recalculation_on_parking_increase(self, base_proposal: Proposal) -> None:
+        calc = MockCostCalculator()
+        updated = apply_changes(base_proposal, {"parking_spaces": 300}, "agent", cost_calculator=calc)
+        expected_cost = (100 * 1000) + (300 * 500) + (20.0 * 100)
+        assert updated.estimated_cost == expected_cost
+
+    def test_cost_recalculation_on_green_space_increase(self, base_proposal: Proposal) -> None:
+        calc = MockCostCalculator()
+        updated = apply_changes(base_proposal, {"green_space_pct": 50.0}, "agent", cost_calculator=calc)
+        expected_cost = (100 * 1000) + (150 * 500) + (50.0 * 100)
+        assert updated.estimated_cost == expected_cost
 
 
 # ── apply_human_override ───────────────────────────────────────────────────
