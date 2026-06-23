@@ -34,7 +34,7 @@ def build_conflict_meters_html(session: CourtroomSession) -> str:
     conflicted_params = set()
     for dr in session.debate_rounds:
         for c in dr.detected_conflicts:
-            conflicted_params.add(c.parameter_name)
+            conflicted_params.add(c.parameter)
             
     if not conflicted_params:
         return "<div class='text-on-surface p-4'>✅ No conflicts detected.</div>"
@@ -51,7 +51,7 @@ def build_conflict_meters_html(session: CourtroomSession) -> str:
     items_html = ""
     for param in conflicted_params:
         # Find severity (max severity across rounds)
-        severities = [c.disagreement_severity for dr in session.debate_rounds for c in dr.detected_conflicts if c.parameter_name == param]
+        severities = [c.disagreement_severity for dr in session.debate_rounds for c in dr.detected_conflicts if c.parameter == param]
         is_high = "high" in severities
         sev_label = "High Severity" if is_high else "Moderate"
         sev_class = "text-error bg-error-container" if is_high else "text-on-surface-variant bg-surface-container-high"
@@ -60,7 +60,7 @@ def build_conflict_meters_html(session: CourtroomSession) -> str:
         positions = {}
         for agent_name in ["finance", "climate", "community"]:
             if agent_name in last_round.agent_outputs:
-                val = getattr(last_round.agent_outputs[agent_name].modified_proposal, param)
+                val = last_round.agent_outputs[agent_name].proposed_changes.get(param, getattr(session.current_proposal, param))
                 positions[agent_name] = float(val)
         
         if not positions: continue

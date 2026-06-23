@@ -100,7 +100,7 @@ def build_transcript_html(session: CourtroomSession) -> str:
                 conflicts_js.append({
                     "from": f"{c.agent_a}-p{phase_idx}",
                     "to": f"{c.agent_b}-p{phase_idx}",
-                    "param": c.parameter_name
+                    "param": c.parameter
                 })
 
     conflicts_json = json.dumps(conflicts_js)
