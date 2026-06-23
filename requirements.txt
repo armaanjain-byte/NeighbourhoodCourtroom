@@ -5,3 +5,4 @@ google-generativeai
 pytest
 pytest-cov
 ruff
+python-dotenv

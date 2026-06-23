@@ -21,6 +21,9 @@ from __future__ import annotations
 import os
 import traceback
 from typing import Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import streamlit as st
 import streamlit.components.v1 as components

@@ -230,19 +230,27 @@ class BaseAgent(abc.ABC):
             
             chat = model.start_chat()
             
-            # Use JSON schema directly in generation config to enforce JSON response.
-            response = chat.send_message(
-                user_prompt,
-                generation_config=genai.GenerationConfig(
-                    response_mime_type="application/json"
-                ),
-            )
+            def _send_with_retry(msg):
+                import time
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        return chat.send_message(msg)
+                    except Exception as e:
+                        if "429" in str(e) or "ResourceExhausted" in type(e).__name__:
+                            if attempt < max_retries - 1:
+                                time.sleep(15)
+                                continue
+                        raise e
+                        
+            response = _send_with_retry(user_prompt)
             
             turn_limit = 5
             for _ in range(turn_limit):
-                if response.function_calls:
+                function_calls = [p.function_call for p in response.parts if getattr(p, 'function_call', None) and getattr(p.function_call, 'name', None)]
+                if function_calls:
                     part_dicts = []
-                    for function_call in response.function_calls:
+                    for function_call in function_calls:
                         name = function_call.name
                         args = {k: v for k, v in function_call.args.items()}
                         try:
@@ -259,7 +267,7 @@ class BaseAgent(abc.ABC):
                             }
                         })
                     
-                    response = chat.send_message(part_dicts)
+                    response = _send_with_retry(part_dicts)
                 else:
                     break
             else:
