@@ -18,6 +18,20 @@ def render_verdict_panel():
         verdict = st.session_state.verdict
         st.success(verdict["audit_summary"])
         
+        st.markdown("---")
+        st.subheader("🤖 AI Judge Brief")
+        if "judge_brief" in st.session_state:
+            st.info(st.session_state.judge_brief)
+        else:
+            if st.button("Generate Judge Brief (Gemini)"):
+                from services.gemini_explainer import generate_judge_brief
+                with st.spinner("Analyzing debate history..."):
+                    brief = generate_judge_brief(st.session_state.audit, verdict["final_proposal"])
+                    st.session_state.judge_brief = brief
+                st.rerun()
+                
+        st.markdown("---")
+        
         col1, col2 = st.columns(2)
         
         with col1:

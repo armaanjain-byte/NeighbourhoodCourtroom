@@ -45,6 +45,18 @@ def main():
     st.title("🏛️ Neighbourhood Courtroom")
     st.markdown("A multi-agent debate engine for urban planning.")
     
+    st.sidebar.title("Competition Mode")
+    if st.sidebar.checkbox("Enable Demo Guide", value=True):
+        st.sidebar.info(
+            "**3-Minute Demo Script:**\n\n"
+            "1. **Case Filing**: Click `🌪️ Climate Emergency` and Start Courtroom.\n"
+            "2. **Courtroom**: Click `Run Debate Round`.\n"
+            "3. **Conflict**: Point out the massive difference between Finance (10%) and Climate (40%) on `green_space_pct` and the 🛑 HALT.\n"
+            "4. **Override**: Force `green_space_pct` to `35`. Point out the Ripple Effects (Cost increase, Score adjustments).\n"
+            "5. **History**: Go to History tab, explain `green_space_pct` to show the full visual timeline.\n"
+            "6. **Verdict**: Click Generate Verdict, then `Generate Judge Brief (Gemini)`."
+        )
+    
     tab1, tab2, tab3, tab4 = st.tabs(["Case Filing", "Courtroom", "History", "Verdict"])
     
     with tab1:

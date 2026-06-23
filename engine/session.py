@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from models.proposal import Proposal
 from models.debate_round import DebateRound
 from models.agent_output import AgentOutput
+from models.courtroom_transcript import CourtroomTranscript, TranscriptEntry
 from engine.debate import run_debate_round
 from engine.state import apply_human_override
 from agents.base_agent import BaseAgent
@@ -31,6 +32,7 @@ class CourtroomSession(BaseModel):
     current_proposal: Proposal
     debate_rounds: list[DebateRound] = Field(default_factory=list)
     override_history: list[dict[str, Any]] = Field(default_factory=list)
+    transcript: CourtroomTranscript = Field(default_factory=CourtroomTranscript)
     status: SessionStatus = "CREATED"
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -56,11 +58,51 @@ class CourtroomSession(BaseModel):
 
         self.status = "IN_PROGRESS"
 
-        # 1. Collect agent outputs
+        # 1. Phase 1: Collect deterministic math outputs
         agent_outputs: dict[str, AgentOutput] = {}
         for agent in agents:
             output = agent.evaluate(self.current_proposal, context)
             agent_outputs[agent.agent_name] = output
+            
+        # 2. Phase 2: Collect LLM AgentOpinions
+        round_number = len(self.debate_rounds) + 1
+        for agent in agents:
+            math_results = agent_outputs[agent.agent_name]
+            opinion = agent.generate_opinion(self.current_proposal, math_results, agent_outputs, context)
+            
+            # Record opinion to transcript
+            self.transcript.entries.append(TranscriptEntry(
+                round_number=round_number,
+                agent=agent.agent_name,
+                statement_type="position",
+                content=f"**{opinion.position}**\n\n{opinion.reasoning}"
+            ))
+            
+            for ev in opinion.evidence:
+                self.transcript.entries.append(TranscriptEntry(
+                    round_number=round_number,
+                    agent=agent.agent_name,
+                    statement_type="evidence",
+                    content=ev
+                ))
+                
+            for obj in opinion.objections:
+                self.transcript.entries.append(TranscriptEntry(
+                    round_number=round_number,
+                    agent=agent.agent_name,
+                    statement_type="objection",
+                    target_agent=obj.target_agent,
+                    content=obj.reason
+                ))
+                
+            for sup in opinion.supports:
+                self.transcript.entries.append(TranscriptEntry(
+                    round_number=round_number,
+                    agent=agent.agent_name,
+                    statement_type="support",
+                    target_agent=sup.target_agent,
+                    content=sup.reason
+                ))
 
         # 2. Run debate orchestration
         round_number = len(self.debate_rounds) + 1

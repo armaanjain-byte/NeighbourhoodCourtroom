@@ -10,17 +10,50 @@ def render_intake_form():
     
     cities = st.session_state.data_loader.list_available_cities()
     
-    if st.button("🚨 Load Detroit Crisis Template"):
-        st.session_state.load_crisis = True
-        st.rerun()
+    st.subheader("Demo Scenarios")
+    scenarios = {
+        "climate_emergency": {
+            "name": "🌪️ Climate Emergency", "city": "seattle_wa", "housing": 100, "green": 0.0, "parking": 200,
+            "conflict_desc": "Finance vs Climate\n\nParameter:\ngreen_space_pct"
+        },
+        "budget_crisis": {
+            "name": "📉 Budget Crisis", "city": "detroit_mi", "housing": 500, "green": 5.0, "parking": 50,
+            "conflict_desc": "Finance vs Community\n\nParameter:\ncommunity_center_sqft"
+        },
+        "growth_explosion": {
+            "name": "🏗️ Growth Explosion", "city": "austin_tx", "housing": 1000, "green": 20.0, "parking": 50,
+            "conflict_desc": "Community vs Finance\n\nParameter:\nparking_spaces"
+        },
+        "balanced_city": {
+            "name": "⚖️ Balanced City", "city": "phoenix_az", "housing": 200, "green": 20.0, "parking": 150,
+            "conflict_desc": "Minor adjustments expected."
+        }
+    }
+    
+    cols = st.columns(4)
+    for idx, (key, sdata) in enumerate(scenarios.items()):
+        if cols[idx].button(sdata["name"]):
+            st.session_state.active_scenario = key
+            st.rerun()
+            
+    active_key = st.session_state.get("active_scenario")
+    if active_key and active_key in scenarios:
+        sdata = scenarios[active_key]
+        st.info(f"**Expected Conflict**\n\n{sdata['conflict_desc']}")
+        
+        default_city = sdata["city"]
+        default_housing = sdata["housing"]
+        default_green = sdata["green"]
+        default_parking = sdata["parking"]
+    else:
+        default_city = cities[0]
+        default_housing = 100
+        default_green = 20.0
+        default_parking = 150
+        
+    st.markdown("---")
         
     with st.form("intake_form"):
-        # Pre-fill crisis template values if triggered
-        default_city = "detroit_mi" if st.session_state.get("load_crisis") else cities[0]
-        default_housing = 500 if st.session_state.get("load_crisis") else 100
-        default_green = 5.0 if st.session_state.get("load_crisis") else 20.0
-        default_parking = 50 if st.session_state.get("load_crisis") else 150
-        
         city_index = cities.index(default_city) if default_city in cities else 0
         
         city_slug = st.selectbox("City", cities, index=city_index)
@@ -31,9 +64,8 @@ def render_intake_form():
         submitted = st.form_submit_button("Start Courtroom")
         
         if submitted:
-            # Clear crisis flag
-            if "load_crisis" in st.session_state:
-                del st.session_state["load_crisis"]
+            if "active_scenario" in st.session_state:
+                del st.session_state["active_scenario"]
                 
             # Create initial proposal
             initial_proposal = create_initial_proposal(
@@ -50,5 +82,6 @@ def render_intake_form():
             # Create session and history
             st.session_state.session = create_session(initial_proposal)
             st.session_state.audit = AuditHistory()
+            st.session_state.previous_proposal = initial_proposal
             
             st.success("Case filed! Navigate to the Courtroom tab to begin debates.")

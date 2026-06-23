@@ -158,44 +158,45 @@ class AuditHistory(BaseModel):
             decisions = sorted(decisions, key=lambda d: d.agent)
             for d in decisions:
                 emoji = agent_emojis.get(d.agent.lower(), "🤖")
-                round_lines.append(f"- {emoji} **{d.agent.capitalize()} Agent** proposed `{d.proposed_value:g}`")
+                round_lines.append(f"**{emoji} {d.agent.capitalize()} Agent**")
+                round_lines.append(f"Proposed: `{d.proposed_value:g}`\n")
                 
             # Conflicts
             conflicts = [c for c in history["conflicts"] if c.round_number == r]
             if conflicts:
                 if any(c.severity == "high" for c in conflicts):
-                    round_lines.append("- 🛑 **SYSTEM HALTED:** High Severity Conflict Detected.")
+                    round_lines.append("🛑 **SYSTEM HALTED: High Severity Conflict Detected**\n")
                 else:
-                    round_lines.append("- ⚠️ **Conflict Detected**")
+                    round_lines.append("⚠️ **Conflict Detected**\n")
                 
             # Resolutions
             resolutions = [res for res in history["resolutions"] if res.round_number == r]
             for res in resolutions:
                 if res.resolution_type == "human review required":
-                    round_lines.append("  - *Resolution: human review required*")
+                    round_lines.append("*Status: Awaiting human review*")
                 else:
                     if res.resolved_value is not None:
-                        round_lines.append(f"  - *Resolution: {res.resolution_type} to `{res.resolved_value:g}`*")
+                        round_lines.append(f"*Resolved by {res.resolution_type} to `{res.resolved_value:g}`*")
                         final_value = res.resolved_value
                     else:
-                        round_lines.append(f"  - *Resolution: {res.resolution_type}*")
+                        round_lines.append(f"*Resolved by {res.resolution_type}*")
                     
             # Overrides
             overrides = [o for o in history["overrides"] if o.round_number == r]
             for o in overrides:
-                round_lines.append(f"- 🧑‍⚖️ **JUDGE OVERRIDE:** Forced to `{o.locked_value:g}`")
+                round_lines.append("────────────────\n")
+                round_lines.append("**🧑‍⚖️ Judge Override**\n")
+                round_lines.append(f"Forced value to `{o.locked_value:g}`")
                 final_value = o.locked_value
                 
             if round_lines:
-                lines.append(f"### Round {r}")
+                lines.append(f"### Round {r}\n")
                 lines.extend(round_lines)
-                lines.append("")
+                lines.append("\n────────────────\n")
                 
         if final_value is not None:
-            lines.append("---")
-            lines.append(f"### Final value: `{final_value:g}`")
+            lines.append(f"### Final Outcome\n\nValue locked at `{final_value:g}`")
         else:
-            lines.append("---")
-            lines.append("### Final value: *Unresolved or unknown*")
+            lines.append("### Final Outcome\n\n*Unresolved or unknown*")
             
         return "\n".join(lines)

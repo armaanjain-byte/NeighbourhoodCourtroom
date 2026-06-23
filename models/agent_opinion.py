@@ -1,0 +1,17 @@
+from typing import Any
+from pydantic import BaseModel, Field
+
+class TargetStatement(BaseModel):
+    target_agent: str
+    reason: str
+
+class AgentOpinion(BaseModel):
+    agent: str
+    score: float
+    recommendation: dict[str, float]
+    position: str
+    reasoning: str
+    evidence: list[str] = Field(default_factory=list)
+    objections: list[TargetStatement] = Field(default_factory=list)
+    supports: list[TargetStatement] = Field(default_factory=list)
+    confidence: float

@@ -14,7 +14,16 @@ from typing import Any
 
 from models.proposal import Proposal
 from models.agent_output import AgentOutput
+from models.agent_opinion import AgentOpinion
 from engine.state import MUTABLE_PARAMETERS
+
+import os
+import json
+try:
+    import google.generativeai as genai
+    HAS_GEMINI = True
+except ImportError:
+    HAS_GEMINI = False
 
 
 class AgentValidationError(ValueError):
@@ -53,6 +62,102 @@ class BaseAgent(abc.ABC):
             The structured output containing the agent's verdict and proposed changes.
         """
         pass  # pragma: no cover
+        
+    def generate_opinion(
+        self,
+        proposal: Proposal,
+        math_results: AgentOutput,
+        opponent_outputs: dict[str, AgentOutput],
+        context: dict[str, Any]
+    ) -> AgentOpinion:
+        """Generate the rich AgentOpinion using Gemini, falling back to deterministic mapping.
+        
+        Parameters
+        ----------
+        proposal : Proposal
+            The current state of the neighborhood proposal.
+        math_results : AgentOutput
+            The deterministic math-based output (score and changes).
+        opponent_outputs : dict[str, AgentOutput]
+            The deterministic outputs of all other agents.
+        context : dict[str, Any]
+            Additional domain context.
+            
+        Returns
+        -------
+        AgentOpinion
+            The richly formatted opinion object.
+        """
+        # Fallback if no Gemini
+        if not HAS_GEMINI or not os.environ.get("GEMINI_API_KEY"):
+            return AgentOpinion(
+                agent=self.agent_name,
+                score=math_results.score,
+                recommendation=math_results.proposed_changes,
+                position=f"{self.agent_name.capitalize()} recommends modifying parameters based on deterministic math.",
+                reasoning=math_results.reasoning_and_evidence,
+                evidence=[],
+                objections=[],
+                supports=[],
+                confidence=1.0
+            )
+            
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        
+        # Prepare context prompt
+        prompt = (
+            f"You are the {self.agent_name.capitalize()} Agent in a city planning simulation.\n"
+            f"Your deterministic brain has already decided the mathematical outcome:\n"
+            f"Score: {math_results.score}\n"
+            f"Recommendations: {math_results.proposed_changes}\n\n"
+            f"Current Proposal State:\n{proposal.model_dump_json(indent=2)}\n\n"
+            "Opponent Mathematical Outputs:\n"
+        )
+        for name, out in opponent_outputs.items():
+            if name != self.agent_name:
+                prompt += f"- {name.capitalize()}: Score {out.score}, Proposes {out.proposed_changes}\n"
+                
+        prompt += (
+            "\nYour job is to act as an Expert Witness and generate your official AgentOpinion.\n"
+            "Explain your reasoning based on your domain. Formulate objections to other agents if their "
+            "recommendations severely conflict with yours. Support other agents if their recommendations align.\n"
+            "Return a strictly valid JSON object matching this schema exactly:\n"
+            "{\n"
+            '  "agent": "string",\n'
+            '  "score": float,\n'
+            '  "recommendation": dict[string, float],\n'
+            '  "position": "string (1 sentence TLDR)",\n'
+            '  "reasoning": "string",\n'
+            '  "evidence": ["string", "string"],\n'
+            '  "objections": [{"target_agent": "string", "reason": "string"}],\n'
+            '  "supports": [{"target_agent": "string", "reason": "string"}],\n'
+            '  "confidence": float (0.0 to 1.0)\n'
+            "}\n"
+            f"IMPORTANT: The 'agent' must be '{self.agent_name}', 'score' must be {math_results.score}, and "
+            f"'recommendation' must be exactly {json.dumps(math_results.proposed_changes)}."
+        )
+        
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(response_mime_type="application/json")
+            )
+            data = json.loads(response.text)
+            return AgentOpinion(**data)
+        except Exception as e:
+            # Fallback on failure
+            return AgentOpinion(
+                agent=self.agent_name,
+                score=math_results.score,
+                recommendation=math_results.proposed_changes,
+                position=f"{self.agent_name.capitalize()} experienced an LLM error.",
+                reasoning=str(e),
+                evidence=[],
+                objections=[],
+                supports=[],
+                confidence=0.0
+            )
 
     def filter_unknown_parameters(self, changes: dict[str, float]) -> dict[str, float]:
         """Return a new dict containing only parameters that exist in MUTABLE_PARAMETERS.

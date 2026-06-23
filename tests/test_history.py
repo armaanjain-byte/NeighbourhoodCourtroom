@@ -117,13 +117,17 @@ class TestAuditHistory:
         
         expected_substrings = [
             "### Round 1",
-            "🌳 **Climate Agent** proposed `40`",
-            "👔 **Finance Agent** proposed `15`",
-            "🛑 **SYSTEM HALTED:** High Severity Conflict Detected.",
-            "Resolution: human review required",
+            "**🌳 Climate Agent**",
+            "Proposed: `40`",
+            "**👔 Finance Agent**",
+            "Proposed: `15`",
+            "🛑 **SYSTEM HALTED: High Severity Conflict Detected**",
+            "*Status: Awaiting human review*",
             "### Round 2",
-            "🧑‍⚖️ **JUDGE OVERRIDE:** Forced to `35`",
-            "### Final value: `35`"
+            "**🧑‍⚖️ Judge Override**",
+            "Forced value to `35`",
+            "### Final Outcome",
+            "Value locked at `35`"
         ]
         
         for sub in expected_substrings:
@@ -134,9 +138,9 @@ class TestAuditHistory:
         history.record_decision(1, "finance", "parking_spaces", 50)
         history.record_resolution(1, "parking_spaces", "dropped")
         explanation = history.explain_parameter("parking_spaces")
-        assert "### Final value:" in explanation
+        assert "### Final Outcome" in explanation
         assert "Unresolved or unknown" in explanation
-        assert "Resolution:" in explanation
+        assert "Resolved by" in explanation
         assert "dropped" in explanation
 
     def test_explain_parameter_not_found(self) -> None:

@@ -1,0 +1,12 @@
+from typing import Literal, Optional
+from pydantic import BaseModel, Field
+
+class TranscriptEntry(BaseModel):
+    round_number: int
+    agent: str
+    statement_type: Literal["position", "evidence", "objection", "support"]
+    target_agent: Optional[str] = None
+    content: str
+
+class CourtroomTranscript(BaseModel):
+    entries: list[TranscriptEntry] = Field(default_factory=list)
