@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Policy Reconciliation | Policy Deliberation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed-dim": "#adcbda",
+                    "secondary-container": "#c6e4f4",
+                    "on-tertiary-fixed-variant": "#534434",
+                    "primary-container": "#263238",
+                    "on-tertiary-fixed": "#25190c",
+                    "on-tertiary-container": "#a89581",
+                    "on-secondary": "#ffffff",
+                    "inverse-surface": "#2f3131",
+                    "inverse-on-surface": "#f1f1f1",
+                    "on-surface": "#1a1c1c",
+                    "surface-container": "#eeeeee",
+                    "primary-fixed": "#d7e4ec",
+                    "on-primary-fixed": "#111d23",
+                    "on-secondary-fixed-variant": "#2e4b57",
+                    "inverse-primary": "#bbc8d0",
+                    "primary-fixed-dim": "#bbc8d0",
+                    "outline-variant": "#c3c7ca",
+                    "outline": "#73787a",
+                    "on-primary-fixed-variant": "#3c494f",
+                    "on-primary": "#ffffff",
+                    "secondary": "#466270",
+                    "surface-container-low": "#f3f3f3",
+                    "tertiary-fixed-dim": "#d8c3ae",
+                    "tertiary-container": "#3b2e1f",
+                    "error": "#ba1a1a",
+                    "on-secondary-fixed": "#001f2a",
+                    "on-error-container": "#93000a",
+                    "surface-container-highest": "#e2e2e2",
+                    "on-surface-variant": "#43474a",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#111d23",
+                    "on-secondary-container": "#4a6774",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed": "#c9e7f7",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "surface-tint": "#546067",
+                    "surface": "#f9f9f9",
+                    "surface-dim": "#dadada",
+                    "surface-container-high": "#e8e8e8",
+                    "background": "#f9f9f9",
+                    "surface-bright": "#f9f9f9",
+                    "tertiary-fixed": "#f5dfc8",
+                    "on-primary-container": "#8d9aa1",
+                    "on-background": "#1a1c1c",
+                    "surface-variant": "#e2e2e2",
+                    "tertiary": "#25190c"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "margin-desktop": "48px",
+                    "unit": "4px",
+                    "margin-mobile": "16px",
+                    "container-max": "1280px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "label-md": ["Public Sans"],
+                    "body-md": ["Public Sans"],
+                    "label-sm": ["Public Sans"],
+                    "headline-lg": ["Public Sans"],
+                    "headline-lg-mobile": ["Public Sans"],
+                    "body-lg": ["Public Sans"],
+                    "headline-md": ["Public Sans"],
+                    "display": ["Public Sans"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "display": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f9f9f9;
+            font-family: 'Public Sans', sans-serif;
+            color: #1a1c1c;
+        }
+        .severity-bar {
+            height: 4px;
+            border-radius: 2px;
+            background-color: #ba1a1a;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .tension-marker {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #e2e2e2;
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #111d23;
+            cursor: pointer;
+            margin-top: -8px;
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 0 1px #111d23;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col min-h-screen">
+<!-- TopAppBar Component -->
+<header class="w-full top-0 sticky z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-gutter py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="account_balance">account_balance</span>
+<h1 class="font-display text-headline-md text-primary">Policy Deliberation</h1>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors" data-icon="settings">
+            settings
+        </button>
+</header>
+<main class="flex-grow p-margin-mobile space-y-8 max-w-container-max mx-auto w-full pb-32">
+<!-- Section 1: Conflict Display -->
+<section class="space-y-6">
+<header class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error" data-icon="warning">warning</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Policy Tensions</h2>
+</header>
+<div class="space-y-gutter">
+<!-- Tension Item 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-gutter rounded-lg">
+<div class="flex justify-between items-center mb-4">
+<span class="font-label-md text-label-md text-on-surface">Carbon Tax Rate</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase bg-surface-container-high px-2 py-0.5 rounded">High Severity</span>
+</div>
+<div class="relative h-12 w-full flex items-center mb-2">
+<div class="absolute w-full h-1 bg-surface-variant rounded"></div>
+<!-- Severity Bar Calculation: 20% to 75% -->
+<div class="severity-bar" style="left: 20%; width: 55%;"></div>
+<!-- Finance (Amber) @ 20% -->
+<div class="tension-marker bg-amber-500" style="left: 20%;" title="Finance"></div>
+<!-- Community (Violet) @ 45% -->
+<div class="tension-marker bg-purple-500" style="left: 45%;" title="Community"></div>
+<!-- Climate (Green) @ 75% -->
+<div class="tension-marker bg-emerald-500" style="left: 75%;" title="Climate"></div>
+</div>
+<div class="flex justify-between mt-1 mb-3">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-amber-500"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Finance: $45</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Climate: $180</span>
+</div>
+</div>
+<p class="font-body-md text-label-sm text-on-surface-variant italic">
+                        Engine resolved to <span class="font-bold text-on-surface">$112.50</span> via weighted average
+                    </p>
+</div>
+<!-- Tension Item 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-gutter rounded-lg">
+<div class="flex justify-between items-center mb-4">
+<span class="font-label-md text-label-md text-on-surface">Infrastructure Spend</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase bg-surface-container-high px-2 py-0.5 rounded">Moderate</span>
+</div>
+<div class="relative h-12 w-full flex items-center mb-2">
+<div class="absolute w-full h-1 bg-surface-variant rounded"></div>
+<!-- Severity Bar Calculation: 40% to 65% -->
+<div class="severity-bar" style="left: 40%; width: 25%;"></div>
+<!-- Finance (Amber) @ 65% -->
+<div class="tension-marker bg-amber-500" style="left: 65%;" title="Finance"></div>
+<!-- Community (Violet) @ 40% -->
+<div class="tension-marker bg-purple-500" style="left: 40%;" title="Community"></div>
+<!-- Climate (Green) @ 55% -->
+<div class="tension-marker bg-emerald-500" style="left: 55%;" title="Climate"></div>
+</div>
+<div class="flex justify-between mt-1 mb-3">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-purple-500"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Community: 8% GDP</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-amber-500"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Finance: 2.5% GDP</span>
+</div>
+</div>
+<p class="font-body-md text-label-sm text-on-surface-variant italic">
+                        Engine resolved to <span class="font-bold text-on-surface">5.2% GDP</span> via weighted average
+                    </p>
+</div>
+</div>
+</section>
+<!-- Section 2: Override Panel -->
+<section class="space-y-6">
+<div class="flex items-center justify-between border-b border-outline pb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">Your Ruling 🔨</h2>
+<span class="material-symbols-outlined text-primary" data-icon="gavel">gavel</span>
+</div>
+<div class="bg-surface-container-low p-gutter rounded-xl border border-outline-variant space-y-6">
+<div>
+<label class="font-label-md text-label-md text-primary mb-2 block">Housing Density (Units/Hectare)</label>
+<div class="relative pt-6 pb-2">
+<!-- Tick marks -->
+<div class="absolute top-0 left-[12%] flex flex-col items-center">
+<span class="font-label-sm text-[10px] text-on-surface-variant">FIN: 12%</span>
+<div class="w-px h-2 bg-outline mt-1"></div>
+</div>
+<div class="absolute top-0 left-[35%] flex flex-col items-center">
+<span class="font-label-sm text-[10px] text-on-surface-variant">CLIM: 35%</span>
+<div class="w-px h-2 bg-outline mt-1"></div>
+</div>
+<input class="cursor-pointer" max="100" min="0" type="range" value="35"/>
+</div>
+<div class="bg-primary-container p-3 rounded mt-4">
+<p class="font-label-md text-on-primary-container text-center">
+                            Siding with <span class="text-white">Climate (preferred 35%)</span> over Finance (preferred 12%)
+                        </p>
+</div>
+</div>
+<!-- Causal Chain Diagram -->
+<div class="space-y-4">
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Causal Impact Chain</h3>
+<div class="relative pl-8 space-y-6">
+<!-- Vertical Line -->
+<div class="absolute left-3.5 top-2 bottom-2 w-0.5 bg-outline-variant"></div>
+<!-- Step 1 -->
+<div class="relative">
+<div class="absolute -left-6 w-3 h-3 rounded-full bg-primary ring-4 ring-surface-container-low"></div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Step 1</span>
+<span class="font-body-md text-body-md">Human locked <span class="font-bold">Density</span> at <span class="font-bold">35%</span></span>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="relative">
+<div class="absolute -left-6 w-3 h-3 rounded-full bg-amber-500 ring-4 ring-surface-container-low"></div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Step 2</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Finance responded: Lowered Infrastructure Bond ceiling</span>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="relative">
+<div class="absolute -left-6 w-3 h-3 rounded-full bg-purple-500 ring-4 ring-surface-container-low"></div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Step 3</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Community responded: Increased Transit Demand Projection</span>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="relative">
+<div class="absolute -left-6 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-surface-container-low"></div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Step 4</span>
+<span class="font-body-md text-body-md font-bold">Engine settled: Balanced equilibrium at High Density threshold</span>
+</div>
+</div>
+</div>
+</div>
+<button class="w-full bg-primary text-white py-4 rounded font-label-md text-label-md uppercase tracking-widest active:scale-95 transition-transform">
+                    Confirm Final Ruling
+                </button>
+</div>
+</section>
+<!-- Illustration Overlay (Atmospheric) -->
+<div class="w-full aspect-video bg-surface-container-highest rounded-xl overflow-hidden relative border border-outline-variant">
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="h-full w-full bg-[radial-gradient(circle_at_50%_50%,_#466270_0%,_transparent_50%)]"></div>
+</div>
+<div class="w-full h-full bg-cover bg-center mix-blend-overlay" data-alt="A macro photography shot of a high-end metal mechanical balance scale in a minimalist modern office. The lighting is cold and professional with soft shadows on a white marble surface. The style is ultra-modern corporate photography, featuring a clean aesthetic with deep blacks and sharp metallic textures. The mood is analytical, serious, and decisive." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAU7dprK4IYsDtFIsmmdbVH8FMLGlTzdoj1G0WTRJRaCHHdbsPJ9wWEJr_6-gWEhprs2pidSAaOC1ttmNCOoSF6Vz7ptWib4ZUEeNJ1-SecfKGCb9nDEGNybXuIyA5E5T5SXijN39t6igSLL2qwUd7I7FS4XrrnfIqWHgT8Zpi3SOsgKD0a3CF8gJRZjtqvCKOCmCQySypasBClcGs7qF027M3XuxutCP5Kv82Pop_7nqi5rv2xSK0fqjswlN6bPbnuqn8wOy0oWASX')"></div>
+<div class="absolute bottom-4 left-4 right-4 bg-white/80 backdrop-blur-md p-4 rounded border border-white/50">
+<span class="font-label-sm text-label-sm text-on-surface-variant">SYSTEM STATUS</span>
+<p class="font-body-md text-body-md font-bold">Resolution Stability: 94.2%</p>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Component -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-outline-variant flex justify-around items-center p-2 pb-safe">
+<!-- Round 1 (Inactive) -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="step_one">step_out</span>
+<span class="font-label-sm text-label-sm">Round 1</span>
+</a>
+<!-- Round 2 (Active - Assuming current task is reconciliation) -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl py-1 px-4 transition-transform scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="step_two" style="font-variation-settings: 'FILL' 1;">shop_two</span>
+<span class="font-label-sm text-label-sm">Round 2</span>
+</a>
+<!-- Round 3 (Inactive) -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="step_three">step_over</span>
+<span class="font-label-sm text-label-sm">Round 3</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction for the slider preview text
+        const slider = document.querySelector('input[type=range]');
+        const previewText = document.querySelector('.bg-primary-container p');
+        
+        slider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            let focus = "Neutral Balance";
+            let color = "white";
+            
+            if(val > 40) {
+                focus = "Climate-Prioritized";
+                color = "#4ade80"; // emerald-400
+            } else if(val < 20) {
+                focus = "Finance-Prioritized";
+                color = "#fbbf24"; // amber-400
+            } else {
+                focus = "Community-Aligned";
+                color = "#c084fc"; // purple-400
+            }
+            
+            previewText.innerHTML = `Set to <span style="color: ${color}">${val}%</span> — Currently <span class="font-bold">${focus}</span>`;
+        });
+    </script>
+</body></html>

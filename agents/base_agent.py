@@ -81,7 +81,6 @@ class BaseAgent(abc.ABC):
         self,
         proposal: Proposal,
         context: dict[str, Any],
-        data_slice: dict[str, Any] | None = None,
         *,
         round_number: int = 1,
         opponent_opinions: dict[str, AgentOpinion] | None = None,
@@ -89,8 +88,8 @@ class BaseAgent(abc.ABC):
         """Generate an AgentOpinion by asking Gemini to recommend parameter changes.
 
         Round 1 (round_number=1):
-            Gemini receives only the proposal state and this agent's domain data
-            slice.  It returns score, verdict, proposed_changes, position,
+            Gemini receives only the proposal state. It can fetch its own domain data
+            via tool calling. It returns score, verdict, proposed_changes, position,
             reasoning, evidence, objections, supports, and confidence.
             The returned proposed_changes become the authoritative output.
 
@@ -109,9 +108,6 @@ class BaseAgent(abc.ABC):
             The current state of the neighborhood proposal.
         context : dict[str, Any]
             Full context dict (passed through to evaluate() fallback only).
-        data_slice : dict[str, Any]
-            The agent's own domain data (e.g. climate + land_use for ClimateAgent).
-            Gemini receives ONLY this slice, not the full context.
         round_number : int
             1 for an independent initial opinion; 2 for a cross-agent-aware rebuttal.
         opponent_opinions : dict[str, AgentOpinion] | None
@@ -137,7 +133,8 @@ class BaseAgent(abc.ABC):
             f"You are the {self.agent_name.capitalize()} Expert in a city planning simulation. "
             f"Your role is to evaluate a neighborhood development proposal purely from a "
             f"{self.agent_name} perspective. "
-            "You must base your analysis ONLY on the domain data provided to you. "
+            "You must base your analysis ONLY on the domain data provided to you via function calls. "
+            "Call the appropriate functions to fetch the data you need for your domain. "
             "Do not invent data. Do not reference information not present in the inputs."
         )
 
@@ -145,8 +142,6 @@ class BaseAgent(abc.ABC):
         user_prompt = (
             f"## Current Proposal State\n"
             f"{proposal.model_dump_json(indent=2)}\n\n"
-            f"## Your Domain Data ({self.agent_name.upper()})\n"
-            f"{json.dumps(data_slice, indent=2)}\n\n"
         )
 
         if round_number == 2 and opponent_opinions:
@@ -210,10 +205,13 @@ class BaseAgent(abc.ABC):
             f"- proposed_changes keys must be from this list only: {mutable_params}\n"
             f"- score must be between 0.0 and 100.0\n"
             f"- verdict must be 'accept' when proposed_changes is empty, 'modify' or 'reject' otherwise\n"
-            f"- evidence must be a list of short factual strings referencing the data provided\n"
+            f"- The position field (1-sentence TLDR) MUST be written for a neighbourhood resident, not a planner. No parameter names or raw percentages. (e.g. 'This development leaves almost no room for parks...' instead of 'green_space_pct is insufficient at 20%').\n"
+            f"- The reasoning field MUST follow this structure: (1) What I found in my data, (2) Why it matters for real people, (3) What I'm proposing to change and why it fixes it.\n"
+            f"- evidence items MUST be one-sentence facts with real numbers, written in plain English (e.g. 'Phoenix already runs 7°F hotter...' instead of 'heat_island_risk: 5').\n"
         )
         if round_number == 2:
             user_prompt += (
+                "- objections MUST name what the opponent is asking for in plain terms, then explain why it hurts real people. (e.g. 'Finance wants to cut parks to save money, but that leaves zero shade...').\n"
                 "- objections and supports must each name an agent from: "
                 f"{[name for name in (opponent_opinions or {}) if name != self.agent_name]}\n"
             )
@@ -222,16 +220,51 @@ class BaseAgent(abc.ABC):
         # ── Call Gemini ───────────────────────────────────────────────────────
         try:
             genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+            
+            tools = self.tool_declarations if self.tool_declarations else None
             model = genai.GenerativeModel(
                 "gemini-2.5-flash",
                 system_instruction=system_instruction,
+                tools=tools,
             )
-            response = model.generate_content(
+            
+            chat = model.start_chat()
+            
+            # Use JSON schema directly in generation config to enforce JSON response.
+            response = chat.send_message(
                 user_prompt,
                 generation_config=genai.GenerationConfig(
                     response_mime_type="application/json"
                 ),
             )
+            
+            turn_limit = 5
+            for _ in range(turn_limit):
+                if response.function_calls:
+                    part_dicts = []
+                    for function_call in response.function_calls:
+                        name = function_call.name
+                        args = {k: v for k, v in function_call.args.items()}
+                        try:
+                            result = self.execute_tool_call(name, args)
+                            if not isinstance(result, dict):
+                                result = {"result": result}
+                        except Exception as e:
+                            result = {"error": str(e)}
+                            
+                        part_dicts.append({
+                            "function_response": {
+                                "name": name,
+                                "response": result
+                            }
+                        })
+                    
+                    response = chat.send_message(part_dicts)
+                else:
+                    break
+            else:
+                raise AgentExecutionError("Turn limit exceeded. Agent got stuck in a function calling loop.")
+
             raw = response.text.strip()
             data = json.loads(raw)
 
@@ -329,6 +362,36 @@ class BaseAgent(abc.ABC):
             supports=[],
             confidence=0.5,
         )
+
+    @property
+    def tool_declarations(self) -> list[Any]:
+        """Return the list of tool definitions for Gemini function calling.
+        
+        Subclasses should override this to provide their domain tools.
+        """
+        return []
+
+    def execute_tool_call(self, name: str, args: dict[str, Any]) -> Any:
+        """Execute a tool call requested by Gemini.
+        
+        Parameters
+        ----------
+        name : str
+            The name of the tool/function.
+        args : dict[str, Any]
+            The arguments passed to the tool.
+            
+        Returns
+        -------
+        Any
+            The result of the tool execution (usually a dict).
+            
+        Raises
+        ------
+        NotImplementedError
+            If the tool name is unknown or not implemented.
+        """
+        raise NotImplementedError(f"Tool {name} not implemented for {self.agent_name}")
 
     # ── Shared utilities ────────────────────────────────────────────────────
 

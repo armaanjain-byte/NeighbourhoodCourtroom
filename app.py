@@ -23,9 +23,14 @@ import traceback
 from typing import Any
 
 import streamlit as st
+import streamlit.components.v1 as components
+from ui.components.transcript_view import build_transcript_html
+from ui.components.conflict_view import build_conflict_meters_html
+from ui.components.override_slider import render_override_slider
+from ui.components.causal_chain_view import build_causal_chain_html
 
 # ── Engine / model imports ──────────────────────────────────────────────────
-from engine.state import create_initial_proposal, MUTABLE_PARAMETERS
+from engine.state import create_initial_proposal, MUTABLE_PARAMETERS, PARAM_LABELS
 from engine.override import apply_human_override
 from engine.session import CourtroomSession, create_session
 from agents.climate_agent import ClimateAgent
@@ -262,15 +267,6 @@ AGENT_COLORS: dict[str, str] = {
     "community": "badge-community",
 }
 
-PARAM_LABELS: dict[str, str] = {
-    "green_space_pct": "Green Space (%)",
-    "affordable_housing_pct": "Affordable Housing (%)",
-    "housing_units": "Housing Units",
-    "parking_spaces": "Parking Spaces",
-    "community_center_sqft": "Community Center (sqft)",
-    "estimated_cost": "Estimated Cost ($)",
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Session state initialisation
 # ─────────────────────────────────────────────────────────────────────────────
@@ -328,67 +324,22 @@ def _fmt_value(param: str, value: float) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def render_debate_transcript(session: CourtroomSession) -> None:
-    """Render the full courtroom transcript grouped by round."""
-    entries = session.transcript.entries
-    if not entries:
-        st.info("No transcript entries recorded.")
+    """Render the full courtroom transcript dynamically."""
+    if not session.debate_rounds:
+        st.info("No debate rounds recorded yet.")
         return
 
-    rounds: dict[int, list[TranscriptEntry]] = {}
-    for entry in entries:
-        rounds.setdefault(entry.round_number, []).append(entry)
-
-    for rnum in sorted(rounds.keys()):
-        st.markdown(f'<div class="section-header">⚖️ Debate Round {rnum}</div>',
-                    unsafe_allow_html=True)
-        for entry in rounds[rnum]:
-            css_class = f"tx-{entry.statement_type}"
-            badge = _agent_badge(entry.agent)
-            tag = _type_tag(entry.statement_type)
-
-            target = ""
-            if entry.target_agent:
-                target = f' → {_agent_badge(entry.target_agent)}'
-
-            content = entry.content.replace("\n", "<br>")
-            html = (
-                f'<div class="tx-entry {css_class}">'
-                f'{badge}{tag}{target}'
-                f'<div style="margin-top:0.4rem; color:#cbd5e0;">{content}</div>'
-                f'</div>'
-            )
-            st.markdown(html, unsafe_allow_html=True)
+    html = build_transcript_html(session)
+    components.html(html, height=1200, scrolling=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # UI: render_conflicts
 # ─────────────────────────────────────────────────────────────────────────────
 
-def render_conflicts(debate_rounds: list[DebateRound]) -> None:
-    all_conflicts = []
-    for dr in debate_rounds:
-        for c in dr.detected_conflicts:
-            all_conflicts.append((dr.round_number, c))
-
-    if not all_conflicts:
-        st.success("✅ No conflicts detected across all rounds.")
-        return
-
-    for rnum, conflict in all_conflicts:
-        sev = conflict.disagreement_severity
-        badge = f'<span class="conflict-badge severity-{sev}">{sev}</span>'
-        st.markdown(
-            f'<div class="card" style="padding:1rem 1.2rem;">'
-            f'<strong style="color:#e2e8f0;">{conflict.parameter.replace("_", " ").title()}</strong> '
-            f'{badge} &nbsp;·&nbsp; Round {rnum}<br>'
-            f'<span style="color:#8892a4; font-size:0.85rem;">'
-            f'{_agent_badge(conflict.agent_a)} proposed <strong style="color:#90cdf4;">'
-            f'{_fmt_value(conflict.parameter, conflict.proposed_value_a)}</strong> '
-            f'vs {_agent_badge(conflict.agent_b)} proposed <strong style="color:#fbd38d;">'
-            f'{_fmt_value(conflict.parameter, conflict.proposed_value_b)}</strong>'
-            f'</span></div>',
-            unsafe_allow_html=True,
-        )
+def render_conflicts(session: CourtroomSession) -> None:
+    html = build_conflict_meters_html(session)
+    components.html(html, height=600, scrolling=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -438,56 +389,26 @@ def stage_input() -> None:
         st.error(f"Previous run failed: {st.session_state['error']}")
         st.session_state["error"] = None
 
-    with st.form("proposal_form"):
-        st.markdown('<div class="section-header">🏙️ City Selection</div>', unsafe_allow_html=True)
-        city_slug = st.selectbox(
-            "Select City",
-            options=list(CITY_OPTIONS.keys()),
-            format_func=lambda k: CITY_OPTIONS[k],
-            key="form_city",
-        )
+    # Declare the custom component
+    component_dir = os.path.join(os.path.dirname(__file__), "ui_component_dir")
+    proposal_intake_form = components.declare_component("proposal_intake_form", path=component_dir)
 
-        st.markdown('<div class="section-header">📐 Site Parameters</div>', unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        with c1:
-            housing_units = st.number_input(
-                "Housing Units", min_value=10, max_value=2000, value=100, step=10
-            )
-            green_space_pct = st.number_input(
-                "Green Space (%)", min_value=0.0, max_value=100.0, value=20.0, step=1.0
-            )
-            parking_spaces = st.number_input(
-                "Parking Spaces", min_value=0, max_value=1000, value=150, step=10
-            )
-        with c2:
-            affordable_housing_pct = st.number_input(
-                "Affordable Housing (%)", min_value=0.0, max_value=100.0, value=15.0, step=1.0
-            )
-            community_center_sqft = st.number_input(
-                "Community Center (sqft)", min_value=0.0, max_value=100_000.0,
-                value=5000.0, step=500.0,
-            )
+    # Render the component
+    result = proposal_intake_form(key="intake_form")
 
-        st.markdown('<div class="section-header">💰 Budget</div>', unsafe_allow_html=True)
-        total_budget = st.number_input(
-            "Total Budget ($)", min_value=100_000, max_value=500_000_000,
-            value=25_000_000, step=500_000,
-        )
-
-        submitted = st.form_submit_button("🚀 Run Debate", use_container_width=True)
-
-    if submitted:
+    # Handle the submission
+    if result:
         proposal = create_initial_proposal(
-            city_slug=city_slug,
-            green_space_pct=green_space_pct,
-            affordable_housing_pct=affordable_housing_pct,
-            housing_units=housing_units,
-            parking_spaces=parking_spaces,
-            community_center_sqft=community_center_sqft,
-            estimated_cost=total_budget,
+            city_slug=result["city_slug"],
+            green_space_pct=result["green_space_pct"],
+            affordable_housing_pct=result["affordable_housing_pct"],
+            housing_units=result["housing_units"],
+            parking_spaces=result["parking_spaces"],
+            community_center_sqft=result["community_center_sqft"],
+            estimated_cost=result["total_budget"],
         )
         st.session_state["proposal"] = proposal
-        st.session_state["city_slug"] = city_slug
+        st.session_state["city_slug"] = result["city_slug"]
         st.session_state["stage"] = "debating"
         st.rerun()
 
@@ -517,7 +438,8 @@ def stage_debating() -> None:
             # Create session and run two debate rounds
             session = create_session(proposal)
             session.run_round(agents, context, calc)
-            session.run_round(agents, context, calc)
+            if session.status not in ["WAITING_FOR_JUDGE", "COMPLETED"]:
+                session.run_round(agents, context, calc)
 
             st.session_state["session"] = session
             st.session_state["stage"] = "result"
@@ -587,33 +509,10 @@ def stage_result(is_override: bool = False) -> None:
         new_proposal = session.current_proposal
         locked_param = st.session_state["locked_param"]
         locked_value = st.session_state["locked_value"]
-        
         st.markdown('<div class="section-header">📈 Negotiation Delta</div>', unsafe_allow_html=True)
         
-        # Build Summary
-        finance_changes = []
-        community_changes = []
-        for entry in new_proposal.change_log:
-            if entry["version"] > old_proposal.version and entry["action"] != "locked":
-                if entry["actor"] == "finance": finance_changes.append(entry)
-                if entry["actor"] == "community": community_changes.append(entry)
-                
-        def _summarize(actor_changes):
-            if not actor_changes: return "making no changes"
-            final_chg = {}
-            for c in actor_changes: final_chg[c["parameter"]] = c
-            parts = []
-            for p, c in final_chg.items():
-                direction = "increasing" if float(c["new"]) > float(c["old"]) else "decreasing"
-                parts.append(f"{direction} {PARAM_LABELS.get(p, p).lower()}")
-            return " and ".join(parts)
-            
-        s_fin = _summarize(finance_changes)
-        s_com = _summarize(community_changes)
-        locked_str = _fmt_value(locked_param, locked_value)
-        param_label = PARAM_LABELS.get(locked_param, locked_param)
-        
-        st.info(f"**You locked {param_label} at {locked_str}.** Finance responded by {s_fin}. Community responded by {s_com}.")
+        causal_html = build_causal_chain_html(old_proposal, new_proposal, locked_param, locked_value)
+        components.html(causal_html, height=350, scrolling=True)
 
         # Build Diff Table
         changes = {}
@@ -671,7 +570,7 @@ def stage_result(is_override: bool = False) -> None:
         render_debate_transcript(session)
 
     with tab_conf:
-        render_conflicts(session.debate_rounds)
+        render_conflicts(session)
 
     with tab_prop:
         st.markdown(
@@ -684,40 +583,19 @@ def stage_result(is_override: bool = False) -> None:
             st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Override panel ────────────────────────────────────────────────────
-    st.markdown("### 🔒 Lock a Parameter & Watch Agents Re-Negotiate")
-    st.markdown('<div class="override-panel">', unsafe_allow_html=True)
-    st.markdown(
-        "<small style='color:#8892a4;'>Lock a parameter to a specific value. "
-        "Agents will not be able to modify locked parameters in future rounds.</small>",
-        unsafe_allow_html=True,
-    )
-
-    ov_col1, ov_col2 = st.columns([2, 3])
+    st.markdown('<div class="flex items-center justify-between border-b border-gray-300 pb-2 mb-4"><h2 class="font-bold text-2xl text-gray-900">Your Ruling 🔨</h2></div>', unsafe_allow_html=True)
     
-    with ov_col1:
-        ov_param = st.selectbox(
-            "Parameter to override",
-            options=["green_space_pct", "affordable_housing_pct", "parking_spaces", "housing_units"],
-            format_func=lambda p: PARAM_LABELS.get(p, p),
-            key="ov_param",
-        )
-        
-    current_val = float(getattr(session.current_proposal, ov_param))
-    with ov_col2:
-        if ov_param == "green_space_pct":
-            ov_value = st.slider("New Value", 0.0, 100.0, current_val, 1.0, key="ov_value_gs")
-        elif ov_param == "affordable_housing_pct":
-            ov_value = st.slider("New Value", 0.0, 100.0, current_val, 1.0, key="ov_value_ah")
-        elif ov_param == "parking_spaces":
-            ov_value = st.slider("New Value", 0, 1000, int(current_val), 10, key="ov_value_ps")
-        elif ov_param == "housing_units":
-            ov_value = st.slider("New Value", 10, 2000, int(current_val), 10, key="ov_value_hu")
-        else:
-            ov_value = current_val
-            
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("Lock & Re-Negotiate", type="primary", key="apply_override"):
-        locked_proposal = apply_human_override(session.current_proposal, ov_param, float(ov_value))
+    ov_param = st.selectbox(
+        "Select parameter to lock",
+        options=["green_space_pct", "affordable_housing_pct", "parking_spaces", "housing_units"],
+        format_func=lambda p: PARAM_LABELS.get(p, p),
+        key="ov_param",
+    )
+    
+    ov_value = render_override_slider(session, ov_param, key="ov_slider")
+    
+    if ov_value is not None:
+        locked_proposal = apply_human_override(session.current_proposal, ov_param, ov_value)
         
         with st.spinner("🤖 Agents are re-negotiating based on your lock..."):
             data_loader = DataLoader()
@@ -729,16 +607,15 @@ def stage_result(is_override: bool = False) -> None:
             ]
             new_session = create_session(locked_proposal)
             new_session.run_round(agents, {}, calc)
-            new_session.run_round(agents, {}, calc)
+            if new_session.status not in ["WAITING_FOR_JUDGE", "COMPLETED"]:
+                new_session.run_round(agents, {}, calc)
             
             st.session_state["locked_param"] = ov_param
-            st.session_state["locked_value"] = float(ov_value)
+            st.session_state["locked_value"] = ov_value
             st.session_state["pre_override_session"] = session
             st.session_state["session"] = new_session
             st.session_state["stage"] = "override_result"
             st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Reset ─────────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)

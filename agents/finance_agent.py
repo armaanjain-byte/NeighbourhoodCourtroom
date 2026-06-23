@@ -43,43 +43,70 @@ class FinanceAgent(BaseAgent):
     def agent_name(self) -> str:
         return "finance"
 
-    def get_data_slice(self, city_slug: str) -> dict[str, Any]:
-        """Return only the construction_costs data for this city.
+    @property
+    def tool_declarations(self) -> list[Any]:
+        return [
+            {
+                "name": "get_construction_costs",
+                "description": "Get construction cost data (base cost per unit, green space multiplier, parking cost, community center cost per sqft, city index) for a city.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "city_slug": {"type": "STRING"}
+                    },
+                    "required": ["city_slug"]
+                }
+            },
+            {
+                "name": "calculate_cost_estimate",
+                "description": "Calculate the total estimated construction cost for a proposal configuration.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "housing_units": {"type": "INTEGER"},
+                        "green_space_pct": {"type": "NUMBER"},
+                        "parking_spaces": {"type": "INTEGER"},
+                        "community_center_sqft": {"type": "NUMBER"},
+                        "city_slug": {"type": "STRING"}
+                    },
+                    "required": ["housing_units", "green_space_pct", "parking_spaces", "community_center_sqft", "city_slug"]
+                }
+            }
+        ]
 
-        Parameters
-        ----------
-        city_slug : str
-            City identifier.
-
-        Returns
-        -------
-        dict[str, Any]
-            Domain slice containing 'construction_costs', 'base_target_budget',
-            and 'local_budget'.  The actual estimated_cost is available to Gemini
-            via the proposal JSON.
-        """
-        costs = self.cost_calculator.data_loader.get_construction_costs(city_slug)
-        city_index = costs.get("city_index", 1.0)
-        return {
-            "construction_costs": costs,
-            "base_target_budget": self.BASE_TARGET_BUDGET,
-            "local_budget": self.BASE_TARGET_BUDGET * city_index,
-            # Note: actual estimated_cost is available to Gemini via the proposal JSON.
-        }
+    def execute_tool_call(self, name: str, args: dict[str, Any]) -> Any:
+        if name == "get_construction_costs":
+            costs = self.cost_calculator.data_loader.get_construction_costs(args["city_slug"])
+            city_index = costs.get("city_index", 1.0)
+            return {
+                "construction_costs": costs,
+                "base_target_budget": self.BASE_TARGET_BUDGET,
+                "local_budget": self.BASE_TARGET_BUDGET * city_index
+            }
+        elif name == "calculate_cost_estimate":
+            from models.proposal import Proposal
+            proposal = Proposal(
+                housing_units=args["housing_units"],
+                green_space_pct=args["green_space_pct"],
+                parking_spaces=args["parking_spaces"],
+                community_center_sqft=args["community_center_sqft"],
+                city_slug=args["city_slug"]
+            )
+            return {"estimated_cost": self.cost_calculator.calculate_estimated_cost(proposal)}
+        else:
+            return super().execute_tool_call(name, args)
 
     def generate_opinion(
         self,
         proposal: Proposal,
         context: dict[str, Any],
-        data_slice: dict[str, Any] | None = None,
         *,
         round_number: int = 1,
         opponent_opinions: dict[str, AgentOpinion] | None = None,
     ) -> AgentOpinion:
         """Generate a finance-domain AgentOpinion using Gemini.
 
-        Passes only construction_costs + budget data to Gemini. In Round 2, also
-        passes opponent Round 1 opinions so Gemini can issue explicit
+        In Round 2, passes opponent Round 1 opinions so Gemini can issue explicit
         objections/supports. Falls back to evaluate() if Gemini is unavailable
         or returns invalid output.
 
@@ -89,8 +116,6 @@ class FinanceAgent(BaseAgent):
             The current proposal state.
         context : dict[str, Any]
             Full context dict (used only in evaluate() fallback).
-        data_slice : dict[str, Any] | None
-            Pre-built domain slice; if None, fetched automatically from DataLoader.
         round_number : int
             1 for independent opinion, 2 for cross-agent rebuttal.
         opponent_opinions : dict[str, AgentOpinion] | None
@@ -100,12 +125,9 @@ class FinanceAgent(BaseAgent):
         -------
         AgentOpinion
         """
-        if data_slice is None:
-            data_slice = self.get_data_slice(proposal.city_slug)
         return super().generate_opinion(
             proposal,
             context,
-            data_slice,
             round_number=round_number,
             opponent_opinions=opponent_opinions,
         )

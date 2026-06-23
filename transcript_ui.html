@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Policy Deliberation - Debate Transcript</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#3c494f",
+                      "on-error": "#ffffff",
+                      "secondary-container": "#c6e4f4",
+                      "secondary-fixed-dim": "#adcbda",
+                      "outline": "#73787a",
+                      "on-tertiary-fixed": "#25190c",
+                      "on-secondary-fixed-variant": "#2e4b57",
+                      "tertiary-fixed": "#f5dfc8",
+                      "on-secondary": "#ffffff",
+                      "surface-container-high": "#e8e8e8",
+                      "on-primary": "#ffffff",
+                      "surface-dim": "#dadada",
+                      "surface-container-highest": "#e2e2e2",
+                      "primary": "#111d23",
+                      "inverse-surface": "#2f3131",
+                      "primary-container": "#263238",
+                      "primary-fixed-dim": "#bbc8d0",
+                      "tertiary": "#25190c",
+                      "on-secondary-container": "#4a6774",
+                      "on-error-container": "#93000a",
+                      "on-background": "#1a1c1c",
+                      "surface-container-low": "#f3f3f3",
+                      "surface-tint": "#546067",
+                      "inverse-primary": "#bbc8d0",
+                      "secondary": "#466270",
+                      "tertiary-fixed-dim": "#d8c3ae",
+                      "on-tertiary-container": "#a89581",
+                      "on-surface-variant": "#43474a",
+                      "error": "#ba1a1a",
+                      "secondary-fixed": "#c9e7f7",
+                      "primary-fixed": "#d7e4ec",
+                      "on-secondary-fixed": "#001f2a",
+                      "on-primary-container": "#8d9aa1",
+                      "error-container": "#ffdad6",
+                      "tertiary-container": "#3b2e1f",
+                      "surface-container": "#eeeeee",
+                      "on-surface": "#1a1c1c",
+                      "on-primary-fixed": "#111d23",
+                      "on-tertiary-fixed-variant": "#534434",
+                      "surface-bright": "#f9f9f9",
+                      "surface-container-lowest": "#ffffff",
+                      "surface": "#f9f9f9",
+                      "inverse-on-surface": "#f1f1f1",
+                      "background": "#f9f9f9",
+                      "on-tertiary": "#ffffff",
+                      "surface-variant": "#e2e2e2",
+                      "outline-variant": "#c3c7ca"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "container-max": "1280px",
+                      "gutter": "24px",
+                      "margin-desktop": "48px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "body-md": ["Public Sans"],
+                      "label-md": ["Public Sans"],
+                      "headline-lg": ["Public Sans"],
+                      "headline-lg-mobile": ["Public Sans"],
+                      "label-sm": ["Public Sans"],
+                      "headline-md": ["Public Sans"],
+                      "body-lg": ["Public Sans"],
+                      "display": ["Public Sans"]
+              },
+              "fontSize": {
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "display": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .conflict-line {
+            position: absolute;
+            height: 2px;
+            background-color: #ba1a1a;
+            opacity: 0.6;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background font-body-md text-on-surface selection:bg-secondary-container">
+<!-- TopAppBar -->
+<header class="w-full top-0 sticky z-50 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flat no shadows">
+<div class="flex justify-between items-center px-gutter w-full max-w-container-max mx-auto h-16">
+<div class="flex items-center gap-4 cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim" data-icon="account_balance">account_balance</span>
+<h1 class="font-display text-headline-md text-primary dark:text-primary-fixed-dim font-bold">Policy Deliberation</h1>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex gap-6">
+<a class="text-primary dark:text-primary-fixed-dim font-bold font-label-md" href="#">Debate</a>
+<a class="text-on-surface-variant dark:text-on-secondary-container font-label-md hover:bg-surface-container-high transition-colors px-2 py-1" href="#">History</a>
+</nav>
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim cursor-pointer" data-icon="settings">settings</span>
+</div>
+</div>
+</header>
+<main class="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
+<!-- NavigationDrawer (Desktop Only) -->
+<aside class="hidden lg:flex flex-col gap-unit h-full w-80 bg-surface-container-low dark:bg-surface-container-highest border-r border-outline-variant dark:border-outline p-4">
+<h2 class="font-headline-md text-headline-md text-primary mb-6">Policy Domains</h2>
+<nav class="flex flex-col gap-2">
+<div class="flex items-center gap-4 p-3 bg-secondary-container text-on-secondary-container rounded-full cursor-pointer transition-all">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-md text-label-md">Finance</span>
+</div>
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-surface-container-high rounded-full cursor-pointer transition-all">
+<span class="material-symbols-outlined" data-icon="eco">eco</span>
+<span class="font-label-md text-label-md">Climate</span>
+</div>
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-surface-container-high rounded-full cursor-pointer transition-all">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-label-md text-label-md">Community</span>
+</div>
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-surface-container-high rounded-full cursor-pointer transition-all">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-md text-label-md">Global History</span>
+</div>
+</nav>
+</aside>
+<!-- Main Debate Canvas -->
+<section class="flex-1 overflow-x-auto hide-scrollbar relative">
+<!-- Conflict Lines Container (Visual layer) -->
+<div class="absolute inset-0 pointer-events-none" id="conflict-lines-container"></div>
+<div class="flex h-full min-w-[900px] lg:min-w-0">
+<!-- Column 1: Finance -->
+<div class="flex-1 border-r border-outline-variant bg-[#FFF9E5] p-6 overflow-y-auto" id="col-finance">
+<div class="flex items-center gap-3 mb-8">
+<span class="text-2xl">💰</span>
+<h3 class="font-headline-md text-headline-md text-primary">Finance</h3>
+</div>
+<div class="space-y-6">
+<!-- Round 1 Card -->
+<div class="bg-surface-container-lowest border border-[#E6DFC9] p-gutter rounded-lg relative" id="fin-r1">
+<span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Round 1</span>
+<p class="font-bold text-body-lg mb-4">Maximize ROI through infrastructure efficiency.</p>
+<details class="group">
+<summary class="flex items-center justify-between cursor-pointer text-primary font-label-md">
+<span>Evidence</span>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more">expand_more</span>
+</summary>
+<ul class="mt-3 space-y-2 text-body-md text-on-surface-variant list-disc pl-5">
+<li>Privatization reduces maintenance overhead by 15%.</li>
+<li>Targeted tolls can fund 40% of future expansions.</li>
+<li>Eliminating subsidies speeds up debt retirement.</li>
+</ul>
+</details>
+</div>
+<!-- Round 2 Card -->
+<div class="bg-surface-container-lowest border border-[#E6DFC9] p-gutter rounded-lg relative" id="fin-r2">
+<span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Round 2</span>
+<p class="font-bold text-body-lg mb-4">Fiscal discipline prevents generational debt.</p>
+<div class="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-red-100 text-error rounded-full text-label-sm border border-red-200">
+<span class="material-symbols-outlined text-[16px]" data-icon="warning">warning</span>
+                                Objection
+                            </div>
+<details class="group">
+<summary class="flex items-center justify-between cursor-pointer text-primary font-label-md">
+<span>Evidence</span>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more">expand_more</span>
+</summary>
+<ul class="mt-3 space-y-2 text-body-md text-on-surface-variant list-disc pl-5">
+<li>Current projections show 4% deficit growth.</li>
+<li>Social housing mandates distort market pricing.</li>
+</ul>
+</details>
+</div>
+</div>
+</div>
+<!-- Column 2: Climate -->
+<div class="flex-1 border-r border-outline-variant bg-[#E8F5E9] p-6 overflow-y-auto" id="col-climate">
+<div class="flex items-center gap-3 mb-8">
+<span class="text-2xl">🌿</span>
+<h3 class="font-headline-md text-headline-md text-primary">Climate</h3>
+</div>
+<div class="space-y-6">
+<!-- Round 1 Card -->
+<div class="bg-surface-container-lowest border border-[#D1E1D2] p-gutter rounded-lg relative" id="cli-r1">
+<span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Round 1</span>
+<p class="font-bold text-body-lg mb-4">Mandatory carbon tax for industrial sectors.</p>
+<details class="group">
+<summary class="flex items-center justify-between cursor-pointer text-primary font-label-md">
+<span>Evidence</span>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more">expand_more</span>
+</summary>
+<ul class="mt-3 space-y-2 text-body-md text-on-surface-variant list-disc pl-5">
+<li>Reduces emissions by 22% within five years.</li>
+<li>Funds transition to renewable grid parity.</li>
+<li>Encourages green tech R&amp;D investments.</li>
+</ul>
+</details>
+</div>
+<!-- Round 2 Card -->
+<div class="bg-surface-container-lowest border border-[#D1E1D2] p-gutter rounded-lg relative" id="cli-r2">
+<span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Round 2</span>
+<p class="font-bold text-body-lg mb-4">Integrate biodiversity into urban zoning.</p>
+<div class="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-[#2E7D32] rounded-full text-label-sm border border-green-200">
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle">check_circle</span>
+                                Support
+                            </div>
+<details class="group">
+<summary class="flex items-center justify-between cursor-pointer text-primary font-label-md">
+<span>Evidence</span>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more">expand_more</span>
+</summary>
+<ul class="mt-3 space-y-2 text-body-md text-on-surface-variant list-disc pl-5">
+<li>Green roofs reduce urban heat island effect.</li>
+<li>Permeable surfaces prevent 30% of runoff.</li>
+</ul>
+</details>
+</div>
+</div>
+</div>
+<!-- Column 3: Community -->
+<div class="flex-1 bg-[#F3E5F5] p-6 overflow-y-auto" id="col-community">
+<div class="flex items-center gap-3 mb-8">
+<span class="text-2xl">🏘️</span>
+<h3 class="font-headline-md text-headline-md text-primary">Community</h3>
+</div>
+<div class="space-y-6">
+<!-- Round 1 Card -->
+<div class="bg-surface-container-lowest border border-[#DCCEDD] p-gutter rounded-lg relative" id="com-r1">
+<span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Round 1</span>
+<p class="font-bold text-body-lg mb-4">Universal social housing as a human right.</p>
+<details class="group">
+<summary class="flex items-center justify-between cursor-pointer text-primary font-label-md">
+<span>Evidence</span>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more">expand_more</span>
+</summary>
+<ul class="mt-3 space-y-2 text-body-md text-on-surface-variant list-disc pl-5">
+<li>Eliminates homelessness in urban centers.</li>
+<li>Stabilizes long-term workforce residency.</li>
+<li>Lowers indirect healthcare public costs.</li>
+</ul>
+</details>
+</div>
+<!-- Round 2 Card -->
+<div class="bg-surface-container-lowest border border-[#DCCEDD] p-gutter rounded-lg relative" id="com-r2">
+<span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Round 2</span>
+<p class="font-bold text-body-lg mb-4">Localization of food and energy production.</p>
+<div class="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-red-100 text-error rounded-full text-label-sm border border-red-200">
+<span class="material-symbols-outlined text-[16px]" data-icon="warning">warning</span>
+                                Objection
+                            </div>
+<details class="group">
+<summary class="flex items-center justify-between cursor-pointer text-primary font-label-md">
+<span>Evidence</span>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more">expand_more</span>
+</summary>
+<ul class="mt-3 space-y-2 text-body-md text-on-surface-variant list-disc pl-5">
+<li>Micro-grids increase system resilience.</li>
+<li>Co-op models ensure equitable distribution.</li>
+</ul>
+</details>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full flex justify-around items-center p-2 pb-safe bg-surface dark:bg-surface-container-high border-t border-outline-variant z-[100] flat no shadows">
+<div class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl py-1 px-4 scale-95 active:scale-90 transition-transform cursor-pointer">
+<span class="material-symbols-outlined" data-icon="step_one">step_out</span>
+<span class="font-label-sm text-label-sm">Round 1</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform cursor-pointer">
+<span class="material-symbols-outlined" data-icon="step_two">shop_two</span>
+<span class="font-label-sm text-label-sm">Round 2</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform cursor-pointer">
+<span class="material-symbols-outlined" data-icon="step_three">step_over</span>
+<span class="font-label-sm text-label-sm">Round 3</span>
+</div>
+</nav>
+<script>
+        // Micro-interaction for drawing conflict lines
+        function drawConflictLines() {
+            const container = document.getElementById('conflict-lines-container');
+            container.innerHTML = ''; // Clear existing
+
+            const conflicts = [
+                { from: 'fin-r1', to: 'cli-r1' }, // ROI vs Carbon Tax
+                { from: 'cli-r2', to: 'fin-r2' }, // Biodiversity vs Fiscal Discipline
+                { from: 'com-r1', to: 'fin-r2' }  // Social Housing vs Market Price Distortion
+            ];
+
+            conflicts.forEach(pair => {
+                const el1 = document.getElementById(pair.from);
+                const el2 = document.getElementById(pair.to);
+                
+                if (el1 && el2) {
+                    const rect1 = el1.getBoundingClientRect();
+                    const rect2 = el2.getBoundingClientRect();
+                    const canvasRect = container.parentElement.getBoundingClientRect();
+
+                    const line = document.createElement('div');
+                    line.className = 'conflict-line';
+                    
+                    // Basic horizontal connection logic
+                    const x1 = rect1.right - canvasRect.left;
+                    const x2 = rect2.left - canvasRect.left;
+                    const y1 = rect1.top + (rect1.height / 2) - canvasRect.top;
+                    const y2 = rect2.top + (rect2.height / 2) - canvasRect.top;
+
+                    // Calculate distance and angle for a straight line
+                    const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                    const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+
+                    line.style.width = `${length}px`;
+                    line.style.left = `${x1}px`;
+                    line.style.top = `${y1}px`;
+                    line.style.transform = `rotate(${angle}deg)`;
+                    line.style.transformOrigin = '0 0';
+
+                    container.appendChild(line);
+                }
+            });
+        }
+
+        // Run on load and resize
+        window.addEventListener('load', drawConflictLines);
+        window.addEventListener('resize', drawConflictLines);
+
+        // Re-draw when details are toggled as card height changes
+        document.querySelectorAll('details').forEach(detail => {
+            detail.addEventListener('toggle', () => {
+                setTimeout(drawConflictLines, 100); // Small delay for layout shift
+            });
+        });
+    </script>
+</body></html>

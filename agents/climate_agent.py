@@ -41,37 +41,52 @@ class ClimateAgent(BaseAgent):
     def agent_name(self) -> str:
         return "climate"
 
-    def get_data_slice(self, city_slug: str) -> dict[str, Any]:
-        """Return only the climate and land_use data for this city.
+    @property
+    def tool_declarations(self) -> list[Any]:
+        return [
+            {
+                "name": "get_climate_data",
+                "description": "Get climate data (target green space percentage) for a city.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "city_slug": {"type": "STRING"}
+                    },
+                    "required": ["city_slug"]
+                }
+            },
+            {
+                "name": "get_land_use_data",
+                "description": "Get land use data (max parking spaces) for a city.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "city_slug": {"type": "STRING"}
+                    },
+                    "required": ["city_slug"]
+                }
+            }
+        ]
 
-        Parameters
-        ----------
-        city_slug : str
-            City identifier.
-
-        Returns
-        -------
-        dict[str, Any]
-            Domain slice containing 'climate' and 'land_use' sub-dicts.
-        """
-        return {
-            "climate": self.data_loader.get_climate(city_slug),
-            "land_use": self.data_loader.get_land_use(city_slug),
-        }
+    def execute_tool_call(self, name: str, args: dict[str, Any]) -> Any:
+        if name == "get_climate_data":
+            return self.data_loader.get_climate(args["city_slug"])
+        elif name == "get_land_use_data":
+            return self.data_loader.get_land_use(args["city_slug"])
+        else:
+            return super().execute_tool_call(name, args)
 
     def generate_opinion(
         self,
         proposal: Proposal,
         context: dict[str, Any],
-        data_slice: dict[str, Any] | None = None,
         *,
         round_number: int = 1,
         opponent_opinions: dict[str, AgentOpinion] | None = None,
     ) -> AgentOpinion:
         """Generate a climate-domain AgentOpinion using Gemini.
 
-        Passes only climate + land_use data to Gemini. In Round 2, also passes
-        opponent Round 1 opinions so Gemini can issue explicit objections/supports.
+        In Round 2, passes opponent Round 1 opinions so Gemini can issue explicit objections/supports.
         Falls back to evaluate() if Gemini is unavailable or returns invalid output.
 
         Parameters
@@ -80,8 +95,6 @@ class ClimateAgent(BaseAgent):
             The current proposal state.
         context : dict[str, Any]
             Full context dict (used only in evaluate() fallback).
-        data_slice : dict[str, Any] | None
-            Pre-built domain slice; if None, fetched automatically from DataLoader.
         round_number : int
             1 for independent opinion, 2 for cross-agent rebuttal.
         opponent_opinions : dict[str, AgentOpinion] | None
@@ -91,12 +104,9 @@ class ClimateAgent(BaseAgent):
         -------
         AgentOpinion
         """
-        if data_slice is None:
-            data_slice = self.get_data_slice(proposal.city_slug)
         return super().generate_opinion(
             proposal,
             context,
-            data_slice,
             round_number=round_number,
             opponent_opinions=opponent_opinions,
         )

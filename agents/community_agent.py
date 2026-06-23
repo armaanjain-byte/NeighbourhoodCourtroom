@@ -41,37 +41,52 @@ class CommunityAgent(BaseAgent):
     def agent_name(self) -> str:
         return "community"
 
-    def get_data_slice(self, city_slug: str) -> dict[str, Any]:
-        """Return only the demographics and walkability data for this city.
+    @property
+    def tool_declarations(self) -> list[Any]:
+        return [
+            {
+                "name": "get_demographics",
+                "description": "Get demographics data (target community center sqft, target affordable housing pct) for a city.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "city_slug": {"type": "STRING"}
+                    },
+                    "required": ["city_slug"]
+                }
+            },
+            {
+                "name": "get_walkability",
+                "description": "Get walkability score for a city.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "city_slug": {"type": "STRING"}
+                    },
+                    "required": ["city_slug"]
+                }
+            }
+        ]
 
-        Parameters
-        ----------
-        city_slug : str
-            City identifier.
-
-        Returns
-        -------
-        dict[str, Any]
-            Domain slice containing 'demographics' and 'walkability' sub-dicts.
-        """
-        return {
-            "demographics": self.data_loader.get_demographics(city_slug),
-            "walkability": self.data_loader.get_walkability(city_slug),
-        }
+    def execute_tool_call(self, name: str, args: dict[str, Any]) -> Any:
+        if name == "get_demographics":
+            return self.data_loader.get_demographics(args["city_slug"])
+        elif name == "get_walkability":
+            return self.data_loader.get_walkability(args["city_slug"])
+        else:
+            return super().execute_tool_call(name, args)
 
     def generate_opinion(
         self,
         proposal: Proposal,
         context: dict[str, Any],
-        data_slice: dict[str, Any] | None = None,
         *,
         round_number: int = 1,
         opponent_opinions: dict[str, AgentOpinion] | None = None,
     ) -> AgentOpinion:
         """Generate a community-domain AgentOpinion using Gemini.
 
-        Passes only demographics + walkability data to Gemini. In Round 2, also
-        passes opponent Round 1 opinions so Gemini can issue explicit
+        In Round 2, passes opponent Round 1 opinions so Gemini can issue explicit
         objections/supports. Falls back to evaluate() if Gemini is unavailable
         or returns invalid output.
 
@@ -81,8 +96,6 @@ class CommunityAgent(BaseAgent):
             The current proposal state.
         context : dict[str, Any]
             Full context dict (used only in evaluate() fallback).
-        data_slice : dict[str, Any] | None
-            Pre-built domain slice; if None, fetched automatically from DataLoader.
         round_number : int
             1 for independent opinion, 2 for cross-agent rebuttal.
         opponent_opinions : dict[str, AgentOpinion] | None
@@ -92,12 +105,9 @@ class CommunityAgent(BaseAgent):
         -------
         AgentOpinion
         """
-        if data_slice is None:
-            data_slice = self.get_data_slice(proposal.city_slug)
         return super().generate_opinion(
             proposal,
             context,
-            data_slice,
             round_number=round_number,
             opponent_opinions=opponent_opinions,
         )

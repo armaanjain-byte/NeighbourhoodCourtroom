@@ -40,6 +40,15 @@ MUTABLE_PARAMETERS: set[str] = {
 # Parameters whose Proposal field type is int (agents send floats)
 _INT_PARAMETERS: set[str] = {"housing_units", "parking_spaces"}
 
+PARAM_LABELS: dict[str, str] = {
+    "green_space_pct": "Green Space",
+    "affordable_housing_pct": "Affordable Housing",
+    "housing_units": "Housing Density (Units/Hectare)",
+    "parking_spaces": "Parking Coverage (Spaces)",
+    "community_center_sqft": "Community Center (sqft)",
+    "estimated_cost": "Total Estimated Cost ($)"
+}
+
 
 def _coerce_value(param: str, value: float) -> float | int:
     """Coerce *value* to int when *param* is an integer-typed field."""
