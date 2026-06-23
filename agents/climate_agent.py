@@ -5,14 +5,21 @@ Purpose:
     Goals: increase green space, improve heat resilience, stormwater management.
     Ignores budget, affordability, and housing efficiency.
 
+    generate_opinion passes only the climate + land_use data slice to Gemini.
+    Supports round_number=1 (independent) and round_number=2 (cross-agent rebuttal)
+    by forwarding those parameters to BaseAgent.generate_opinion.
+
 Dependencies:
     agents.base_agent.BaseAgent, tools.data_loader.DataLoader
 """
+
+from __future__ import annotations
 
 from typing import Any
 
 from models.proposal import Proposal
 from models.agent_output import AgentOutput
+from models.agent_opinion import AgentOpinion
 from agents.base_agent import BaseAgent
 from tools.data_loader import DataLoader
 
@@ -33,6 +40,66 @@ class ClimateAgent(BaseAgent):
     @property
     def agent_name(self) -> str:
         return "climate"
+
+    def get_data_slice(self, city_slug: str) -> dict[str, Any]:
+        """Return only the climate and land_use data for this city.
+
+        Parameters
+        ----------
+        city_slug : str
+            City identifier.
+
+        Returns
+        -------
+        dict[str, Any]
+            Domain slice containing 'climate' and 'land_use' sub-dicts.
+        """
+        return {
+            "climate": self.data_loader.get_climate(city_slug),
+            "land_use": self.data_loader.get_land_use(city_slug),
+        }
+
+    def generate_opinion(
+        self,
+        proposal: Proposal,
+        context: dict[str, Any],
+        data_slice: dict[str, Any] | None = None,
+        *,
+        round_number: int = 1,
+        opponent_opinions: dict[str, AgentOpinion] | None = None,
+    ) -> AgentOpinion:
+        """Generate a climate-domain AgentOpinion using Gemini.
+
+        Passes only climate + land_use data to Gemini. In Round 2, also passes
+        opponent Round 1 opinions so Gemini can issue explicit objections/supports.
+        Falls back to evaluate() if Gemini is unavailable or returns invalid output.
+
+        Parameters
+        ----------
+        proposal : Proposal
+            The current proposal state.
+        context : dict[str, Any]
+            Full context dict (used only in evaluate() fallback).
+        data_slice : dict[str, Any] | None
+            Pre-built domain slice; if None, fetched automatically from DataLoader.
+        round_number : int
+            1 for independent opinion, 2 for cross-agent rebuttal.
+        opponent_opinions : dict[str, AgentOpinion] | None
+            Round 1 opinions of the other agents (required for round_number=2).
+
+        Returns
+        -------
+        AgentOpinion
+        """
+        if data_slice is None:
+            data_slice = self.get_data_slice(proposal.city_slug)
+        return super().generate_opinion(
+            proposal,
+            context,
+            data_slice,
+            round_number=round_number,
+            opponent_opinions=opponent_opinions,
+        )
 
     def evaluate(self, proposal: Proposal, context: dict[str, Any]) -> AgentOutput:
         """Evaluate the proposal against environmental targets.
@@ -70,7 +137,7 @@ class ClimateAgent(BaseAgent):
         # Evaluate score mathematically
         # Score heavily penalized if green space is below target
         green_ratio = proposal.green_space_pct / target_green_space
-        parking_ratio = max_parking / max(1, proposal.parking_spaces) # >1 is good
+        parking_ratio = max_parking / max(1, proposal.parking_spaces)  # >1 is good
 
         # Base score on green space ratio, adjusted by parking penalty
         raw_score = (green_ratio * 80.0) + (min(1.0, parking_ratio) * 20.0)
@@ -78,12 +145,12 @@ class ClimateAgent(BaseAgent):
 
         if score < 85.0:
             verdict = "modify"
-            
+
             # Propose improving climate outcomes
             changes = {
                 "green_space_pct": max(proposal.green_space_pct + 10.0, target_green_space),
                 "parking_spaces": int(proposal.parking_spaces * 0.7),
-                "community_center_sqft": proposal.community_center_sqft + 500.0, # for cooling centers
+                "community_center_sqft": proposal.community_center_sqft + 500.0,  # for cooling centers
             }
             reasoning = (
                 f"Proposal has poor environmental resilience (Score: {score:.1f}). "

@@ -1,18 +1,66 @@
 {
-  "detroit_mi": {
-    "target_community_center_sqft": 15000.0,
-    "target_affordable_housing_pct": 30.0
+  "phoenix_az": {
+    "median_household_income": 72000,
+    "poverty_rate": 13.0,
+    "population_density_per_sqmi": 3180,
+    "pct_age_65_plus": 10.9,
+    "pct_with_disability": 11.2,
+    "pct_renter_occupied": 45.0,
+    "unemployment_rate": 4.5,
+    "median_home_value": 350000,
+    "pct_no_vehicle": 6.0,
+    "pct_non_white": 57.0,
+    "target_community_center_sqft": 15000,
+    "target_affordable_housing_pct": 20,
+    "data_year": 2022,
+    "source": "ACS 2022 5-Year Estimates"
   },
-  "austin_tx": {
-    "target_community_center_sqft": 12000.0,
-    "target_affordable_housing_pct": 15.0
+  "detroit_mi": {
+    "median_household_income": 37000,
+    "poverty_rate": 31.5,
+    "population_density_per_sqmi": 4600,
+    "pct_age_65_plus": 14.0,
+    "pct_with_disability": 18.0,
+    "pct_renter_occupied": 52.0,
+    "unemployment_rate": 8.5,
+    "median_home_value": 65000,
+    "pct_no_vehicle": 19.5,
+    "pct_non_white": 89.0,
+    "target_community_center_sqft": 10000,
+    "target_affordable_housing_pct": 35,
+    "data_year": 2022,
+    "source": "ACS 2022 5-Year Estimates"
   },
   "seattle_wa": {
-    "target_community_center_sqft": 10000.0,
-    "target_affordable_housing_pct": 25.0
+    "median_household_income": 115000,
+    "poverty_rate": 10.5,
+    "population_density_per_sqmi": 8800,
+    "pct_age_65_plus": 12.5,
+    "pct_with_disability": 9.0,
+    "pct_renter_occupied": 54.0,
+    "unemployment_rate": 4.0,
+    "median_home_value": 850000,
+    "pct_no_vehicle": 16.5,
+    "pct_non_white": 35.0,
+    "target_community_center_sqft": 20000,
+    "target_affordable_housing_pct": 30,
+    "data_year": 2022,
+    "source": "ACS 2022 5-Year Estimates"
   },
-  "phoenix_az": {
-    "target_community_center_sqft": 8000.0,
-    "target_affordable_housing_pct": 10.0
+  "austin_tx": {
+    "median_household_income": 86000,
+    "poverty_rate": 12.0,
+    "population_density_per_sqmi": 3200,
+    "pct_age_65_plus": 9.0,
+    "pct_with_disability": 9.5,
+    "pct_renter_occupied": 55.0,
+    "unemployment_rate": 3.5,
+    "median_home_value": 450000,
+    "pct_no_vehicle": 5.5,
+    "pct_non_white": 51.0,
+    "target_community_center_sqft": 18000,
+    "target_affordable_housing_pct": 25,
+    "data_year": 2022,
+    "source": "ACS 2022 5-Year Estimates"
   }
 }

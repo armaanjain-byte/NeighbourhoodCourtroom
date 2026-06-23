@@ -1,6 +1,22 @@
 {
-  "detroit_mi": { "max_parking_spaces": 200 },
-  "austin_tx": { "max_parking_spaces": 150 },
-  "seattle_wa": { "max_parking_spaces": 100 },
-  "phoenix_az": { "max_parking_spaces": 300 }
+  "phoenix_az": {
+    "max_parking_spaces": 200,
+    "typical_zoning": "R1",
+    "max_building_height_stories": 40
+  },
+  "detroit_mi": {
+    "max_parking_spaces": 150,
+    "typical_zoning": "R2",
+    "max_building_height_stories": 30
+  },
+  "seattle_wa": {
+    "max_parking_spaces": 100,
+    "typical_zoning": "LR3",
+    "max_building_height_stories": 45
+  },
+  "austin_tx": {
+    "max_parking_spaces": 180,
+    "typical_zoning": "SF-3",
+    "max_building_height_stories": 40
+  }
 }

@@ -64,20 +64,24 @@ class DataLoader:
         """Helper to get specific city data from a dataset."""
         data = self._load_json(filename)
         
-        # construction_costs is keyed differently in architecture:
-        # { "cost_index_by_city": { "phoenix_az": 0.89 }, "base_costs_per_sqft": {...} }
+        # construction_costs.json may use either:
+        #   (a) flat format: { "phoenix_az": { "city_index": 92.0, ... }, ... }
+        #   (b) legacy format: { "cost_index_by_city": { "phoenix_az": 0.89 }, ... }
         if filename == "construction_costs.json":
-            if "cost_index_by_city" not in data:
-                raise DatasetLoadError(f"Unexpected format in {filename}")
-            if city_name not in data["cost_index_by_city"]:
-                raise CityNotFoundError(f"City '{city_name}' not found in {filename}")
-            
-            return {
-                "city_index": data["cost_index_by_city"][city_name],
-                "base_costs": data.get("base_costs_per_sqft", {}),
-                "soft_cost_multiplier": data.get("soft_cost_multiplier", 1.0),
-                "contingency_multiplier": data.get("contingency_multiplier", 1.0)
-            }
+            # Prefer flat format if the top-level keys look like city slugs
+            if city_name in data:
+                return data[city_name]
+            # Fall back to legacy nested format
+            if "cost_index_by_city" in data:
+                if city_name not in data["cost_index_by_city"]:
+                    raise CityNotFoundError(f"City '{city_name}' not found in {filename}")
+                return {
+                    "city_index": data["cost_index_by_city"][city_name],
+                    "base_costs": data.get("base_costs_per_sqft", {}),
+                    "soft_cost_multiplier": data.get("soft_cost_multiplier", 1.0),
+                    "contingency_multiplier": data.get("contingency_multiplier", 1.0),
+                }
+            raise CityNotFoundError(f"City '{city_name}' not found in {filename}")
         
         if city_name not in data:
             raise CityNotFoundError(f"City '{city_name}' not found in {filename}")

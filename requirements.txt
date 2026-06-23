@@ -1,8 +1,7 @@
 streamlit
 pydantic>=2.0.0
 plotly
+google-generativeai
 pytest
 pytest-cov
-mypy
 ruff
-anthropic

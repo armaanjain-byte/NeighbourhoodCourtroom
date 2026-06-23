@@ -1,6 +1,54 @@
 {
-  "detroit_mi": { "target_green_space_pct": 30.0 },
-  "austin_tx": { "target_green_space_pct": 25.0 },
-  "seattle_wa": { "target_green_space_pct": 40.0 },
-  "phoenix_az": { "target_green_space_pct": 20.0 }
+  "phoenix_az": {
+    "climate_zone": "2B",
+    "climate_description": "Hot, Dry",
+    "annual_hdd": 1000,
+    "annual_cdd": 5500,
+    "heat_island_risk": 5,
+    "flood_risk_score": 2,
+    "recommended_min_green_cover_pct": 15,
+    "solar_irradiance_kwh_per_sqm": 6.5,
+    "avg_summer_temp_f": 95.0,
+    "target_green_space_pct": 15,
+    "data_sources": "NOAA/ASHRAE"
+  },
+  "detroit_mi": {
+    "climate_zone": "5A",
+    "climate_description": "Cool, Humid",
+    "annual_hdd": 6200,
+    "annual_cdd": 750,
+    "heat_island_risk": 3,
+    "flood_risk_score": 3,
+    "recommended_min_green_cover_pct": 30,
+    "solar_irradiance_kwh_per_sqm": 4.2,
+    "avg_summer_temp_f": 73.0,
+    "target_green_space_pct": 25,
+    "data_sources": "NOAA/ASHRAE"
+  },
+  "seattle_wa": {
+    "climate_zone": "4C",
+    "climate_description": "Mixed, Marine",
+    "annual_hdd": 4500,
+    "annual_cdd": 200,
+    "heat_island_risk": 2,
+    "flood_risk_score": 4,
+    "recommended_min_green_cover_pct": 30,
+    "solar_irradiance_kwh_per_sqm": 3.8,
+    "avg_summer_temp_f": 66.0,
+    "target_green_space_pct": 35,
+    "data_sources": "NOAA/ASHRAE"
+  },
+  "austin_tx": {
+    "climate_zone": "2A",
+    "climate_description": "Hot, Humid",
+    "annual_hdd": 1500,
+    "annual_cdd": 3500,
+    "heat_island_risk": 4,
+    "flood_risk_score": 3,
+    "recommended_min_green_cover_pct": 25,
+    "solar_irradiance_kwh_per_sqm": 5.5,
+    "avg_summer_temp_f": 85.0,
+    "target_green_space_pct": 25,
+    "data_sources": "NOAA/ASHRAE"
+  }
 }

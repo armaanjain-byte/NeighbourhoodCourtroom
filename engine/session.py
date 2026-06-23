@@ -16,9 +16,10 @@ from pydantic import BaseModel, Field
 from models.proposal import Proposal
 from models.debate_round import DebateRound
 from models.agent_output import AgentOutput
+from models.agent_opinion import AgentOpinion
 from models.courtroom_transcript import CourtroomTranscript, TranscriptEntry
 from engine.debate import run_debate_round
-from engine.state import apply_human_override
+from engine.override import apply_human_override
 from agents.base_agent import BaseAgent
 from tools.cost_calculator import CostCalculator
 
@@ -39,6 +40,18 @@ class CourtroomSession(BaseModel):
     def run_round(self, agents: list[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> DebateRound:
         """Run a single debate round using the provided agents.
 
+        Two-phase opinion collection:
+            Phase A — Round 1 (independent): each agent generates an opinion
+                      based only on its own domain data slice.
+            Phase B — Round 2 (cross-agent rebuttal): each agent sees the Round 1
+                      opinions of the other agents and is instructed to explicitly
+                      address conflicts, maintain its domain position, and propose
+                      compromises where needed.
+
+        The DebateRound records both round_1_opinions and round_2_opinions.
+        The conflict-resolution engine uses the Round 1 deterministic AgentOutputs
+        (not the LLM opinions) to determine the closing proposal state.
+
         Parameters
         ----------
         agents : list[BaseAgent]
@@ -51,77 +64,117 @@ class CourtroomSession(BaseModel):
         Returns
         -------
         DebateRound
-            The resulting DebateRound after all conflicts are processed.
+            The resulting DebateRound after all conflicts are processed,
+            with both round_1_opinions and round_2_opinions populated.
         """
         if self.status in ["WAITING_FOR_JUDGE", "COMPLETED"]:
             raise ValueError(f"Cannot run debate round in status: {self.status}")
 
         self.status = "IN_PROGRESS"
+        debate_round_number = len(self.debate_rounds) + 1
 
-        # 1. Phase 1: Collect deterministic math outputs
+        # ── Phase 1: Deterministic math outputs (used by conflict engine) ────
         agent_outputs: dict[str, AgentOutput] = {}
         for agent in agents:
             output = agent.evaluate(self.current_proposal, context)
             agent_outputs[agent.agent_name] = output
-            
-        # 2. Phase 2: Collect LLM AgentOpinions
-        round_number = len(self.debate_rounds) + 1
+
+        # ── Phase A: Round 1 opinions (independent, domain-scoped) ──────────
+        round_1_opinions: dict[str, AgentOpinion] = {}
         for agent in agents:
-            math_results = agent_outputs[agent.agent_name]
-            opinion = agent.generate_opinion(self.current_proposal, math_results, agent_outputs, context)
-            
-            # Record opinion to transcript
+            opinion = agent.generate_opinion(
+                self.current_proposal,
+                context,
+                round_number=1,
+                opponent_opinions=None,
+            )
+            round_1_opinions[agent.agent_name] = opinion
+
+            # Record Round 1 opinion to transcript
             self.transcript.entries.append(TranscriptEntry(
-                round_number=round_number,
+                round_number=debate_round_number,
                 agent=agent.agent_name,
                 statement_type="position",
-                content=f"**{opinion.position}**\n\n{opinion.reasoning}"
+                content=f"[R1] **{opinion.position}**\n\n{opinion.reasoning}"
             ))
-            
             for ev in opinion.evidence:
                 self.transcript.entries.append(TranscriptEntry(
-                    round_number=round_number,
+                    round_number=debate_round_number,
                     agent=agent.agent_name,
                     statement_type="evidence",
                     content=ev
                 ))
-                
+
+        # ── Phase B: Round 2 opinions (cross-agent rebuttal) ────────────────
+        round_2_opinions: dict[str, AgentOpinion] = {}
+        for agent in agents:
+            # Each agent receives Round 1 opinions of the OTHER two agents only
+            opponent_r1 = {
+                name: op
+                for name, op in round_1_opinions.items()
+                if name != agent.agent_name
+            }
+            opinion = agent.generate_opinion(
+                self.current_proposal,
+                context,
+                round_number=2,
+                opponent_opinions=opponent_r1,
+            )
+            round_2_opinions[agent.agent_name] = opinion
+
+            # Record Round 2 position to transcript
+            self.transcript.entries.append(TranscriptEntry(
+                round_number=debate_round_number,
+                agent=agent.agent_name,
+                statement_type="position",
+                content=f"[R2] **{opinion.position}**\n\n{opinion.reasoning}"
+            ))
+            for ev in opinion.evidence:
+                self.transcript.entries.append(TranscriptEntry(
+                    round_number=debate_round_number,
+                    agent=agent.agent_name,
+                    statement_type="evidence",
+                    content=ev
+                ))
             for obj in opinion.objections:
                 self.transcript.entries.append(TranscriptEntry(
-                    round_number=round_number,
+                    round_number=debate_round_number,
                     agent=agent.agent_name,
                     statement_type="objection",
                     target_agent=obj.target_agent,
                     content=obj.reason
                 ))
-                
             for sup in opinion.supports:
                 self.transcript.entries.append(TranscriptEntry(
-                    round_number=round_number,
+                    round_number=debate_round_number,
                     agent=agent.agent_name,
                     statement_type="support",
                     target_agent=sup.target_agent,
                     content=sup.reason
                 ))
 
-        # 2. Run debate orchestration
-        round_number = len(self.debate_rounds) + 1
+        # ── Debate orchestration (deterministic conflict resolution) ─────────
         debate_round, updated_proposal = run_debate_round(
             self.current_proposal,
             agent_outputs,
-            round_number=round_number,
+            round_number=debate_round_number,
             cost_calculator=cost_calculator
         )
 
-        # 3. Update session state
+        # ── Attach opinion records to the DebateRound ────────────────────────
+        debate_round.round_1_opinions = round_1_opinions
+        debate_round.round_2_opinions = round_2_opinions
+
+        # ── Update session state ─────────────────────────────────────────────
         self.debate_rounds.append(debate_round)
         self.current_proposal = updated_proposal
 
-        # 4. Check for high-severity conflicts requiring a judge
+        # ── Check for high-severity conflicts requiring a judge ───────────────
         if any(c.disagreement_severity == "high" for c in debate_round.detected_conflicts):
             self.status = "WAITING_FOR_JUDGE"
 
         return debate_round
+
 
     def apply_override(self, parameter: str, value: float) -> Proposal:
         """Apply a human override to a parameter, locking it from future agent edits.

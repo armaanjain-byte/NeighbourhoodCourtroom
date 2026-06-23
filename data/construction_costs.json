@@ -1,16 +1,30 @@
 {
-  "cost_index_by_city": {
-    "detroit_mi": 0.90,
-    "austin_tx": 1.05,
-    "seattle_wa": 1.25,
-    "phoenix_az": 0.95
+  "phoenix_az": {
+    "city_index": 92.0,
+    "residential_cost_per_sqft": 180,
+    "commercial_cost_per_sqft": 250,
+    "green_space_cost_per_sqft": 15,
+    "parking_cost_per_space": 20000
   },
-  "base_costs_per_sqft": {
-    "housing": 150.0,
-    "green_space": 20.0,
-    "parking": 80.0,
-    "community_center": 250.0
+  "detroit_mi": {
+    "city_index": 105.0,
+    "residential_cost_per_sqft": 210,
+    "commercial_cost_per_sqft": 280,
+    "green_space_cost_per_sqft": 12,
+    "parking_cost_per_space": 25000
   },
-  "soft_cost_multiplier": 1.15,
-  "contingency_multiplier": 1.10
+  "seattle_wa": {
+    "city_index": 118.0,
+    "residential_cost_per_sqft": 260,
+    "commercial_cost_per_sqft": 350,
+    "green_space_cost_per_sqft": 20,
+    "parking_cost_per_space": 35000
+  },
+  "austin_tx": {
+    "city_index": 94.0,
+    "residential_cost_per_sqft": 190,
+    "commercial_cost_per_sqft": 260,
+    "green_space_cost_per_sqft": 16,
+    "parking_cost_per_space": 22000
+  }
 }

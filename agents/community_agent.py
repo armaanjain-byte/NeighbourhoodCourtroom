@@ -5,14 +5,21 @@ Purpose:
     Goals: improve accessibility, walkability, amenities, quality of life.
     Ignores construction cost and climate metrics.
 
+    generate_opinion passes only demographics + walkability data to Gemini.
+    Supports round_number=1 (independent) and round_number=2 (cross-agent rebuttal)
+    by forwarding those parameters to BaseAgent.generate_opinion.
+
 Dependencies:
     agents.base_agent.BaseAgent, tools.data_loader.DataLoader
 """
+
+from __future__ import annotations
 
 from typing import Any
 
 from models.proposal import Proposal
 from models.agent_output import AgentOutput
+from models.agent_opinion import AgentOpinion
 from agents.base_agent import BaseAgent
 from tools.data_loader import DataLoader
 
@@ -34,6 +41,67 @@ class CommunityAgent(BaseAgent):
     def agent_name(self) -> str:
         return "community"
 
+    def get_data_slice(self, city_slug: str) -> dict[str, Any]:
+        """Return only the demographics and walkability data for this city.
+
+        Parameters
+        ----------
+        city_slug : str
+            City identifier.
+
+        Returns
+        -------
+        dict[str, Any]
+            Domain slice containing 'demographics' and 'walkability' sub-dicts.
+        """
+        return {
+            "demographics": self.data_loader.get_demographics(city_slug),
+            "walkability": self.data_loader.get_walkability(city_slug),
+        }
+
+    def generate_opinion(
+        self,
+        proposal: Proposal,
+        context: dict[str, Any],
+        data_slice: dict[str, Any] | None = None,
+        *,
+        round_number: int = 1,
+        opponent_opinions: dict[str, AgentOpinion] | None = None,
+    ) -> AgentOpinion:
+        """Generate a community-domain AgentOpinion using Gemini.
+
+        Passes only demographics + walkability data to Gemini. In Round 2, also
+        passes opponent Round 1 opinions so Gemini can issue explicit
+        objections/supports. Falls back to evaluate() if Gemini is unavailable
+        or returns invalid output.
+
+        Parameters
+        ----------
+        proposal : Proposal
+            The current proposal state.
+        context : dict[str, Any]
+            Full context dict (used only in evaluate() fallback).
+        data_slice : dict[str, Any] | None
+            Pre-built domain slice; if None, fetched automatically from DataLoader.
+        round_number : int
+            1 for independent opinion, 2 for cross-agent rebuttal.
+        opponent_opinions : dict[str, AgentOpinion] | None
+            Round 1 opinions of the other agents (required for round_number=2).
+
+        Returns
+        -------
+        AgentOpinion
+        """
+        if data_slice is None:
+            data_slice = self.get_data_slice(proposal.city_slug)
+        return super().generate_opinion(
+            proposal,
+            context,
+            data_slice,
+            round_number=round_number,
+            opponent_opinions=opponent_opinions,
+        )
+
     def evaluate(self, proposal: Proposal, context: dict[str, Any]) -> AgentOutput:
         """Evaluate the proposal against community wellbeing targets.
 
@@ -48,7 +116,7 @@ class CommunityAgent(BaseAgent):
         try:
             demographics = self.data_loader.get_demographics(proposal.city_slug)
             walkability = self.data_loader.get_walkability(proposal.city_slug)
-            _ = self.data_loader.get_land_use(proposal.city_slug) # Ensures land use exists
+            _ = self.data_loader.get_land_use(proposal.city_slug)  # Ensures land use exists
         except Exception as e:
             # Invalid dataset handling
             return self.build_output(
@@ -85,7 +153,7 @@ class CommunityAgent(BaseAgent):
 
         if score < 85.0:
             verdict = "modify"
-            
+
             changes = {
                 "community_center_sqft": max(proposal.community_center_sqft + 2000.0, target_community_sqft),
                 "affordable_housing_pct": max(proposal.affordable_housing_pct + 5.0, target_affordable),

@@ -5,6 +5,20 @@ Purpose:
     Provides shared validation, output construction, and parameter filtering
     to ensure deterministic integration with the rest of the engine.
 
+Design (generate_opinion):
+    Round 1 (round_number=1):
+        Gemini receives the proposal state and this agent's domain data slice.
+        It returns score, verdict, proposed_changes, position, reasoning, evidence,
+        objections, supports, and confidence.  The returned proposed_changes become
+        the authoritative output; evaluate() is the fallback.
+
+    Round 2 (round_number=2):
+        Gemini additionally receives the Round 1 AgentOpinion objects of the OTHER
+        two agents.  The prompt instructs Gemini to explicitly address every
+        conflicting recommendation, maintain its domain position, and propose a
+        compromise where a conflict is blocking.  The returned JSON must include
+        a non-empty objections[] for each rejection and a supports[] for agreements.
+
 Dependencies:
     models.proposal.Proposal, models.agent_output.AgentOutput, engine.state.MUTABLE_PARAMETERS
 """
@@ -47,7 +61,7 @@ class BaseAgent(abc.ABC):
 
     @abc.abstractmethod
     def evaluate(self, proposal: Proposal, context: dict[str, Any]) -> AgentOutput:
-        """Evaluate a proposal and return recommended changes.
+        """Evaluate a proposal and return recommended changes (deterministic fallback).
 
         Parameters
         ----------
@@ -62,102 +76,261 @@ class BaseAgent(abc.ABC):
             The structured output containing the agent's verdict and proposed changes.
         """
         pass  # pragma: no cover
-        
+
     def generate_opinion(
         self,
         proposal: Proposal,
-        math_results: AgentOutput,
-        opponent_outputs: dict[str, AgentOutput],
-        context: dict[str, Any]
+        context: dict[str, Any],
+        data_slice: dict[str, Any] | None = None,
+        *,
+        round_number: int = 1,
+        opponent_opinions: dict[str, AgentOpinion] | None = None,
     ) -> AgentOpinion:
-        """Generate the rich AgentOpinion using Gemini, falling back to deterministic mapping.
-        
+        """Generate an AgentOpinion by asking Gemini to recommend parameter changes.
+
+        Round 1 (round_number=1):
+            Gemini receives only the proposal state and this agent's domain data
+            slice.  It returns score, verdict, proposed_changes, position,
+            reasoning, evidence, objections, supports, and confidence.
+            The returned proposed_changes become the authoritative output.
+
+        Round 2 (round_number=2):
+            Gemini additionally receives the Round 1 AgentOpinion objects of the
+            other agents.  The prompt instructs Gemini to explicitly address every
+            conflicting recommendation, maintain its domain position, and propose a
+            compromise where a conflict is blocking.
+
+        Falls back to evaluate() if Gemini is unavailable or returns
+        invalid/unparseable JSON.
+
         Parameters
         ----------
         proposal : Proposal
             The current state of the neighborhood proposal.
-        math_results : AgentOutput
-            The deterministic math-based output (score and changes).
-        opponent_outputs : dict[str, AgentOutput]
-            The deterministic outputs of all other agents.
         context : dict[str, Any]
-            Additional domain context.
-            
+            Full context dict (passed through to evaluate() fallback only).
+        data_slice : dict[str, Any]
+            The agent's own domain data (e.g. climate + land_use for ClimateAgent).
+            Gemini receives ONLY this slice, not the full context.
+        round_number : int
+            1 for an independent initial opinion; 2 for a cross-agent-aware rebuttal.
+        opponent_opinions : dict[str, AgentOpinion] | None
+            Round 1 opinions of the OTHER agents.  Required when round_number == 2;
+            ignored when round_number == 1.
+
         Returns
         -------
         AgentOpinion
-            The richly formatted opinion object.
+            The opinion derived from Gemini's recommendations, or from the
+            deterministic fallback if Gemini is unavailable or fails.
         """
-        # Fallback if no Gemini
+        mutable_params = sorted(MUTABLE_PARAMETERS)
+
+        # ── Fallback: no Gemini available ───────────────────────────────────
         if not HAS_GEMINI or not os.environ.get("GEMINI_API_KEY"):
-            return AgentOpinion(
-                agent=self.agent_name,
-                score=math_results.score,
-                recommendation=math_results.proposed_changes,
-                position=f"{self.agent_name.capitalize()} recommends modifying parameters based on deterministic math.",
-                reasoning=math_results.reasoning_and_evidence,
-                evidence=[],
-                objections=[],
-                supports=[],
-                confidence=1.0
+            return self._fallback_opinion(
+                proposal, context, reason="Gemini not configured"
             )
-            
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        
-        # Prepare context prompt
-        prompt = (
-            f"You are the {self.agent_name.capitalize()} Agent in a city planning simulation.\n"
-            f"Your deterministic brain has already decided the mathematical outcome:\n"
-            f"Score: {math_results.score}\n"
-            f"Recommendations: {math_results.proposed_changes}\n\n"
-            f"Current Proposal State:\n{proposal.model_dump_json(indent=2)}\n\n"
-            "Opponent Mathematical Outputs:\n"
+
+        # ── Build system instruction ─────────────────────────────────────────
+        system_instruction = (
+            f"You are the {self.agent_name.capitalize()} Expert in a city planning simulation. "
+            f"Your role is to evaluate a neighborhood development proposal purely from a "
+            f"{self.agent_name} perspective. "
+            "You must base your analysis ONLY on the domain data provided to you. "
+            "Do not invent data. Do not reference information not present in the inputs."
         )
-        for name, out in opponent_outputs.items():
-            if name != self.agent_name:
-                prompt += f"- {name.capitalize()}: Score {out.score}, Proposes {out.proposed_changes}\n"
-                
-        prompt += (
-            "\nYour job is to act as an Expert Witness and generate your official AgentOpinion.\n"
-            "Explain your reasoning based on your domain. Formulate objections to other agents if their "
-            "recommendations severely conflict with yours. Support other agents if their recommendations align.\n"
-            "Return a strictly valid JSON object matching this schema exactly:\n"
+
+        # ── Build user prompt ────────────────────────────────────────────────
+        user_prompt = (
+            f"## Current Proposal State\n"
+            f"{proposal.model_dump_json(indent=2)}\n\n"
+            f"## Your Domain Data ({self.agent_name.upper()})\n"
+            f"{json.dumps(data_slice, indent=2)}\n\n"
+        )
+
+        if round_number == 2 and opponent_opinions:
+            # Serialise opponent Round 1 opinions for Gemini
+            opponent_block = "\n".join(
+                f"### {name.capitalize()} Agent (Round 1)\n"
+                f"- Score: {op.score}\n"
+                f"- Position: {op.position}\n"
+                f"- Proposed changes: {json.dumps(op.recommendation)}\n"
+                f"- Reasoning: {op.reasoning}"
+                for name, op in opponent_opinions.items()
+                if name != self.agent_name
+            )
+            user_prompt += (
+                f"## Round 1 Results from Other Agents\n"
+                f"{opponent_block}\n\n"
+                f"## Your Task (Round 2 — Cross-Agent Rebuttal)\n"
+                "Round 1 results from other agents are shown above. "
+                "You MUST explicitly address any recommendation that conflicts with yours. "
+                "Maintain your domain position but propose a compromise if the conflict is blocking.\n\n"
+                f"Recommend changes to any or all of these mutable parameters:\n{mutable_params}\n\n"
+            )
+        else:
+            user_prompt += (
+                f"## Your Task (Round 1 — Independent Assessment)\n"
+                f"Based ONLY on the data above, recommend changes to any or all of these "
+                f"mutable parameters:\n{mutable_params}\n\n"
+            )
+
+        # ── Shared JSON schema instruction ────────────────────────────────────
+        user_prompt += (
+            "Return a single strictly-valid JSON object with EXACTLY these fields:\n"
             "{\n"
-            '  "agent": "string",\n'
-            '  "score": float,\n'
-            '  "recommendation": dict[string, float],\n'
-            '  "position": "string (1 sentence TLDR)",\n'
-            '  "reasoning": "string",\n'
-            '  "evidence": ["string", "string"],\n'
-            '  "objections": [{"target_agent": "string", "reason": "string"}],\n'
-            '  "supports": [{"target_agent": "string", "reason": "string"}],\n'
-            '  "confidence": float (0.0 to 1.0)\n'
-            "}\n"
-            f"IMPORTANT: The 'agent' must be '{self.agent_name}', 'score' must be {math_results.score}, and "
-            f"'recommendation' must be exactly {json.dumps(math_results.proposed_changes)}."
+            '  "score": <float 0.0–100.0, your approval score>,\n'
+            '  "verdict": <"accept" | "modify" | "reject">,\n'
+            '  "proposed_changes": <dict of param->value; empty dict {} if no changes>,\n'
+            '  "position": <string, 1-sentence TLDR of your stance>,\n'
+            '  "reasoning": <string, 2-4 sentence explanation>,\n'
+            '  "evidence": [<string>, ...],\n'
         )
-        
-        try:
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(response_mime_type="application/json")
+
+        if round_number == 2:
+            user_prompt += (
+                '  "objections": [{"target_agent": <string>, "reason": <string>}, ...],\n'
+                '    -- List every opponent recommendation you REJECT and why.\n'
+                '       Leave empty [] only if you agree with all opponents.\n'
+                '  "supports": [{"target_agent": <string>, "reason": <string>}, ...],\n'
+                '    -- List every opponent recommendation you AGREE with.\n'
+                '       Leave empty [] only if you object to everything.\n'
             )
-            data = json.loads(response.text)
-            return AgentOpinion(**data)
-        except Exception as e:
-            # Fallback on failure
+        else:
+            user_prompt += (
+                '  "objections": [],\n'
+                '  "supports": [],\n'
+            )
+
+        user_prompt += (
+            '  "confidence": <float 0.0–1.0>\n'
+            "}\n\n"
+            f"RULES:\n"
+            f"- proposed_changes keys must be from this list only: {mutable_params}\n"
+            f"- score must be between 0.0 and 100.0\n"
+            f"- verdict must be 'accept' when proposed_changes is empty, 'modify' or 'reject' otherwise\n"
+            f"- evidence must be a list of short factual strings referencing the data provided\n"
+        )
+        if round_number == 2:
+            user_prompt += (
+                "- objections and supports must each name an agent from: "
+                f"{[name for name in (opponent_opinions or {}) if name != self.agent_name]}\n"
+            )
+        user_prompt += "- Return ONLY the JSON object, no markdown fences, no extra text."
+
+        # ── Call Gemini ───────────────────────────────────────────────────────
+        try:
+            genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+            model = genai.GenerativeModel(
+                "gemini-2.5-flash",
+                system_instruction=system_instruction,
+            )
+            response = model.generate_content(
+                user_prompt,
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json"
+                ),
+            )
+            raw = response.text.strip()
+            data = json.loads(raw)
+
+            # Validate required keys
+            required = {
+                "score", "verdict", "proposed_changes",
+                "position", "reasoning", "evidence", "confidence",
+                "objections", "supports",
+            }
+            if not required.issubset(data.keys()):
+                missing = required - data.keys()
+                raise ValueError(f"Gemini response missing keys: {missing}")
+
+            # Filter proposed_changes to only known mutable parameters
+            filtered_changes = self.filter_unknown_parameters(
+                {k: float(v) for k, v in data["proposed_changes"].items()}
+            )
+
+            # Validate score and verdict
+            score = float(data["score"])
+            if not (0.0 <= score <= 100.0):
+                raise ValueError(f"Gemini returned out-of-range score: {score}")
+
+            verdict = str(data["verdict"])
+            if verdict not in ("accept", "modify", "reject"):
+                raise ValueError(f"Gemini returned invalid verdict: {verdict}")
+
+            # Parse objections / supports — tolerate both list-of-dicts and empty
+            def _parse_target_list(raw_list: Any) -> list[dict[str, str]]:
+                result = []
+                for item in raw_list or []:
+                    if isinstance(item, dict):
+                        result.append({
+                            "target_agent": str(item.get("target_agent", "")),
+                            "reason": str(item.get("reason", "")),
+                        })
+                return result
+
+            objections_raw = _parse_target_list(data.get("objections", []))
+            supports_raw = _parse_target_list(data.get("supports", []))
+
             return AgentOpinion(
                 agent=self.agent_name,
-                score=math_results.score,
-                recommendation=math_results.proposed_changes,
-                position=f"{self.agent_name.capitalize()} experienced an LLM error.",
-                reasoning=str(e),
-                evidence=[],
-                objections=[],
-                supports=[],
-                confidence=0.0
+                score=score,
+                recommendation=filtered_changes,
+                position=str(data["position"]),
+                reasoning=str(data["reasoning"]),
+                evidence=list(data.get("evidence", [])),
+                objections=objections_raw,
+                supports=supports_raw,
+                confidence=float(data.get("confidence", 0.8)),
             )
+
+        except Exception as e:
+            return self._fallback_opinion(
+                proposal, context, reason=f"Gemini call failed: {e}"
+            )
+
+    # ── Private helpers ─────────────────────────────────────────────────────
+
+    def _fallback_opinion(
+        self,
+        proposal: Proposal,
+        context: dict[str, Any],
+        *,
+        reason: str,
+    ) -> AgentOpinion:
+        """Run evaluate() deterministically and wrap its result as an AgentOpinion.
+
+        Parameters
+        ----------
+        proposal : Proposal
+            The current proposal.
+        context : dict[str, Any]
+            Full context for evaluate().
+        reason : str
+            Human-readable explanation of why the fallback was triggered.
+
+        Returns
+        -------
+        AgentOpinion
+        """
+        math_results = self.evaluate(proposal, context)
+        return AgentOpinion(
+            agent=self.agent_name,
+            score=math_results.score,
+            recommendation=math_results.proposed_changes,
+            position=(
+                f"{self.agent_name.capitalize()} using deterministic fallback. "
+                f"Reason: {reason}"
+            ),
+            reasoning=math_results.reasoning_and_evidence,
+            evidence=[],
+            objections=[],
+            supports=[],
+            confidence=0.5,
+        )
+
+    # ── Shared utilities ────────────────────────────────────────────────────
 
     def filter_unknown_parameters(self, changes: dict[str, float]) -> dict[str, float]:
         """Return a new dict containing only parameters that exist in MUTABLE_PARAMETERS.
