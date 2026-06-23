@@ -49,8 +49,8 @@ class CourtroomSession(BaseModel):
                       compromises where needed.
 
         The DebateRound records both round_1_opinions and round_2_opinions.
-        The conflict-resolution engine uses the Round 1 deterministic AgentOutputs
-        (not the LLM opinions) to determine the closing proposal state.
+        The conflict-resolution engine uses the Round 2 LLM-generated opinions
+        to determine the closing proposal state.
 
         Parameters
         ----------

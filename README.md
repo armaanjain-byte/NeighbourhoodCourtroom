@@ -24,7 +24,7 @@ Unlike a standard single-prompt LLM asking to "balance a budget," this system en
    * **Finance Agent** proposed reducing green space to 12% to stay under budget.
    * **Climate Agent** objected: *"Finance wants to cut parks to 12% to save money, but that leaves zero shade in a city where summer temperatures hit 104°F."*
 
-3. **Deterministic Conflict Resolution:** While LLM agents generate the quantitative proposals (e.g. proposing to reduce green space to 12%), the actual arbitration is handled by a deterministic mathematical conflict engine. This prevents hallucinations during conflict resolution by applying weighted means to low/medium conflicts and flagging high-severity conflicts for human review.
+3. **Hybrid Conflict Resolution:** While Round 2 LLM agents generate the quantitative proposals via explicit cross-agent rebuttal (e.g., proposing to reduce green space to 12% in response to another agent's demands), the actual arbitration of these LLM opinions is handled by a deterministic mathematical conflict engine. This prevents hallucinations during conflict resolution by applying weighted means to low/medium conflicts and flagging high-severity conflicts for human review.
 
 4. **Human override with causal chain:** You act as the judge. If you manually lock a parameter (e.g., forcing Housing Density to 35%), you don't just see a new final state. The system maps the causal chain:
    `Human locked Density at 35%` → `Finance responded: Lowered Infrastructure Bond ceiling` → `Community responded: Increased Transit Demand` → `Engine settled: Balanced equilibrium`.
@@ -55,9 +55,17 @@ Unlike a standard single-prompt LLM asking to "balance a budget," this system en
 * **RSMeans**: Construction cost estimation indexes
 * **Walk Score**: Neighborhood walkability and transit access metrics
 
+## Prerequisites
+- **Python**: Python 3.10 or higher.
+- **API Key**: A valid [Google Gemini API Key](https://aistudio.google.com/app/apikey) with access to the `gemini-2.5-flash` model.
+
 ## Run locally
 ```bash
 pip install -r requirements.txt
 export GEMINI_API_KEY=your-api-key-here
 streamlit run app.py
 ```
+
+## Security
+- **API Keys**: The `GEMINI_API_KEY` is strictly managed via environment variables (e.g., `.env`). It is never committed to the repository and never exposed to the frontend/client.
+- **Input Validation**: All proposal parameters submitted via the UI intake form are strictly validated and clamped server-side before reaching the core engine. This prevents invalid types or out-of-bounds parameters (e.g., negative housing units or percentages > 100) from bypassing UI constraints and causing engine failures.

@@ -45,8 +45,7 @@ neighborhood-courtroom/
 │   ├── base_agent.py               # Abstract base class + shared interface
 │   ├── finance_agent.py
 │   ├── climate_agent.py
-│   ├── community_agent.py
-│   └── orchestrator.py
+│   └── community_agent.py
 │
 ├── engine/
 │   ├── __init__.py
@@ -58,17 +57,7 @@ neighborhood-courtroom/
 ├── tools/
 │   ├── __init__.py
 │   ├── data_loader.py              # Local dataset query interface
-│   ├── cost_calculator.py          # Budget arithmetic
-│   ├── scorer.py                   # Multi-dimensional scoring
-│   └── diff.py                     # State diff generator
-│
-├── ui/
-│   ├── __init__.py
-│   ├── input_panel.py              # City/scenario input form
-│   ├── debate_view.py              # Live debate transcript renderer
-│   ├── proposal_view.py            # Final proposal display
-│   ├── schematic.py                # SVG site schematic generator
-│   └── charts.py                   # Budget + score breakdown charts
+│   └── cost_calculator.py          # Budget arithmetic
 │
 ├── models/
 │   ├── __init__.py
@@ -430,15 +419,15 @@ class DebateRound(BaseModel):
 
 ```python
 from abc import ABC, abstractmethod
-from anthropic import Anthropic
+from google import genai
 from models.agent_output import AgentOutput
 from models.proposal import ProposalState
 from tools.data_loader import DataLoader
 import json
 
 class BaseAgent(ABC):
-    def __init__(self, client: Anthropic, data_loader: DataLoader):
-        self.client = client
+    def __init__(self, data_loader: DataLoader):
+        self.client = genai.Client()
         self.data_loader = data_loader
         self.agent_name: str = ""
         self.mandate: str = ""
@@ -483,14 +472,13 @@ Every evidence item MUST cite an actual value from YOUR DATA CONTEXT above.
 Do not invent data. Do not cite data you were not given.
 """
 
-        response = self.client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2000,
-            system=self.build_system_prompt(),
-            messages=[{"role": "user", "content": user_message}]
+        response = self.client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=user_message,
+            config={"system_instruction": self.build_system_prompt()}
         )
 
-        raw = response.content[0].text.strip()
+        raw = response.text.strip()
         # Strip markdown fences if present
         if raw.startswith("```"):
             raw = raw.split("```")[1]
@@ -1273,32 +1261,26 @@ def render_diff_table(diff_rows: list) -> None:
 ```python
 import streamlit as st
 import asyncio
-from anthropic import Anthropic
 from tools.data_loader import DataLoader
 from tools.cost_calculator import CostCalculator
-from tools.diff import generate_diff_table
 from agents.finance_agent import FinanceAgent
 from agents.climate_agent import ClimateAgent
 from agents.community_agent import CommunityAgent
-from agents.orchestrator import Orchestrator
 from engine.debate import DebateEngine
 from engine.conflict import ConflictDetector
 from engine.state import StateManager
 from engine.override import OverrideEngine
-from ui.schematic import generate_site_schematic
-from ui.debate_view import render_debate_transcript, render_diff_table
-from ui.charts import render_budget_chart, render_score_radar
+from services.gemini_explainer import generate_judge_brief
 
 # ── Initialization ─────────────────────────────────────────────────────────────
 
 @st.cache_resource
 def get_system():
-    client = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
     loader = DataLoader()
     calc = CostCalculator(loader)
-    finance = FinanceAgent(client, loader)
-    climate = ClimateAgent(client, loader)
-    community = CommunityAgent(client, loader)
+    finance = FinanceAgent(loader)
+    climate = ClimateAgent(loader)
+    community = CommunityAgent(loader)
     conflict = ConflictDetector()
     state_mgr = StateManager(calc)
     debate = DebateEngine(finance, climate, community, conflict, state_mgr)

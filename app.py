@@ -401,19 +401,33 @@ def stage_input() -> None:
 
     # Handle the submission
     if result:
-        proposal = create_initial_proposal(
-            city_slug=result["city_slug"],
-            green_space_pct=result["green_space_pct"],
-            affordable_housing_pct=result["affordable_housing_pct"],
-            housing_units=result["housing_units"],
-            parking_spaces=result["parking_spaces"],
-            community_center_sqft=result["community_center_sqft"],
-            estimated_cost=result["total_budget"],
-        )
-        st.session_state["proposal"] = proposal
-        st.session_state["city_slug"] = result["city_slug"]
-        st.session_state["stage"] = "debating"
-        st.rerun()
+        try:
+            city_slug = str(result.get("city_slug", "")).strip()
+            if not city_slug:
+                city_slug = "phoenix_az"
+                
+            green_space_pct = max(0.0, min(100.0, float(result.get("green_space_pct", 0.0))))
+            affordable_housing_pct = max(0.0, min(100.0, float(result.get("affordable_housing_pct", 0.0))))
+            housing_units = max(0, int(result.get("housing_units", 0)))
+            parking_spaces = max(0, int(result.get("parking_spaces", 0)))
+            community_center_sqft = max(0.0, float(result.get("community_center_sqft", 0.0)))
+            total_budget = max(0.0, float(result.get("total_budget", 0.0)))
+            
+            proposal = create_initial_proposal(
+                city_slug=city_slug,
+                green_space_pct=green_space_pct,
+                affordable_housing_pct=affordable_housing_pct,
+                housing_units=housing_units,
+                parking_spaces=parking_spaces,
+                community_center_sqft=community_center_sqft,
+                estimated_cost=total_budget,
+            )
+            st.session_state["proposal"] = proposal
+            st.session_state["city_slug"] = city_slug
+            st.session_state["stage"] = "debating"
+            st.rerun()
+        except (ValueError, TypeError):
+            st.error("Invalid input parameters provided. Please check your form values.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

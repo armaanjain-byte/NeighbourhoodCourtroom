@@ -326,8 +326,13 @@ class BaseAgent(abc.ABC):
             )
 
         except Exception as e:
+            error_msg = str(e)
+            if "API key" in error_msg or "400" in error_msg or "403" in error_msg or "APIError" in type(e).__name__:
+                reason = "Invalid or missing Gemini API key. Please check your configuration."
+            else:
+                reason = f"Gemini call failed: {e}"
             return self._fallback_opinion(
-                proposal, context, reason=f"Gemini call failed: {e}"
+                proposal, context, reason=reason
             )
 
     # ── Private helpers ─────────────────────────────────────────────────────
