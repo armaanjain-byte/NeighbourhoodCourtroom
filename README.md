@@ -24,7 +24,9 @@ Unlike a standard single-prompt LLM asking to "balance a budget," this system en
    * **Finance Agent** proposed reducing green space to 12% to stay under budget.
    * **Climate Agent** objected: *"Finance wants to cut parks to 12% to save money, but that leaves zero shade in a city where summer temperatures hit 104°F."*
 
-3. **Human override with causal chain:** You act as the judge. If you manually lock a parameter (e.g., forcing Housing Density to 35%), you don't just see a new final state. The system maps the causal chain:
+3. **Deterministic Conflict Resolution:** While LLM agents generate the quantitative proposals (e.g. proposing to reduce green space to 12%), the actual arbitration is handled by a deterministic mathematical conflict engine. This prevents hallucinations during conflict resolution by applying weighted means to low/medium conflicts and flagging high-severity conflicts for human review.
+
+4. **Human override with causal chain:** You act as the judge. If you manually lock a parameter (e.g., forcing Housing Density to 35%), you don't just see a new final state. The system maps the causal chain:
    `Human locked Density at 35%` → `Finance responded: Lowered Infrastructure Bond ceiling` → `Community responded: Increased Transit Demand` → `Engine settled: Balanced equilibrium`.
 
 ## Architecture

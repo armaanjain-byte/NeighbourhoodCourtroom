@@ -119,3 +119,88 @@ class TestBaseAgentValidation:
         
         # Ensure the filtered output passes validation
         agent.validate_proposed_changes(filtered)
+
+from unittest.mock import MagicMock, patch
+
+class TestBaseAgentGenerateOpinion:
+    @patch("agents.base_agent.genai.Client")
+    def test_generate_opinion_success(self, mock_client_cls, agent: MockAgent) -> None:
+        """Test that generate_opinion parses a valid Gemini response."""
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_chat = MagicMock()
+        mock_client.chats.create.return_value = mock_chat
+        
+        mock_response = MagicMock()
+        mock_response.function_calls = []
+        mock_response.text = '''
+        {
+            "score": 90.0,
+            "verdict": "modify",
+            "proposed_changes": {"green_space_pct": 30.0},
+            "position": "Needs green space.",
+            "reasoning": "Data shows this.",
+            "evidence": ["Fact 1."],
+            "objections": [],
+            "supports": [],
+            "confidence": 0.9
+        }
+        '''
+        mock_chat.send_message.return_value = mock_response
+        
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
+            proposal = create_initial_proposal("phoenix_az")
+            opinion = agent.generate_opinion(proposal, {})
+            
+            assert opinion.score == 90.0
+            assert opinion.recommendation == {"green_space_pct": 30.0}
+            assert opinion.position == "Needs green space."
+
+    @patch("agents.base_agent.genai.Client")
+    def test_generate_opinion_function_calling(self, mock_client_cls, agent: MockAgent) -> None:
+        """Test that generate_opinion handles function calling correctly."""
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_chat = MagicMock()
+        mock_client.chats.create.return_value = mock_chat
+        
+        mock_response_1 = MagicMock()
+        mock_fc = MagicMock()
+        mock_fc.name = "get_weather"
+        mock_fc.args = {"city": "Phoenix"}
+        mock_response_1.function_calls = [mock_fc]
+        
+        mock_response_2 = MagicMock()
+        mock_response_2.function_calls = []
+        mock_response_2.text = '''
+        {
+            "score": 80.0,
+            "verdict": "accept",
+            "proposed_changes": {},
+            "position": "Position",
+            "reasoning": "Reason",
+            "evidence": [],
+            "objections": [],
+            "supports": [],
+            "confidence": 0.8
+        }
+        '''
+        mock_chat.send_message.side_effect = [mock_response_1, mock_response_2]
+        
+        # Override MockAgent for this test
+        class ToolMockAgent(MockAgent):
+            @property
+            def tool_declarations(self):
+                return [{"name": "get_weather"}]
+            def execute_tool_call(self, name, args):
+                if name == "get_weather": return {"temp": 110}
+                raise NotImplementedError()
+        
+        agent = ToolMockAgent()
+        
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
+            proposal = create_initial_proposal("phoenix_az")
+            opinion = agent.generate_opinion(proposal, {})
+            
+            assert opinion.score == 80.0
+            assert mock_chat.send_message.call_count == 2

@@ -11,8 +11,11 @@ Covers:
 
 import pytest
 
+from unittest.mock import patch
+
 from models.proposal import Proposal
 from models.agent_output import AgentOutput
+from models.agent_opinion import AgentOpinion
 from agents.base_agent import BaseAgent
 from engine.state import create_initial_proposal
 from engine.session import create_session, CourtroomSession
@@ -28,7 +31,7 @@ class MockDataLoader:
 
 class MockCostCalculator(CostCalculator):
     def __init__(self):
-        super().__init__(MockDataLoader())
+        super().__init__(MockDataLoader())  # type: ignore
     
     def calculate_estimated_cost(self, proposal: Proposal) -> float:
         return 20_000_000.0
@@ -188,3 +191,32 @@ class TestCourtroomSession:
         
         assert session.status == "COMPLETED"
         assert "green_space_pct" in verdict["unresolved_conflicts"]
+
+    @patch.object(MockAgent, 'generate_opinion')
+    def test_llm_opinions_feed_conflict_engine(self, mock_generate_opinion, initial_proposal: Proposal, cost_calculator: CostCalculator) -> None:
+        """Verify that LLM generated opinions correctly override the deterministic evaluate() fallback
+        and are consumed by the conflict resolution engine."""
+        session = create_session(initial_proposal)
+        
+        # The mock agent's deterministic evaluate() would return green_space_pct: 21.0
+        agent = MockAgent("agent1", {"green_space_pct": 21.0})
+        
+        # We mock generate_opinion to return an LLM opinion with green_space_pct: 45.0 in Round 2
+        def side_effect(proposal, context, round_number=1, opponent_opinions=None):
+            if round_number == 1:
+                return AgentOpinion(
+                    agent="agent1", score=50.0, recommendation={"green_space_pct": 30.0},
+                    position="R1", reasoning="R1", confidence=1.0
+                )
+            else:
+                return AgentOpinion(
+                    agent="agent1", score=50.0, recommendation={"green_space_pct": 45.0},
+                    position="R2", reasoning="R2", confidence=1.0
+                )
+        mock_generate_opinion.side_effect = side_effect
+        
+        session.run_round([agent], {}, cost_calculator)
+        
+        # Since the LLM proposed 45.0 in Round 2, and there are no opponents, 
+        # it should auto-resolve to 45.0, NOT the deterministic 21.0.
+        assert session.get_current_state().green_space_pct == 45.0

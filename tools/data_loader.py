@@ -81,7 +81,7 @@ class DataLoader:
                     "soft_cost_multiplier": data.get("soft_cost_multiplier", 1.0),
                     "contingency_multiplier": data.get("contingency_multiplier", 1.0),
                 }
-            raise CityNotFoundError(f"City '{city_name}' not found in {filename}")
+            raise DatasetLoadError(f"Malformed structure in {filename}")
         
         if city_name not in data:
             raise CityNotFoundError(f"City '{city_name}' not found in {filename}")

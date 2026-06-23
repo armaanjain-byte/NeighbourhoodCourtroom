@@ -10,7 +10,8 @@ Dependencies:
     models.debate_round.DebateRound, engine.conflict, engine.state
 
 Design:
-    Fully deterministic orchestration. No LLM logic.
+    The LLM agents produce the proposed changes via `AgentOutput`, and this module
+    deterministically arbitrates the conflicts between them.
 """
 
 from __future__ import annotations

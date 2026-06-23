@@ -15,7 +15,8 @@ import pytest
 
 from models.proposal import Proposal
 from models.agent_output import AgentOutput
-from engine.state import create_initial_proposal, apply_human_override
+from engine.state import create_initial_proposal
+from engine.override import apply_human_override
 from engine.debate import run_debate_round
 from tools.cost_calculator import CostCalculator
 
@@ -25,7 +26,7 @@ class MockDataLoader:
 
 class MockCostCalculator(CostCalculator):
     def __init__(self):
-        super().__init__(MockDataLoader())
+        super().__init__(MockDataLoader())  # type: ignore
     
     def calculate_estimated_cost(self, proposal: Proposal) -> float:
         # Simple linear formula for testing
@@ -244,3 +245,30 @@ class TestRunDebateRound:
         log_params = {entry["parameter"] for entry in updated.change_log}
         assert log_params == {"housing_units", "community_center_sqft", "estimated_cost"}
         # green_space_pct was 20.0 and proposed 20.0, so it's a no-op and skipped
+
+    def test_llm_derived_outputs_trigger_conflict(self, base_proposal: Proposal) -> None:
+        """Verify that LLM-derived outputs (created from AgentOpinion) are properly processed."""
+        # Simulated llm_agent_outputs from Session.run_round
+        outputs = {
+            "finance": AgentOutput(
+                agent_name="finance",
+                score=30.0,
+                verdict="modify",
+                proposed_changes={"green_space_pct": 10.0},
+                reasoning_and_evidence="LLM reasoning"
+            ),
+            "climate": AgentOutput(
+                agent_name="climate",
+                score=40.0,
+                verdict="modify",
+                proposed_changes={"green_space_pct": 90.0},
+                reasoning_and_evidence="LLM reasoning"
+            )
+        }
+        
+        round_record, updated = run_debate_round(base_proposal, outputs)
+        
+        assert len(round_record.detected_conflicts) == 1
+        assert round_record.detected_conflicts[0].disagreement_severity == "high"
+        # Not auto-resolved
+        assert updated.green_space_pct == 20.0

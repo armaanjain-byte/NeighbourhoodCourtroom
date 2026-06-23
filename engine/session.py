@@ -73,11 +73,7 @@ class CourtroomSession(BaseModel):
         self.status = "IN_PROGRESS"
         debate_round_number = len(self.debate_rounds) + 1
 
-        # ── Phase 1: Deterministic math outputs (used by conflict engine) ────
-        agent_outputs: dict[str, AgentOutput] = {}
-        for agent in agents:
-            output = agent.evaluate(self.current_proposal, context)
-            agent_outputs[agent.agent_name] = output
+
 
         # ── Phase A: Round 1 opinions (independent, domain-scoped) ──────────
         round_1_opinions: dict[str, AgentOpinion] = {}
@@ -153,10 +149,21 @@ class CourtroomSession(BaseModel):
                     content=sup.reason
                 ))
 
+        # ── LLM-derived Phase (Replaces deterministic Phase 1 inputs) ────────
+        llm_agent_outputs: dict[str, AgentOutput] = {}
+        for agent_name, opinion in round_2_opinions.items():
+            llm_agent_outputs[agent_name] = AgentOutput(
+                agent_name=agent_name,
+                score=opinion.score,
+                verdict="modify" if opinion.recommendation else "accept",
+                proposed_changes=opinion.recommendation,
+                reasoning_and_evidence=opinion.reasoning
+            )
+
         # ── Debate orchestration (deterministic conflict resolution) ─────────
         debate_round, updated_proposal = run_debate_round(
             self.current_proposal,
-            agent_outputs,
+            llm_agent_outputs,
             round_number=debate_round_number,
             cost_calculator=cost_calculator
         )

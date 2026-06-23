@@ -14,24 +14,39 @@ from typing import Any
 
 from models.proposal import Proposal
 from engine.history import AuditHistory
+from engine.session import CourtroomSession
 
 try:
-    import google.generativeai as genai
+    from google import genai
     HAS_GEMINI = True
 except ImportError:
     HAS_GEMINI = False
 
 logger = logging.getLogger(__name__)
 
-def generate_judge_brief(history: AuditHistory, final_proposal: Proposal) -> str:
+def build_audit_from_session(session: CourtroomSession) -> AuditHistory:
+    audit = AuditHistory()
+    for rnd in session.debate_rounds:
+        for agent_name, output in rnd.agent_outputs.items():
+            for param, val in output.proposed_changes.items():
+                audit.record_decision(rnd.round_number, agent_name, param, val)
+        for conflict in rnd.detected_conflicts:
+            audit.record_conflict(rnd.round_number, conflict)
+            if conflict.disagreement_severity == "high":
+                audit.record_resolution(rnd.round_number, conflict.parameter, "human review required")
+            else:
+                audit.record_resolution(rnd.round_number, conflict.parameter, "auto-resolved", getattr(rnd.closing_state, conflict.parameter))
+    for ov in session.override_history:
+        audit.record_override(ov["round_number"], ov["parameter"], ov["value"])
+    return audit
+
+def generate_judge_brief(session: CourtroomSession) -> str:
     """Generate a narrative summary of the debate using Gemini.
 
     Parameters
     ----------
-    history : AuditHistory
-        The full audit trail of the courtroom session.
-    final_proposal : Proposal
-        The current or final state of the neighborhood proposal.
+    session : CourtroomSession
+        The courtroom session containing the full debate history.
 
     Returns
     -------
@@ -41,14 +56,16 @@ def generate_judge_brief(history: AuditHistory, final_proposal: Proposal) -> str
     if not HAS_GEMINI:
         return "Gemini API is unavailable. Please install `google-generativeai` to enable automated judge briefs."
 
+    history = build_audit_from_session(session)
+    final_proposal = session.current_proposal
+
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return "Gemini API key not found. Please set the GEMINI_API_KEY environment variable."
 
     try:
-        genai.configure(api_key=api_key)
+        client = genai.Client(api_key=api_key)
         # Using a deterministic model as much as possible, though Gemini has inherent variance
-        model = genai.GenerativeModel("gemini-2.5-flash")
         
         # Construct the prompt
         prompt = (
@@ -71,7 +88,10 @@ def generate_judge_brief(history: AuditHistory, final_proposal: Proposal) -> str
             if "Unresolved or unknown" not in explanation:
                 prompt += f"### Parameter: {param}\n{explanation}\n\n"
         
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         logger.error(f"Gemini API generation failed: {e}")

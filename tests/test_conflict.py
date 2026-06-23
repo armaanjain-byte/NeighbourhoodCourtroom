@@ -354,7 +354,7 @@ class TestResolveConflicts:
         assert resolution["human_review_params"] == ["green_space_pct"]
 
     def test_human_locked_parameter(self, proposal):
-        from engine.state import apply_human_override
+        from engine.override import apply_human_override
         locked_proposal = apply_human_override(proposal, "green_space_pct", 30.0)
         
         outputs = {

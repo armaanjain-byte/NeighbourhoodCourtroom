@@ -34,7 +34,8 @@ from engine.state import MUTABLE_PARAMETERS
 import os
 import json
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
     HAS_GEMINI = True
 except ImportError:
     HAS_GEMINI = False
@@ -219,16 +220,15 @@ class BaseAgent(abc.ABC):
 
         # ── Call Gemini ───────────────────────────────────────────────────────
         try:
-            genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-            
-            tools = self.tool_declarations if self.tool_declarations else None
-            model = genai.GenerativeModel(
-                "gemini-2.5-flash",
-                system_instruction=system_instruction,
-                tools=tools,
+            client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+            tools = [{"function_declarations": self.tool_declarations}] if self.tool_declarations else None
+            chat = client.chats.create(
+                model="gemini-2.5-flash",
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    tools=tools,
+                )
             )
-            
-            chat = model.start_chat()
             
             def _send_with_retry(msg):
                 import time
@@ -247,10 +247,9 @@ class BaseAgent(abc.ABC):
             
             turn_limit = 5
             for _ in range(turn_limit):
-                function_calls = [p.function_call for p in response.parts if getattr(p, 'function_call', None) and getattr(p.function_call, 'name', None)]
-                if function_calls:
+                if response.function_calls:
                     part_dicts = []
-                    for function_call in function_calls:
+                    for function_call in response.function_calls:
                         name = function_call.name
                         args = {k: v for k, v in function_call.args.items()}
                         try:
@@ -260,12 +259,12 @@ class BaseAgent(abc.ABC):
                         except Exception as e:
                             result = {"error": str(e)}
                             
-                        part_dicts.append({
-                            "function_response": {
-                                "name": name,
-                                "response": result
-                            }
-                        })
+                        part_dicts.append(
+                            types.Part.from_function_response(
+                                name=name,
+                                response=result
+                            )
+                        )
                     
                     response = _send_with_retry(part_dicts)
                 else:

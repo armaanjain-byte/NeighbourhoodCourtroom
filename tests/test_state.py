@@ -22,9 +22,8 @@ from engine.state import (
     create_initial_proposal,
     clone_proposal,
     apply_changes,
-    apply_human_override,
-    calculate_change_summary,
 )
+from engine.override import apply_human_override, calculate_change_summary
 from tools.cost_calculator import CostCalculator
 
 

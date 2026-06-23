@@ -580,10 +580,23 @@ def stage_result(is_override: bool = False) -> None:
             '<div class="section-header">Final Proposal Parameters</div>',
             unsafe_allow_html=True,
         )
-        with st.container():
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            render_proposal_table(session)
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        render_proposal_table(session)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown(
+            '<div class="section-header">🤖 AI Judge Brief</div>',
+            unsafe_allow_html=True,
+        )
+        if st.session_state.get("judge_brief"):
+            st.markdown(f'<div class="card">\n\n{st.session_state.judge_brief}\n\n</div>', unsafe_allow_html=True)
+        else:
+            if st.button("Generate Judge Brief (Gemini)"):
+                from services.gemini_explainer import generate_judge_brief
+                with st.spinner("Analyzing debate history..."):
+                    brief = generate_judge_brief(session)
+                    st.session_state.judge_brief = brief
+                st.rerun()
 
     # ── Override panel ────────────────────────────────────────────────────
     st.markdown('<div class="flex items-center justify-between border-b border-gray-300 pb-2 mb-4"><h2 class="font-bold text-2xl text-gray-900">Your Ruling 🔨</h2></div>', unsafe_allow_html=True)
@@ -618,12 +631,13 @@ def stage_result(is_override: bool = False) -> None:
             st.session_state["pre_override_session"] = session
             st.session_state["session"] = new_session
             st.session_state["stage"] = "override_result"
+            st.session_state["judge_brief"] = None
             st.rerun()
 
     # ── Reset ─────────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🔄 Start New Case", key="reset"):
-        for key in ["proposal", "session", "error", "pre_override_session", "locked_param", "locked_value"]:
+        for key in ["proposal", "session", "error", "pre_override_session", "locked_param", "locked_value", "judge_brief"]:
             if key in st.session_state:
                 st.session_state[key] = None
         st.session_state["stage"] = "input"
