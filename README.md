@@ -66,6 +66,10 @@ export GEMINI_API_KEY=your-api-key-here
 streamlit run app.py
 ```
 
+## Running tests
+To verify the entire test suite cleanly without external API calls, run: `python3 -m pytest`
+
+
 ## Security
 - **API Keys**: The `GEMINI_API_KEY` is strictly managed via environment variables (e.g., `.env`). It is never committed to the repository and never exposed to the frontend/client.
 - **Input Validation**: All proposal parameters submitted via the UI intake form are strictly validated and clamped server-side before reaching the core engine. This prevents invalid types or out-of-bounds parameters (e.g., negative housing units or percentages > 100) from bypassing UI constraints and causing engine failures.

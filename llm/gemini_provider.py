@@ -45,11 +45,6 @@ class GeminiProvider(LLMProvider):
         tool_executor: Callable[[str, dict], Any] | None = None,
         required_keys: set[str] | None = None,
     ) -> dict:
-        logger.info("DEBUG: Calling GeminiProvider.generate_structured (confirming llm/ abstraction call path)")
-        if os.environ.get("DEBUG_SIMULATE_RATE_LIMIT") == "1":
-            logger.warning("DEBUG_SIMULATE_RATE_LIMIT is set. Simulating LLMRateLimitError.")
-            raise LLMRateLimitError("Simulated 429 Rate Limit Exceeded for testing.")
-
         if not HAS_GEMINI:
             raise LLMProviderError("google-genai package is not installed")
 

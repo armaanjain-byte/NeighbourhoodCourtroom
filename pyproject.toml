@@ -4,6 +4,10 @@ addopts = "-ra -q --cov=."
 testpaths = [
     "tests",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning:google.genai.*",
+    "ignore::DeprecationWarning:pydantic.*",
+]
 
 [tool.ruff]
 line-length = 88
