@@ -121,20 +121,13 @@ class TestBaseAgentValidation:
         agent.validate_proposed_changes(filtered)
 
 from unittest.mock import MagicMock, patch
+from llm.base import LLMProvider
 
 class TestBaseAgentGenerateOpinion:
-    @patch("agents.base_agent.genai.Client")
-    def test_generate_opinion_success(self, mock_client_cls, agent: MockAgent) -> None:
-        """Test that generate_opinion parses a valid Gemini response."""
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_client.chats.create.return_value = mock_chat
-        
-        mock_response = MagicMock()
-        mock_response.function_calls = []
-        mock_response.text = '''
-        {
+    def test_generate_opinion_success(self, agent: MockAgent) -> None:
+        """Test that generate_opinion parses a valid LLM response."""
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate_structured.return_value = {
             "score": 90.0,
             "verdict": "modify",
             "proposed_changes": {"green_space_pct": 30.0},
@@ -143,50 +136,20 @@ class TestBaseAgentGenerateOpinion:
             "evidence": ["Fact 1."],
             "objections": [],
             "supports": [],
-            "confidence": 0.9
+            "confidence": 0.9,
+            "text": "{...}"
         }
-        '''
-        mock_chat.send_message.return_value = mock_response
+        agent.llm_provider = mock_provider
         
-        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
-            proposal = create_initial_proposal("phoenix_az")
-            opinion = agent.generate_opinion(proposal, {})
-            
-            assert opinion.score == 90.0
-            assert opinion.recommendation == {"green_space_pct": 30.0}
-            assert opinion.position == "Needs green space."
+        proposal = create_initial_proposal("phoenix_az")
+        opinion = agent.generate_opinion(proposal, {})
+        
+        assert opinion.score == 90.0
+        assert opinion.recommendation == {"green_space_pct": 30.0}
+        assert opinion.position == "Needs green space."
 
-    @patch("agents.base_agent.genai.Client")
-    def test_generate_opinion_function_calling(self, mock_client_cls, agent: MockAgent) -> None:
-        """Test that generate_opinion handles function calling correctly."""
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_client.chats.create.return_value = mock_chat
-        
-        mock_response_1 = MagicMock()
-        mock_fc = MagicMock()
-        mock_fc.name = "get_weather"
-        mock_fc.args = {"city": "Phoenix"}
-        mock_response_1.function_calls = [mock_fc]
-        
-        mock_response_2 = MagicMock()
-        mock_response_2.function_calls = []
-        mock_response_2.text = '''
-        {
-            "score": 80.0,
-            "verdict": "accept",
-            "proposed_changes": {},
-            "position": "Position",
-            "reasoning": "Reason",
-            "evidence": [],
-            "objections": [],
-            "supports": [],
-            "confidence": 0.8
-        }
-        '''
-        mock_chat.send_message.side_effect = [mock_response_1, mock_response_2]
-        
+    def test_generate_opinion_function_calling(self) -> None:
+        """Test that generate_opinion passes tool declarations and executor correctly."""
         # Override MockAgent for this test
         class ToolMockAgent(MockAgent):
             @property
@@ -197,10 +160,30 @@ class TestBaseAgentGenerateOpinion:
                 raise NotImplementedError()
         
         agent = ToolMockAgent()
+        mock_provider = MagicMock(spec=LLMProvider)
         
-        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
-            proposal = create_initial_proposal("phoenix_az")
-            opinion = agent.generate_opinion(proposal, {})
+        def fake_generate_structured(system_instruction, user_prompt, tool_declarations, tool_executor, required_keys=None):
+            # Simulate executing a tool call
+            res = tool_executor("get_weather", {"city": "Phoenix"})
+            assert res == {"temp": 110}
+            return {
+                "score": 80.0,
+                "verdict": "accept",
+                "proposed_changes": {},
+                "position": "Position",
+                "reasoning": "Reason",
+                "evidence": [],
+                "objections": [],
+                "supports": [],
+                "confidence": 0.8,
+                "text": "{...}"
+            }
             
-            assert opinion.score == 80.0
-            assert mock_chat.send_message.call_count == 2
+        mock_provider.generate_structured.side_effect = fake_generate_structured
+        agent.llm_provider = mock_provider
+        
+        proposal = create_initial_proposal("phoenix_az")
+        opinion = agent.generate_opinion(proposal, {})
+        
+        assert opinion.score == 80.0
+        assert mock_provider.generate_structured.call_count == 1

@@ -2,6 +2,8 @@ streamlit
 pydantic>=2.0.0
 plotly
 google-genai
+# groq
+# openai
 pytest
 pytest-cov
 ruff

@@ -24,6 +24,7 @@ Dependencies:
 """
 
 import abc
+import logging
 from typing import Any
 
 from models.proposal import Proposal
@@ -33,12 +34,17 @@ from engine.state import MUTABLE_PARAMETERS
 
 import os
 import json
-try:
-    from google import genai
-    from google.genai import types
-    HAS_GEMINI = True
-except ImportError:
-    HAS_GEMINI = False
+from llm.base import (
+    LLMProvider,
+    LLMProviderError,
+    LLMAuthError,
+    LLMRateLimitError,
+    LLMTransientError,
+    LLMInvalidResponseError,
+)
+from llm.budget import is_budget_exhausted
+
+logger = logging.getLogger(__name__)
 
 
 class AgentValidationError(ValueError):
@@ -53,6 +59,18 @@ class AgentExecutionError(RuntimeError):
 
 class BaseAgent(abc.ABC):
     """Abstract Base Class for all Neighborhood Courtroom agents."""
+
+    @property
+    def llm_provider(self) -> LLMProvider:
+        """The configured LLMProvider instance."""
+        if not hasattr(self, "_llm_provider") or self._llm_provider is None:
+            from llm.provider_factory import get_provider
+            self._llm_provider = get_provider()
+        return self._llm_provider
+
+    @llm_provider.setter
+    def llm_provider(self, provider: LLMProvider) -> None:
+        self._llm_provider = provider
 
     @property
     @abc.abstractmethod
@@ -123,10 +141,14 @@ class BaseAgent(abc.ABC):
         """
         mutable_params = sorted(MUTABLE_PARAMETERS)
 
-        # ── Fallback: no Gemini available ───────────────────────────────────
-        if not HAS_GEMINI or not os.environ.get("GEMINI_API_KEY"):
+        # ── Check Daily Budget ────────────────────────────────────────────────
+        if is_budget_exhausted():
+            logger.warning(
+                f"Agent '{self.agent_name}' skipping LLM call due to exhausted daily budget. "
+                "Triggering deterministic fallback."
+            )
             return self._fallback_opinion(
-                proposal, context, reason="Gemini not configured"
+                proposal, context, reason="Daily budget exhausted"
             )
 
         # ── Build system instruction ─────────────────────────────────────────
@@ -218,72 +240,25 @@ class BaseAgent(abc.ABC):
             )
         user_prompt += "- Return ONLY the JSON object, no markdown fences, no extra text."
 
-        # ── Call Gemini ───────────────────────────────────────────────────────
+        # ── Call LLM Provider ─────────────────────────────────────────────────
         try:
-            client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-            tools = [{"function_declarations": self.tool_declarations}] if self.tool_declarations else None
-            chat = client.chats.create(
-                model="gemini-2.5-flash",
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    tools=tools,
-                )
-            )
-            
-            def _send_with_retry(msg):
-                import time
-                max_retries = 3
-                for attempt in range(max_retries):
-                    try:
-                        return chat.send_message(msg)
-                    except Exception as e:
-                        if "429" in str(e) or "ResourceExhausted" in type(e).__name__:
-                            if attempt < max_retries - 1:
-                                time.sleep(15)
-                                continue
-                        raise e
-                        
-            response = _send_with_retry(user_prompt)
-            
-            turn_limit = 5
-            for _ in range(turn_limit):
-                if response.function_calls:
-                    part_dicts = []
-                    for function_call in response.function_calls:
-                        name = function_call.name
-                        args = {k: v for k, v in function_call.args.items()}
-                        try:
-                            result = self.execute_tool_call(name, args)
-                            if not isinstance(result, dict):
-                                result = {"result": result}
-                        except Exception as e:
-                            result = {"error": str(e)}
-                            
-                        part_dicts.append(
-                            types.Part.from_function_response(
-                                name=name,
-                                response=result
-                            )
-                        )
-                    
-                    response = _send_with_retry(part_dicts)
-                else:
-                    break
-            else:
-                raise AgentExecutionError("Turn limit exceeded. Agent got stuck in a function calling loop.")
-
-            raw = response.text.strip()
-            data = json.loads(raw)
-
-            # Validate required keys
             required = {
                 "score", "verdict", "proposed_changes",
                 "position", "reasoning", "evidence", "confidence",
                 "objections", "supports",
             }
+            data = self.llm_provider.generate_structured(
+                system_instruction=system_instruction,
+                user_prompt=user_prompt,
+                tool_declarations=self.tool_declarations or None,
+                tool_executor=self.execute_tool_call,
+                required_keys=required,
+            )
+
+            # Validate required keys (redundant check in case provider didn't validate)
             if not required.issubset(data.keys()):
                 missing = required - data.keys()
-                raise ValueError(f"Gemini response missing keys: {missing}")
+                raise LLMInvalidResponseError(f"LLM response missing keys: {missing}")
 
             # Filter proposed_changes to only known mutable parameters
             filtered_changes = self.filter_unknown_parameters(
@@ -293,11 +268,11 @@ class BaseAgent(abc.ABC):
             # Validate score and verdict
             score = float(data["score"])
             if not (0.0 <= score <= 100.0):
-                raise ValueError(f"Gemini returned out-of-range score: {score}")
+                raise ValueError(f"LLM returned out-of-range score: {score}")
 
             verdict = str(data["verdict"])
             if verdict not in ("accept", "modify", "reject"):
-                raise ValueError(f"Gemini returned invalid verdict: {verdict}")
+                raise ValueError(f"LLM returned invalid verdict: {verdict}")
 
             # Parse objections / supports — tolerate both list-of-dicts and empty
             def _parse_target_list(raw_list: Any) -> list[dict[str, str]]:
@@ -327,8 +302,21 @@ class BaseAgent(abc.ABC):
 
         except Exception as e:
             error_msg = str(e)
-            if "API key" in error_msg or "400" in error_msg or "403" in error_msg or "APIError" in type(e).__name__:
+            err_type = type(e).__name__
+            logger.error(
+                f"Agent '{self.agent_name}' LLM generation failed with {err_type}: {e}. "
+                "Triggering deterministic fallback."
+            )
+            if "Gemini not configured" in error_msg:
+                reason = "Gemini not configured"
+            elif isinstance(e, LLMAuthError) or "API key" in error_msg or "400" in error_msg or "403" in error_msg or "APIError" in err_type:
                 reason = "Invalid or missing Gemini API key. Please check your configuration."
+            elif isinstance(e, LLMRateLimitError):
+                reason = f"Rate limit or daily quota exhausted: {e}"
+            elif isinstance(e, LLMTransientError):
+                reason = f"Transient network/server error: {e}"
+            elif isinstance(e, LLMInvalidResponseError):
+                reason = f"Invalid model response: {e}"
             else:
                 reason = f"Gemini call failed: {e}"
             return self._fallback_opinion(

@@ -487,6 +487,15 @@ def stage_result(is_override: bool = False) -> None:
         unsafe_allow_html=True,
     )
 
+    # Check if deterministic fallback was used in any round
+    has_fallback = any(
+        any("deterministic fallback" in op.position for op in list(rnd.round_1_opinions.values()) + list(rnd.round_2_opinions.values()))
+        for rnd in session.debate_rounds
+    )
+    if has_fallback:
+        st.info("ℹ️ AI-generated reasoning was unavailable for this debate round. The simulation completed successfully using the robust deterministic fallback engine.")
+
+
     # Helper to get scores
     def _get_score(sess: CourtroomSession, name: str) -> float:
         if not sess.debate_rounds: return 0.0
