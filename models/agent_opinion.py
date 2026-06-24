@@ -9,6 +9,7 @@ class AgentOpinion(BaseModel):
     agent: str
     score: float
     recommendation: dict[str, float]
+    tension: str
     position: str
     reasoning: str
     evidence: list[str] = Field(default_factory=list)

@@ -83,10 +83,9 @@ To verify the entire test suite cleanly without external API calls, run: `python
 
 ## Course Concepts Demonstrated
 
-This project explicitly demonstrates four of the core course concepts across its code and interactive demo:
+This project explicitly demonstrates three of the core course concepts across its code and interactive demo:
 
 1. **Agent / Multi-agent system (Code & Video)**: Demonstrates a comprehensive multi-agent system featuring three specialized AI agents (`FinanceAgent`, `ClimateAgent`, `CommunityAgent` in `agents/`) with distinct data partitioning, personality archetypes, and risk tolerances. They debate and negotiate urban planning trade-offs across adaptive rounds orchestrated by `CourtroomSession` (`engine/session.py`). *(Note: This project implements a custom multi-agent system and does not use Google's ADK framework).*
 2. **Security features (Code)**: See the **Security** section above. Demonstrated via two-layer input validation/clamping in `app.py`, Pydantic validation on assignment (`models/proposal.py`), out-of-bounds recovery in `engine/state.py`, and strict environment variable API key isolation.
 3. **Deployability (Code & Video)**: See `DEPLOYMENT.md` and the submission video. Demonstrated via stable version pinning in `requirements.txt`, container-friendly static Streamlit custom components (`ui_component_dir/`), dynamic relative file path resolution, an example secrets template (`.streamlit/secrets.toml.example`), and public demo quota safeguards (`LLM_DAILY_BUDGET`).
-4. **Agent skills (Code)**: Demonstrated via agent function calling and tool usage. Agents utilize custom tools (`CostCalculator` in `tools/cost_calculator.py` and `DataLoader` in `tools/data_loader.py`) via the LLM provider abstraction (`llm/gemini_provider.py`) to actively fetch real-world demographic, climate, walkability, and construction cost data during the debate rounds.
 

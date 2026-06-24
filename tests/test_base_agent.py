@@ -140,6 +140,7 @@ class TestBaseAgentGenerateOpinion:
             "score": 90.0,
             "verdict": "modify",
             "proposed_changes": {"green_space_pct": 30.0},
+            "tension": "Mock tension statement.",
             "position": "Needs green space.",
             "reasoning": "Data shows this.",
             "evidence": ["Fact 1."],
@@ -155,7 +156,36 @@ class TestBaseAgentGenerateOpinion:
         
         assert opinion.score == 90.0
         assert opinion.recommendation == {"green_space_pct": 30.0}
+        assert opinion.tension == "Mock tension statement."
         assert opinion.position == "Needs green space."
+
+    def test_missing_tension_field_triggers_fallback(self, agent: MockAgent) -> None:
+        """Test that a mocked LLM response missing the required tension field triggers deterministic fallback."""
+        mock_provider = MagicMock(spec=LLMProvider)
+        # Omit 'tension' from the response dictionary
+        mock_provider.generate_structured.return_value = {
+            "score": 90.0,
+            "verdict": "modify",
+            "proposed_changes": {"green_space_pct": 30.0},
+            "position": "Needs green space.",
+            "reasoning": "Data shows this.",
+            "evidence": ["Fact 1."],
+            "objections": [],
+            "supports": [],
+            "confidence": 0.9,
+            "text": "{...}"
+        }
+        agent.llm_provider = mock_provider
+        
+        # We need evaluate() to return a valid AgentOutput for the fallback path
+        with patch.object(agent, 'evaluate') as mock_eval:
+            mock_eval.return_value = agent.build_output(score=50.0, verdict="modify", changes={"green_space_pct": 21.0}, reasoning="Fallback")
+            proposal = create_initial_proposal("phoenix_az")
+            opinion = agent.generate_opinion(proposal, {})
+            
+            # Verify fallback was triggered
+            assert "using deterministic fallback" in opinion.position
+            assert opinion.score == 50.0
 
     def test_generate_opinion_function_calling(self) -> None:
         """Test that generate_opinion passes tool declarations and executor correctly."""
@@ -179,6 +209,7 @@ class TestBaseAgentGenerateOpinion:
                 "score": 80.0,
                 "verdict": "accept",
                 "proposed_changes": {},
+                "tension": "Mock tension statement.",
                 "position": "Position",
                 "reasoning": "Reason",
                 "evidence": [],
@@ -209,6 +240,7 @@ class TestBaseAgentGenerateOpinion:
             "score": 90.0,
             "verdict": "modify",
             "proposed_changes": {"green_space_pct": 30.0},
+            "tension": "Mock tension statement.",
             "position": "Needs green space.",
             "reasoning": "Data shows this.",
             "evidence": [

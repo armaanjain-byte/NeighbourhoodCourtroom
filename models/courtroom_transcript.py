@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 class TranscriptEntry(BaseModel):
     round_number: int
     agent: str
-    statement_type: Literal["position", "evidence", "objection", "support"]
+    statement_type: Literal["tension", "position", "evidence", "objection", "support"]
     target_agent: Optional[str] = None
     content: str
     is_grounding_warning: bool = False

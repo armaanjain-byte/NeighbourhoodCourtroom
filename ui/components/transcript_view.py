@@ -49,6 +49,10 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
     html = f'''
     <div class="bg-surface-container-lowest border {border_class} p-6 rounded-lg relative mb-6 shadow-sm" id="{card_id}">
         <span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{phase_label}</span>
+        <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 italic">
+            <span class="font-semibold text-slate-900 not-italic block mb-1">⚖️ Weighing counter-consideration:</span>
+            "{op.tension}"
+        </div>
         <p class="font-bold text-body-lg mb-4">{op.position}</p>
         {callouts}
         <details class="group">

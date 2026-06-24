@@ -229,8 +229,9 @@ class BaseAgent(abc.ABC):
             '  "score": <float 0.0–100.0, your approval score>,\n'
             '  "verdict": <"accept" | "modify" | "reject">,\n'
             '  "proposed_changes": <dict of param->value; empty dict {} if no changes>,\n'
+            '  "tension": <string, 1-2 sentences. Before giving your position, state the single strongest reason someone might disagree with your domain\'s typical stance on this proposal — a real consideration, not a strawman. Then explain specifically why it doesn\'t change your conclusion (or, if it\'s strong enough that it SHOULD change your conclusion, say so).>,\n'
             '  "position": <string, 1-sentence TLDR of your stance>,\n'
-            '  "reasoning": <string, 2-4 sentence explanation>,\n'
+            '  "reasoning": <string, 2-4 sentence explanation. MUST explicitly reference the tension you just identified and explain how your final position accounts for or overrides it — do not ignore the tension you raised.>,\n'
             '  "evidence": [<string>, ...],\n'
         )
 
@@ -256,8 +257,9 @@ class BaseAgent(abc.ABC):
             f"- proposed_changes keys must be from this list only: {mutable_params}\n"
             f"- score must be between 0.0 and 100.0\n"
             f"- verdict must be 'accept' when proposed_changes is empty, 'modify' or 'reject' otherwise\n"
+            f"- The tension field (1-2 sentences) MUST state: Before giving your position, state the single strongest reason someone might disagree with your domain's typical stance on this proposal — a real consideration, not a strawman. Then explain specifically why it doesn't change your conclusion (or, if it's strong enough that it SHOULD change your conclusion, say so).\n"
             f"- The position field (1-sentence TLDR) MUST be written for a neighbourhood resident, not a planner. It MUST embody your distinct personality archetype, specific concerns, and vocabulary. No parameter names or raw percentages. (e.g. 'This development leaves almost no room for parks...' instead of 'green_space_pct is insufficient at 20%').\n"
-            f"- The reasoning field (2-4 sentences max) MUST reflect your personality archetype's specific concerns and vocabulary, strictly adhering to this structure: (1) What I found in my data, (2) Why it matters for real people, (3) What I'm proposing to change and why it fixes it.\n"
+            f"- The reasoning field (2-4 sentences max) MUST reflect your personality archetype's specific concerns and vocabulary, strictly adhering to this structure: (1) What I found in my data, (2) Why it matters for real people, (3) What I'm proposing to change and why it fixes it. reasoning (2-4 sentences) MUST explicitly reference the tension you just identified and explain how your final position accounts for or overrides it — do not ignore the tension you raised.\n"
             f"- evidence items MUST be one-sentence facts with real numbers, written in plain English (e.g. 'Phoenix already runs 7°F hotter...' instead of 'heat_island_risk: 5').\n"
         )
         if round_number in (2, 3):
@@ -273,7 +275,7 @@ class BaseAgent(abc.ABC):
         try:
             required = {
                 "score", "verdict", "proposed_changes",
-                "position", "reasoning", "evidence", "confidence",
+                "tension", "position", "reasoning", "evidence", "confidence",
                 "objections", "supports",
             }
             data = self.llm_provider.generate_structured(
@@ -339,6 +341,7 @@ class BaseAgent(abc.ABC):
                 agent=self.agent_name,
                 score=score,
                 recommendation=filtered_changes,
+                tension=str(data["tension"]),
                 position=str(data["position"]),
                 reasoning=str(data["reasoning"]),
                 evidence=evidence_list,
@@ -451,6 +454,7 @@ class BaseAgent(abc.ABC):
             agent=self.agent_name,
             score=math_results.score,
             recommendation=math_results.proposed_changes,
+            tension="Considered alternative viewpoints, but fell back to deterministic mathematical modeling due to execution constraints.",
             position=(
                 f"{self.agent_name.capitalize()} using deterministic fallback. "
                 f"Reason: {reason}"

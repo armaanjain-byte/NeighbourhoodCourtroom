@@ -215,12 +215,12 @@ class TestCourtroomSession:
             if round_number == 1:
                 return AgentOpinion(
                     agent="agent1", score=50.0, recommendation={"green_space_pct": 30.0},
-                    position="R1", reasoning="R1", confidence=1.0
+                    tension="Mock tension.", position="R1", reasoning="R1", confidence=1.0
                 )
             else:
                 return AgentOpinion(
                     agent="agent1", score=50.0, recommendation={"green_space_pct": 45.0},
-                    position="R2", reasoning="R2", confidence=1.0
+                    tension="Mock tension.", position="R2", reasoning="R2", confidence=1.0
                 )
         mock_generate_opinion.side_effect = side_effect
         
@@ -249,15 +249,15 @@ class TestCourtroomSession:
         # To cleanly differentiate agent1 and agent2, let's patch their bound methods directly
         def gen_op_1(proposal, context, round_number=1, opponent_opinions=None):
             if round_number in [1, 2]:
-                return AgentOpinion(agent="agent1", score=50.0, recommendation={"green_space_pct": 10.0}, position=f"R{round_number}", reasoning="R", confidence=1.0)
+                return AgentOpinion(agent="agent1", score=50.0, recommendation={"green_space_pct": 10.0}, tension="Mock tension.", position=f"R{round_number}", reasoning="R", confidence=1.0)
             else:
-                return AgentOpinion(agent="agent1", score=50.0, recommendation={"green_space_pct": 48.0}, position="R3", reasoning="R3 compromise", confidence=1.0)
+                return AgentOpinion(agent="agent1", score=50.0, recommendation={"green_space_pct": 48.0}, tension="Mock tension.", position="R3", reasoning="R3 compromise", confidence=1.0)
 
         def gen_op_2(proposal, context, round_number=1, opponent_opinions=None):
             if round_number in [1, 2]:
-                return AgentOpinion(agent="agent2", score=50.0, recommendation={"green_space_pct": 90.0}, position=f"R{round_number}", reasoning="R", confidence=1.0)
+                return AgentOpinion(agent="agent2", score=50.0, recommendation={"green_space_pct": 90.0}, tension="Mock tension.", position=f"R{round_number}", reasoning="R", confidence=1.0)
             else:
-                return AgentOpinion(agent="agent2", score=50.0, recommendation={"green_space_pct": 50.0}, position="R3", reasoning="R3 compromise", confidence=1.0)
+                return AgentOpinion(agent="agent2", score=50.0, recommendation={"green_space_pct": 50.0}, tension="Mock tension.", position="R3", reasoning="R3 compromise", confidence=1.0)
 
         agent1.generate_opinion = gen_op_1
         agent2.generate_opinion = gen_op_2

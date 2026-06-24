@@ -165,6 +165,7 @@ class TestFinanceAgent:
         mock_provider = MagicMock()
         mock_provider.generate_structured.return_value = {
             "score": 95.0, "verdict": "accept", "proposed_changes": {},
+            "tension": "Mock tension statement.",
             "position": "Pos", "reasoning": "Res", "evidence": [],
             "confidence": 0.9, "objections": [], "supports": []
         }
@@ -177,4 +178,20 @@ class TestFinanceAgent:
         sys_inst = kwargs["system_instruction"]
         assert agent.personality_brief in sys_inst
         assert agent.risk_tolerance in sys_inst
+
+    def test_missing_tension_field_triggers_fallback(self, proposal_near_budget: Proposal) -> None:
+        """Test that a mocked LLM response missing the required tension field triggers deterministic fallback."""
+        from unittest.mock import MagicMock
+        agent = FinanceAgent(MockCostCalculator(1.0))
+        mock_provider = MagicMock()
+        # Omit 'tension'
+        mock_provider.generate_structured.return_value = {
+            "score": 95.0, "verdict": "accept", "proposed_changes": {},
+            "position": "Pos", "reasoning": "Res", "evidence": [],
+            "confidence": 0.9, "objections": [], "supports": []
+        }
+        agent.llm_provider = mock_provider
+        
+        opinion = agent.generate_opinion(proposal_near_budget, {})
+        assert "using deterministic fallback" in opinion.position
 
