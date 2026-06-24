@@ -187,3 +187,39 @@ class TestBaseAgentGenerateOpinion:
         
         assert opinion.score == 80.0
         assert mock_provider.generate_structured.call_count == 1
+
+    def test_evidence_grounding_checks(self, agent: MockAgent) -> None:
+        """Test evidence grounding check for grounded numbers, ungrounded numbers, percentages, and no numbers.
+        
+        Reasoning for no numbers: Qualitative or structural claims (e.g., 'The zoning is mixed residential') 
+        do not contain numerical metrics but are valid qualitative evidence. Rejecting them would penalize 
+        legitimate non-numeric factual observations, so we default to grounded=True.
+        """
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate_structured.return_value = {
+            "score": 90.0,
+            "verdict": "modify",
+            "proposed_changes": {"green_space_pct": 30.0},
+            "position": "Needs green space.",
+            "reasoning": "Data shows this.",
+            "evidence": [
+                "Phoenix already runs 7°F hotter than surrounding rural areas.",  # grounded=True (matches 7)
+                "The poverty rate is 17.2% in this sector.",  # grounded=True (matches 0.172 via percentage check)
+                "The city population grew by 500000 residents.",  # grounded=False (500000 not in tool results)
+                "The development zoning is purely mixed commercial and residential."  # grounded=True (no numbers)
+            ],
+            "objections": [],
+            "supports": [],
+            "confidence": 0.9,
+            "text": "{...}",
+            "tool_results": [
+                {"name": "get_climate_data", "args": {}, "result": {"heat_diff": 7.0}},
+                {"name": "get_demographics", "args": {}, "result": {"poverty_rate": 0.172}},
+            ]
+        }
+        agent.llm_provider = mock_provider
+        
+        proposal = create_initial_proposal("phoenix_az")
+        opinion = agent.generate_opinion(proposal, {})
+        
+        assert opinion.grounding_warnings == ["The city population grew by 500000 residents."]

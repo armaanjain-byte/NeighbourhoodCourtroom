@@ -417,9 +417,18 @@ class DebateRound(BaseModel):
 
 ### agents/base_agent.py
 
+#### Evidence Grounding and Hallucination Prevention
+To directly address the hallucination risk inherent in letting LLMs generate free-text evidence claims from memory, `BaseAgent` implements an active, post-hoc evidence grounding check (`_check_evidence_grounding`):
+1. **Tool Result Tracking**: The provider-agnostic `LLMProvider` records all tool call results that occur during the multi-turn function calling loop, exposing them in the returned dictionary (`data["tool_results"]`).
+2. **Numeric Harvesting**: `BaseAgent` recursively walks the dict/list structures returned by each tool call to collect every verified numeric data point into a set of `tool_numbers`.
+3. **Regex Extraction & Matching**: For each free-text evidence string produced by the model, numbers are extracted using regex (`r'\b\d+(?:\.\d+)?\b'`) and cross-checked against `tool_numbers`. A reasonable tolerance (e.g. `0.1` absolute tolerance or `0.001` for percentage conversions like `17.2%` matching `0.172`) is permitted to accommodate natural language formatting variations.
+4. **Non-Numeric Claims**: Evidence strings containing no numbers (e.g., qualitative zoning assessments) default to `grounded=True` so as not to penalize legitimate non-numeric factual observations.
+5. **UI Surfacing**: Any unverified claim is recorded in `AgentOpinion.grounding_warnings` and explicitly highlighted with a `⚠️ unverified claim` badge in the Streamlit debate transcript, demonstrating active, visible "Agent Quality" governance to judging panels.
+
 ```python
 from abc import ABC, abstractmethod
 from google import genai
+
 from models.agent_output import AgentOutput
 from models.proposal import ProposalState
 from tools.data_loader import DataLoader
@@ -825,7 +834,18 @@ class ConflictDetector:
         return any(c.severity == "high" for c in conflicts)
 ```
 
+### Deterministic Conflict Resolution Rules
+
+The conflict resolution engine arbitrates contested parameters based on severity and agent confidence (`opinion.confidence`):
+1. **Single proposer, no conflict** → accept the value.
+2. **Multiple proposers agree** → accept the shared value.
+3. **LOW conflict (<10% delta)** → confidence-weighted mean of all proposing agents' values (each agent's value weighted by its own confidence, normalized).
+4. **MEDIUM conflict (10–25% delta)** → combined weighted mean multiplying domain weight (finance 0.4, climate 0.3, community 0.3) by each agent's confidence, then normalized.
+5. **HIGH conflict (>25% delta)** → do not auto-resolve; flag for human review (confidence is never used to suppress a human-review escalation).
+6. **Human-locked** → always preserve lock value; skip the parameter.
+
 ---
+
 
 ### engine/state.py
 

@@ -69,6 +69,7 @@ class GeminiProvider(LLMProvider):
 
             response = _send(user_prompt)
 
+            tool_results_list = []
             turn_limit = 5
             for _ in range(turn_limit):
                 if response.function_calls:
@@ -85,6 +86,8 @@ class GeminiProvider(LLMProvider):
                                 result = {"result": result}
                         except Exception as e:
                             result = {"error": str(e)}
+
+                        tool_results_list.append({"name": name, "args": args, "result": result})
 
                         part_dicts.append(
                             types.Part.from_function_response(
@@ -109,6 +112,7 @@ class GeminiProvider(LLMProvider):
                         missing = required_keys - data.keys()
                         raise LLMInvalidResponseError(f"LLM response missing keys: {missing}")
                     data["text"] = raw
+                    data["tool_results"] = tool_results_list
                     return data
                 except json.JSONDecodeError as e:
                     raise LLMInvalidResponseError(f"Failed to parse JSON response: {e}")

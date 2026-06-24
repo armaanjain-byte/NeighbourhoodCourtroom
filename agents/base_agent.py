@@ -287,6 +287,24 @@ class BaseAgent(abc.ABC):
 
             objections_raw = _parse_target_list(data.get("objections", []))
             supports_raw = _parse_target_list(data.get("supports", []))
+            evidence_list = list(data.get("evidence", []))
+
+            # Extract tool numbers and check grounding
+            def _extract_numbers(obj: Any, numbers: set[float]) -> None:
+                if isinstance(obj, (int, float)) and not isinstance(obj, bool):
+                    numbers.add(float(obj))
+                elif isinstance(obj, dict):
+                    for v in obj.values():
+                        _extract_numbers(v, numbers)
+                elif isinstance(obj, (list, tuple)):
+                    for item in obj:
+                        _extract_numbers(item, numbers)
+
+            tool_numbers: set[float] = set()
+            _extract_numbers(data.get("tool_results", []), tool_numbers)
+
+            grounding_results = self._check_evidence_grounding(evidence_list, tool_numbers)
+            grounding_warnings = [g["evidence"] for g in grounding_results if not g["grounded"]]
 
             return AgentOpinion(
                 agent=self.agent_name,
@@ -294,10 +312,11 @@ class BaseAgent(abc.ABC):
                 recommendation=filtered_changes,
                 position=str(data["position"]),
                 reasoning=str(data["reasoning"]),
-                evidence=list(data.get("evidence", [])),
+                evidence=evidence_list,
                 objections=objections_raw,
                 supports=supports_raw,
                 confidence=float(data.get("confidence", 0.8)),
+                grounding_warnings=grounding_warnings,
             )
 
         except Exception as e:
@@ -324,6 +343,57 @@ class BaseAgent(abc.ABC):
             )
 
     # ── Private helpers ─────────────────────────────────────────────────────
+
+    def _check_evidence_grounding(self, evidence: list[str], tool_numbers: set[float]) -> list[dict]:
+        """Check whether numbers cited in evidence strings appear in tool results.
+
+        For each evidence string, extract numbers using regex and verify if at least
+        one number matches a value in tool_numbers within a reasonable tolerance (e.g., 0.1).
+        
+        If an evidence string contains no numbers at all, we default to grounded=True.
+        Reasoning: Qualitative or structural claims (e.g. 'The zoning is mixed residential') 
+        do not contain numerical metrics but are valid qualitative evidence. Rejecting them 
+        would penalize legitimate non-numeric factual observations.
+
+        Parameters
+        ----------
+        evidence : list[str]
+            List of evidence strings produced by the LLM.
+        tool_numbers : set[float]
+            Set of all numeric values recursively extracted from tool call results.
+
+        Returns
+        -------
+        list[dict]
+            List of grounding results, e.g. [{"evidence": "...", "grounded": True/False}].
+        """
+        import re
+        results = []
+        # Match integers and decimals
+        pattern = re.compile(r'\b\d+(?:\.\d+)?\b')
+
+        for item in evidence:
+            matches = pattern.findall(item)
+            if not matches:
+                # Default to grounded=True for qualitative/structural claims without numbers
+                results.append({"evidence": item, "grounded": True})
+                continue
+
+            grounded = False
+            for m in matches:
+                try:
+                    val = float(m)
+                    # Check if val matches any number in tool_numbers within 0.1 tolerance,
+                    # or if val/100 matches within 0.001 tolerance (to handle percentage formatting like 17.2% for 0.172)
+                    if any(abs(val - t_val) <= 0.100001 or abs((val / 100.0) - t_val) <= 0.0010001 for t_val in tool_numbers):
+                        grounded = True
+                        break
+                except (ValueError, TypeError):
+                    continue
+            
+            results.append({"evidence": item, "grounded": grounded})
+
+        return results
 
     def _fallback_opinion(
         self,
@@ -361,6 +431,7 @@ class BaseAgent(abc.ABC):
             objections=[],
             supports=[],
             confidence=0.5,
+            grounding_warnings=[],
         )
 
     @property

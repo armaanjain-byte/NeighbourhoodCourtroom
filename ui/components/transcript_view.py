@@ -37,7 +37,12 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
         </div><br>
         '''
         
-    evidence_items = "".join(f"<li>{ev}</li>" for ev in op.evidence)
+    evidence_items = ""
+    for ev in op.evidence:
+        if ev in op.grounding_warnings:
+            evidence_items += f'<li>{ev} <span class="inline-flex items-center gap-1 px-2 py-0.5 ml-1 bg-amber-100 text-amber-800 rounded text-[11px] font-bold border border-amber-300">⚠️ unverified claim</span></li>'
+        else:
+            evidence_items += f'<li>{ev}</li>'
     if not evidence_items:
         evidence_items = "<li>No specific evidence provided.</li>"
         

@@ -15,3 +15,5 @@ class AgentOpinion(BaseModel):
     objections: list[TargetStatement] = Field(default_factory=list)
     supports: list[TargetStatement] = Field(default_factory=list)
     confidence: float
+    grounding_warnings: list[str] = Field(default_factory=list)
+

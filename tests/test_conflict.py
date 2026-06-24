@@ -282,6 +282,34 @@ class TestResolveParameter:
         result = resolve_parameter("green_space_pct", {"unknown": 10.0, "other": 20.0}, "medium")
         assert result == pytest.approx(15.0)
 
+    def test_low_severity_confidence_weighted(self) -> None:
+        # finance: 100 (conf 1.0), climate: 95 (conf 0.2)
+        # weighted sum: 100*1.0 + 95*0.2 = 100 + 19 = 119
+        # total conf: 1.2
+        # result: 119 / 1.2 = 99.1666...
+        result = resolve_parameter("green_space_pct", {"finance": 100.0, "climate": 95.0}, "low", agent_confidences={"finance": 1.0, "climate": 0.2})
+        assert result == pytest.approx(119.0 / 1.2)
+
+    def test_medium_severity_equal_weight_different_confidence(self) -> None:
+        # climate (weight 0.3), community (weight 0.3)
+        # climate proposes 100 (conf 1.0), community proposes 80 (conf 0.2)
+        # combined weights: climate 0.3*1.0 = 0.3, community 0.3*0.2 = 0.06. total = 0.36
+        # weighted sum: 0.3*100 + 0.06*80 = 30 + 4.8 = 34.8
+        # result = 34.8 / 0.36 = 96.666... (pulled heavily toward climate's 100)
+        result = resolve_parameter(
+            "green_space_pct",
+            {"climate": 100.0, "community": 80.0},
+            "medium",
+            agent_confidences={"climate": 1.0, "community": 0.2},
+        )
+        assert result == pytest.approx(34.8 / 0.36)
+
+    def test_missing_or_default_confidence_matches_flat_mean(self) -> None:
+        # Proving backward compatibility with flat mean / fixed weight when confidence is missing/default
+        res_default = resolve_parameter("green_space_pct", {"finance": 10.0, "climate": 20.0, "community": 30.0}, "low")
+        res_explicit = resolve_parameter("green_space_pct", {"finance": 10.0, "climate": 20.0, "community": 30.0}, "low", agent_confidences={"finance": 1.0, "climate": 1.0, "community": 1.0})
+        assert res_default == res_explicit == 20.0
+
 class TestRequiresHumanReview:
     def test_no_high_conflicts(self) -> None:
         c1 = Conflict(parameter="green_space_pct", agent_a="a", agent_b="b", proposed_value_a=1, proposed_value_b=2, disagreement_severity="low")
@@ -398,6 +426,21 @@ class TestResolveConflicts:
         
         assert "parking_spaces" not in resolution["resolved_changes"]
         assert resolution["human_review_params"] == ["parking_spaces"]
+
+    def test_resolve_conflicts_with_explicit_confidence(self, proposal):
+        # Climate and Community have equal domain weight (0.3).
+        out_climate = _make_output("climate", {"green_space_pct": 100.0})
+        out_climate.confidence = 1.0
+        out_community = _make_output("community", {"green_space_pct": 80.0}) # 20% delta -> medium
+        out_community.confidence = 0.2
+        
+        outputs = {"climate": out_climate, "community": out_community}
+        conflicts = detect_conflicts(outputs)
+        resolution = resolve_conflicts(proposal, outputs, conflicts)
+        
+        # 34.8 / 0.36
+        assert resolution["resolved_changes"]["green_space_pct"] == pytest.approx(34.8 / 0.36)
+
 
 
 class TestGenerateResolutionSummary:

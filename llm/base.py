@@ -68,7 +68,8 @@ class LLMProvider(abc.ABC):
         -------
         dict
             The parsed JSON response as a dictionary, including at minimum a 'text' field
-            containing the raw model output string.
+            containing the raw model output string, and a 'tool_results' field containing
+            a list of dictionaries of tool calls made during the session (e.g. [{"name": ..., "args": ..., "result": ...}]).
 
         Raises
         ------

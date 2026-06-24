@@ -98,7 +98,8 @@ class CourtroomSession(BaseModel):
                     round_number=debate_round_number,
                     agent=agent.agent_name,
                     statement_type="evidence",
-                    content=ev
+                    content=ev,
+                    is_grounding_warning=(ev in opinion.grounding_warnings),
                 ))
 
         # ── Phase B: Round 2 opinions (cross-agent rebuttal) ────────────────
@@ -130,7 +131,8 @@ class CourtroomSession(BaseModel):
                     round_number=debate_round_number,
                     agent=agent.agent_name,
                     statement_type="evidence",
-                    content=ev
+                    content=ev,
+                    is_grounding_warning=(ev in opinion.grounding_warnings),
                 ))
             for obj in opinion.objections:
                 self.transcript.entries.append(TranscriptEntry(
@@ -157,7 +159,8 @@ class CourtroomSession(BaseModel):
                 score=opinion.score,
                 verdict="modify" if opinion.recommendation else "accept",
                 proposed_changes=opinion.recommendation,
-                reasoning_and_evidence=opinion.reasoning
+                reasoning_and_evidence=opinion.reasoning,
+                confidence=opinion.confidence,
             )
 
         # ── Debate orchestration (deterministic conflict resolution) ─────────
