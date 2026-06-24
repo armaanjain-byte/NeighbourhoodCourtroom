@@ -153,3 +153,28 @@ class TestFinanceAgent:
         # 100M / 25M = 4.0. 100 - (4.0 * 40) = -60.0. max(0.0, -60.0) = 0.0
         assert output.score == 0.0
         assert output.verdict == "modify"
+
+    def test_personality_and_risk_tolerance_in_system_instruction(self, proposal_near_budget: Proposal) -> None:
+        """Verify personality_brief and risk_tolerance are defined, non-empty,
+        and included in the system_instruction passed to the LLM provider."""
+        from unittest.mock import MagicMock
+        agent = FinanceAgent(MockCostCalculator(1.0))
+        assert agent.personality_brief
+        assert agent.risk_tolerance
+        
+        mock_provider = MagicMock()
+        mock_provider.generate_structured.return_value = {
+            "score": 95.0, "verdict": "accept", "proposed_changes": {},
+            "position": "Pos", "reasoning": "Res", "evidence": [],
+            "confidence": 0.9, "objections": [], "supports": []
+        }
+        agent.llm_provider = mock_provider
+        
+        agent.generate_opinion(proposal_near_budget, {})
+        
+        mock_provider.generate_structured.assert_called_once()
+        _, kwargs = mock_provider.generate_structured.call_args
+        sys_inst = kwargs["system_instruction"]
+        assert agent.personality_brief in sys_inst
+        assert agent.risk_tolerance in sys_inst
+

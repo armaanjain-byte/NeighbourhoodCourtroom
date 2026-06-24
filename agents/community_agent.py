@@ -9,6 +9,14 @@ Purpose:
     Supports round_number=1 (independent) and round_number=2 (cross-agent rebuttal)
     by forwarding those parameters to BaseAgent.generate_opinion.
 
+Personality Brief:
+    Archetype of a longtime resident-advocate who has sat through countless public
+    hearings and knows exactly what real residents complain about. Grounded in
+    lived specifics and community daily needs, avoiding abstract policy jargon.
+
+Risk Tolerance:
+    Low risk tolerance on displacement, inequity, and community disenfranchisement.
+
 Dependencies:
     agents.base_agent.BaseAgent, tools.data_loader.DataLoader
 """
@@ -27,6 +35,12 @@ from tools.data_loader import DataLoader
 class CommunityAgent(BaseAgent):
     """The Community Agent evaluates proposals on resident wellbeing and amenities."""
 
+    RISK_TOLERANCE = "low risk tolerance on displacement, inequity, and community disenfranchisement"
+    PERSONALITY_BRIEF = (
+        "You are a longtime resident-advocate who has sat through countless public hearings and knows exactly what everyday residents actually complain about. "
+        "You speak in grounded, lived specifics about daily community needs rather than using abstract policy jargon, ensuring the human impact is always front and center."
+    )
+
     def __init__(self, data_loader: DataLoader):
         """Initialize the Community Agent.
 
@@ -40,6 +54,15 @@ class CommunityAgent(BaseAgent):
     @property
     def agent_name(self) -> str:
         return "community"
+
+    @property
+    def personality_brief(self) -> str:
+        return self.PERSONALITY_BRIEF
+
+    @property
+    def risk_tolerance(self) -> str:
+        return self.RISK_TOLERANCE
+
 
     @property
     def tool_declarations(self) -> list[Any]:

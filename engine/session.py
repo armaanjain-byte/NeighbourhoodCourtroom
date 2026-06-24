@@ -3,6 +3,8 @@
 Purpose:
     Maintains the state of an active negotiation session, orchestrating multiple
     debate rounds, recording human overrides, and tracking the final verdict.
+    Supports adaptive round flow: early-stop on Round 1 consensus, standard
+    Round 1→2, or Round 1→2→3 only for stubborn HIGH conflicts.
 
 Dependencies:
     models.proposal.Proposal, models.debate_round.DebateRound
@@ -19,6 +21,7 @@ from models.agent_output import AgentOutput
 from models.agent_opinion import AgentOpinion
 from models.courtroom_transcript import CourtroomTranscript, TranscriptEntry
 from engine.debate import run_debate_round
+from engine.conflict import detect_conflicts
 from engine.override import apply_human_override
 from agents.base_agent import BaseAgent
 from tools.cost_calculator import CostCalculator
@@ -36,21 +39,20 @@ class CourtroomSession(BaseModel):
     transcript: CourtroomTranscript = Field(default_factory=CourtroomTranscript)
     status: SessionStatus = "CREATED"
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    round_3_attempted: bool = False
 
     def run_round(self, agents: list[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> DebateRound:
-        """Run a single debate round using the provided agents.
+        """Run a debate round using the provided agents with adaptive stopping.
 
-        Two-phase opinion collection:
+        Adaptive flow:
             Phase A — Round 1 (independent): each agent generates an opinion
-                      based only on its own domain data slice.
+                      based only on its own domain data slice. If zero conflicts
+                      or all conflicts are LOW severity, early-stop and skip Round 2.
             Phase B — Round 2 (cross-agent rebuttal): each agent sees the Round 1
-                      opinions of the other agents and is instructed to explicitly
-                      address conflicts, maintain its domain position, and propose
-                      compromises where needed.
-
-        The DebateRound records both round_1_opinions and round_2_opinions.
-        The conflict-resolution engine uses the Round 2 LLM-generated opinions
-        to determine the closing proposal state.
+                      opinions of the other agents and addresses conflicts.
+            Phase C — Round 3 (bounded compromise): triggers only for agents involved
+                      in unresolved HIGH severity conflicts after Round 2, running
+                      at most once per session.
 
         Parameters
         ----------
@@ -64,16 +66,13 @@ class CourtroomSession(BaseModel):
         Returns
         -------
         DebateRound
-            The resulting DebateRound after all conflicts are processed,
-            with both round_1_opinions and round_2_opinions populated.
+            The resulting DebateRound after all conflicts are processed.
         """
         if self.status in ["WAITING_FOR_JUDGE", "COMPLETED"]:
             raise ValueError(f"Cannot run debate round in status: {self.status}")
 
         self.status = "IN_PROGRESS"
         debate_round_number = len(self.debate_rounds) + 1
-
-
 
         # ── Phase A: Round 1 opinions (independent, domain-scoped) ──────────
         round_1_opinions: dict[str, AgentOpinion] = {}
@@ -101,6 +100,34 @@ class CourtroomSession(BaseModel):
                     content=ev,
                     is_grounding_warning=(ev in opinion.grounding_warnings),
                 ))
+
+        # ── Check Early Stopping (Consensus after Round 1) ──────────────────
+        r1_agent_outputs: dict[str, AgentOutput] = {}
+        for agent_name, opinion in round_1_opinions.items():
+            r1_agent_outputs[agent_name] = AgentOutput(
+                agent_name=agent_name,
+                score=opinion.score,
+                verdict="modify" if opinion.recommendation else "accept",
+                proposed_changes=opinion.recommendation,
+                reasoning_and_evidence=opinion.reasoning,
+                confidence=opinion.confidence,
+            )
+        
+        r1_conflicts = detect_conflicts(r1_agent_outputs)
+        if not r1_conflicts or all(c.disagreement_severity == "low" for c in r1_conflicts):
+            print(f"Session {self.session_id}: Round 2 skipped due to early consensus (0 conflicts or all LOW severity).")
+            debate_round, updated_proposal = run_debate_round(
+                self.current_proposal,
+                r1_agent_outputs,
+                round_number=debate_round_number,
+                cost_calculator=cost_calculator
+            )
+            debate_round.round_1_opinions = round_1_opinions
+            self.debate_rounds.append(debate_round)
+            self.current_proposal = updated_proposal
+            if any(c.disagreement_severity == "high" for c in debate_round.detected_conflicts):
+                self.status = "WAITING_FOR_JUDGE"
+            return debate_round
 
         # ── Phase B: Round 2 opinions (cross-agent rebuttal) ────────────────
         round_2_opinions: dict[str, AgentOpinion] = {}
@@ -175,6 +202,101 @@ class CourtroomSession(BaseModel):
         debate_round.round_1_opinions = round_1_opinions
         debate_round.round_2_opinions = round_2_opinions
 
+        # ── Phase C: Bounded Round 3 for unresolved HIGH conflicts ───────────
+        high_conflicts = [c for c in debate_round.detected_conflicts if c.disagreement_severity == "high" and c.parameter not in self.current_proposal.human_locks]
+        if high_conflicts and not self.round_3_attempted:
+            self.round_3_attempted = True
+            print(f"Session {self.session_id}: HIGH severity conflicts persist after Round 2. Initiating bounded Round 3.")
+            
+            # Identify agents involved in HIGH conflicts
+            conflicted_agent_names = set()
+            for c in high_conflicts:
+                conflicted_agent_names.add(c.agent_a)
+                conflicted_agent_names.add(c.agent_b)
+                
+            round_3_opinions: dict[str, AgentOpinion] = {}
+            for agent in agents:
+                if agent.agent_name not in conflicted_agent_names:
+                    continue
+                
+                # Build target_conflicts for this agent
+                target_conflicts = []
+                for c in high_conflicts:
+                    if c.agent_a == agent.agent_name:
+                        target_conflicts.append({"opponent": c.agent_b, "parameter": c.parameter})
+                    elif c.agent_b == agent.agent_name:
+                        target_conflicts.append({"opponent": c.agent_a, "parameter": c.parameter})
+                
+                r3_context = {**context, "target_conflicts": target_conflicts}
+                
+                # Opponent opinions are from Round 2
+                opponent_r2 = {
+                    name: op
+                    for name, op in round_2_opinions.items()
+                    if name != agent.agent_name
+                }
+                
+                opinion = agent.generate_opinion(
+                    self.current_proposal,
+                    r3_context,
+                    round_number=3,
+                    opponent_opinions=opponent_r2,
+                )
+                round_3_opinions[agent.agent_name] = opinion
+                
+                # Record Round 3 statements to transcript
+                self.transcript.entries.append(TranscriptEntry(
+                    round_number=debate_round_number,
+                    agent=agent.agent_name,
+                    statement_type="position",
+                    content=f"[R3 - Final Attempt] **{opinion.position}**\n\n{opinion.reasoning}"
+                ))
+                for ev in opinion.evidence:
+                    self.transcript.entries.append(TranscriptEntry(
+                        round_number=debate_round_number,
+                        agent=agent.agent_name,
+                        statement_type="evidence",
+                        content=ev,
+                        is_grounding_warning=(ev in opinion.grounding_warnings),
+                    ))
+                for obj in opinion.objections:
+                    self.transcript.entries.append(TranscriptEntry(
+                        round_number=debate_round_number,
+                        agent=agent.agent_name,
+                        statement_type="objection",
+                        target_agent=obj.target_agent,
+                        content=obj.reason
+                    ))
+                for sup in opinion.supports:
+                    self.transcript.entries.append(TranscriptEntry(
+                        round_number=debate_round_number,
+                        agent=agent.agent_name,
+                        statement_type="support",
+                        target_agent=sup.target_agent,
+                        content=sup.reason
+                    ))
+
+            # Re-run orchestration with Round 3 outputs
+            for agent_name, opinion in round_3_opinions.items():
+                llm_agent_outputs[agent_name] = AgentOutput(
+                    agent_name=agent_name,
+                    score=opinion.score,
+                    verdict="modify" if opinion.recommendation else "accept",
+                    proposed_changes=opinion.recommendation,
+                    reasoning_and_evidence=opinion.reasoning,
+                    confidence=opinion.confidence,
+                )
+            
+            debate_round, updated_proposal = run_debate_round(
+                self.current_proposal,
+                llm_agent_outputs,
+                round_number=debate_round_number,
+                cost_calculator=cost_calculator
+            )
+            debate_round.round_1_opinions = round_1_opinions
+            debate_round.round_2_opinions = round_2_opinions
+            debate_round.round_3_opinions = round_3_opinions
+
         # ── Update session state ─────────────────────────────────────────────
         self.debate_rounds.append(debate_round)
         self.current_proposal = updated_proposal
@@ -184,6 +306,7 @@ class CourtroomSession(BaseModel):
             self.status = "WAITING_FOR_JUDGE"
 
         return debate_round
+
 
 
     def apply_override(self, parameter: str, value: float) -> Proposal:

@@ -8,7 +8,13 @@ An AI-driven simulation engine where specialized LLM agents debate and negotiate
 ## The core idea
 Urban planning decisions often fail because they are designed in silos. A finance department will optimize purely for cost, ignoring the long-term environmental impacts. An environmental team will push for maximum green space without accounting for housing density demands or budget constraints. When humans finally meet to reconcile these disconnected plans, it usually results in compromised, zero-sum outcomes where trade-offs are misunderstood.
 
-This application solves this by modeling the urban planning process as a multi-agent debate. Three specialized AI agents (Finance, Climate, and Community) are instantiated with genuinely different, partitioned datasets. They must negotiate a unified city proposal across multiple rounds, explicitly addressing their opponents' proposals to arrive at a balanced, data-driven consensus.
+This application solves this by modeling the urban planning process as a multi-agent debate. Three specialized AI agents (Finance, Climate, and Community) are instantiated with genuinely different, partitioned datasets and sharp, distinctive real-world personality archetypes. They must negotiate a unified city proposal across multiple rounds, explicitly addressing their opponents' proposals to arrive at a balanced, data-driven consensus.
+
+### Agent Personality Archetypes
+- **💰 Finance Agent**: Archetype of a pragmatic municipal budget officer who has personally seen projects fail from severe cost overruns. Skeptical of unfunded idealism, values measurable ROI and strict budget discipline, but remains dedicated to practical civic development. *(Risk tolerance: Low on budget overruns)*
+- **🌿 Climate Agent**: Archetype of a field-experienced urban resilience planner who has seen specific climate failures (heat islands, severe flood damage) up close. Highly evidence-driven and urgent about immediate physical risks, but maintains a calm, non-alarmist tone. *(Risk tolerance: Low on environmental harm and climate vulnerability)*
+- **🏘️ Community Agent**: Archetype of a longtime resident-advocate who has sat through countless public hearings and knows exactly what real residents complain about. Grounded in lived specifics and daily community needs, avoiding abstract policy jargon to keep human impact front and center. *(Risk tolerance: Low on displacement and inequity)*
+
 
 ## What makes this different from a chatbot
 Unlike a standard single-prompt LLM asking to "balance a budget," this system enforces adversarial truth-seeking through architectural constraints:

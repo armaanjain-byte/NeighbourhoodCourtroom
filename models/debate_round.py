@@ -21,3 +21,8 @@ class DebateRound(BaseModel):
         default_factory=dict,
         description="Revised AgentOpinions after each agent has seen Round 1 opponent opinions."
     )
+    round_3_opinions: dict[str, AgentOpinion] = Field(
+        default_factory=dict,
+        description="Final attempt AgentOpinions collected specifically for unresolved high-severity conflicts."
+    )
+

@@ -4,9 +4,11 @@
 
 Neighborhood Courtroom is a multi-agent civic planning system. Three specialized agents
 (Finance, Climate, Community) hold different slices of preprocessed local data and negotiate
-redevelopment proposals through a structured two-round debate engine. Every decision is
-versioned, attributed, and diffable. Humans can lock parameters and watch agents re-negotiate
-in real time.
+redevelopment proposals through an adaptive debate engine (supporting early stopping on Round 1
+consensus, standard Round 2 rebuttal, and a bounded Round 3 compromise attempt for stubborn HIGH
+severity conflicts). Every decision is versioned, attributed, and diffable. Humans can lock
+parameters and watch agents re-negotiate in real time.
+
 
 The deliberate constraint: no live APIs. All location data is preprocessed into a local
 dataset covering 40 US cities. This eliminates runtime failure risk while preserving the
@@ -744,7 +746,7 @@ class DebateEngine:
 
     async def run_full_debate(self, initial_proposal: ProposalState,
                                stream_callback=None) -> tuple[list[DebateRound], ProposalState]:
-        """Run two-round debate. Returns rounds and final proposal state."""
+        """Run adaptive debate: early stop on Round 1 consensus, standard Round 2, or bounded Round 3."""
 
         rounds = []
 
@@ -758,6 +760,10 @@ class DebateEngine:
         if stream_callback:
             await stream_callback("round_complete", {"round": 1, "data": round1})
 
+        # Early stopping check: if zero conflicts or all LOW severity, skip Round 2
+        if not round1.detected_conflicts or all(c.severity == "low" for c in round1.detected_conflicts):
+            return rounds, round1.closing_state
+
         # Round 2 (with Round 1 context injected)
         if stream_callback:
             await stream_callback("round_start", {"round": 2})
@@ -770,6 +776,20 @@ class DebateEngine:
 
         if stream_callback:
             await stream_callback("round_complete", {"round": 2, "data": round2})
+
+        # Bounded Round 3 check: if HIGH severity conflicts persist, run a final compromise round
+        if any(c.severity == "high" for c in round2.detected_conflicts):
+            if stream_callback:
+                await stream_callback("round_start", {"round": 3})
+
+            round3 = await self.run_round(
+                round2.closing_state, round_num=3,
+                prior_outputs=round2.agent_outputs
+            )
+            rounds.append(round3)
+            if stream_callback:
+                await stream_callback("round_complete", {"round": 3, "data": round3})
+            return rounds, round3.closing_state
 
         return rounds, round2.closing_state
 

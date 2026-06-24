@@ -46,6 +46,14 @@ class MockAgent(BaseAgent):
     def agent_name(self) -> str:
         return self._name
 
+    @property
+    def personality_brief(self) -> str:
+        return "Mock personality brief."
+
+    @property
+    def risk_tolerance(self) -> str:
+        return "mock risk tolerance"
+
     def evaluate(self, proposal: Proposal, context: dict) -> AgentOutput:
         return self.build_output(
             score=50.0,
@@ -53,6 +61,7 @@ class MockAgent(BaseAgent):
             changes=self.changes,
             reasoning="Test."
         )
+
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
@@ -193,15 +202,15 @@ class TestCourtroomSession:
         assert "green_space_pct" in verdict["unresolved_conflicts"]
 
     @patch.object(MockAgent, 'generate_opinion')
-    def test_llm_opinions_feed_conflict_engine(self, mock_generate_opinion, initial_proposal: Proposal, cost_calculator: CostCalculator) -> None:
-        """Verify that LLM generated opinions correctly override the deterministic evaluate() fallback
-        and are consumed by the conflict resolution engine."""
+    def test_llm_opinions_feed_conflict_engine_and_early_stop(self, mock_generate_opinion, initial_proposal: Proposal, cost_calculator: CostCalculator) -> None:
+        """Verify that LLM generated opinions correctly override the deterministic evaluate() fallback,
+        and that early stopping triggers when there are zero conflicts after Round 1."""
         session = create_session(initial_proposal)
         
         # The mock agent's deterministic evaluate() would return green_space_pct: 21.0
         agent = MockAgent("agent1", {"green_space_pct": 21.0})
         
-        # We mock generate_opinion to return an LLM opinion with green_space_pct: 45.0 in Round 2
+        # We mock generate_opinion to return an LLM opinion with green_space_pct: 30.0 in Round 1
         def side_effect(proposal, context, round_number=1, opponent_opinions=None):
             if round_number == 1:
                 return AgentOpinion(
@@ -215,8 +224,50 @@ class TestCourtroomSession:
                 )
         mock_generate_opinion.side_effect = side_effect
         
-        session.run_round([agent], {}, cost_calculator)
+        round_record = session.run_round([agent], {}, cost_calculator)
         
-        # Since the LLM proposed 45.0 in Round 2, and there are no opponents, 
-        # it should auto-resolve to 45.0, NOT the deterministic 21.0.
-        assert session.get_current_state().green_space_pct == 45.0
+        # Since there is only 1 agent, 0 conflicts exist after Round 1.
+        # Early stopping skips Round 2, resolving directly to Round 1's 30.0.
+        assert session.get_current_state().green_space_pct == 30.0
+        assert round_record.round_1_opinions is not None
+        assert not getattr(round_record, "round_2_opinions", None)
+
+    @patch.object(MockAgent, 'generate_opinion')
+    def test_bounded_round_3_recovery(self, mock_generate_opinion, initial_proposal: Proposal, cost_calculator: CostCalculator) -> None:
+        """Verify that persistent HIGH severity conflicts after Round 2 trigger a bounded Round 3,
+        allowing agents to converge to a LOW severity compromise and avoid human review."""
+        session = create_session(initial_proposal)
+        
+        agent1 = MockAgent("agent1", {"green_space_pct": 10.0})
+        agent2 = MockAgent("agent2", {"green_space_pct": 90.0})
+        
+        def side_effect(proposal, context, round_number=1, opponent_opinions=None):
+            # We determine which agent is calling based on context or we can inspect the caller,
+            # but since side_effect is called on MockAgent.generate_opinion, let's use self/agent instance.
+            pass
+            
+        # To cleanly differentiate agent1 and agent2, let's patch their bound methods directly
+        def gen_op_1(proposal, context, round_number=1, opponent_opinions=None):
+            if round_number in [1, 2]:
+                return AgentOpinion(agent="agent1", score=50.0, recommendation={"green_space_pct": 10.0}, position=f"R{round_number}", reasoning="R", confidence=1.0)
+            else:
+                return AgentOpinion(agent="agent1", score=50.0, recommendation={"green_space_pct": 48.0}, position="R3", reasoning="R3 compromise", confidence=1.0)
+
+        def gen_op_2(proposal, context, round_number=1, opponent_opinions=None):
+            if round_number in [1, 2]:
+                return AgentOpinion(agent="agent2", score=50.0, recommendation={"green_space_pct": 90.0}, position=f"R{round_number}", reasoning="R", confidence=1.0)
+            else:
+                return AgentOpinion(agent="agent2", score=50.0, recommendation={"green_space_pct": 50.0}, position="R3", reasoning="R3 compromise", confidence=1.0)
+
+        agent1.generate_opinion = gen_op_1
+        agent2.generate_opinion = gen_op_2
+        
+        round_record = session.run_round([agent1, agent2], {}, cost_calculator)
+        
+        # Round 1 & 2 had 10 vs 90 (HIGH). Round 3 had 48 vs 50 (LOW, mean 49.0).
+        assert session.status == "IN_PROGRESS"
+        assert session.get_current_state().green_space_pct == 49.0
+        assert round_record.round_3_opinions is not None
+        assert len(round_record.round_3_opinions) == 2
+        assert session.round_3_attempted is True
+

@@ -9,6 +9,14 @@ Purpose:
     Supports round_number=1 (independent) and round_number=2 (cross-agent rebuttal)
     by forwarding those parameters to BaseAgent.generate_opinion.
 
+Personality Brief:
+    Archetype of a field-experienced urban resilience planner who has seen specific
+    climate failures (heat islands, severe flood damage) up close. Evidence-driven
+    and urgent about immediate physical risks, but maintains a calm, non-alarmist tone.
+
+Risk Tolerance:
+    Low risk tolerance on environmental harm and climate vulnerability.
+
 Dependencies:
     agents.base_agent.BaseAgent, tools.data_loader.DataLoader
 """
@@ -27,6 +35,12 @@ from tools.data_loader import DataLoader
 class ClimateAgent(BaseAgent):
     """The Climate Agent evaluates proposals strictly on environmental resilience."""
 
+    RISK_TOLERANCE = "low risk tolerance on environmental harm and climate vulnerability"
+    PERSONALITY_BRIEF = (
+        "You are a field-experienced urban resilience planner who has seen specific climate failures, like deadly heat islands and storm flood damage, up close. "
+        "You are highly evidence-driven and speak with calm urgency about immediate physical risks without resorting to alarmist hysteria."
+    )
+
     def __init__(self, data_loader: DataLoader):
         """Initialize the Climate Agent.
 
@@ -40,6 +54,15 @@ class ClimateAgent(BaseAgent):
     @property
     def agent_name(self) -> str:
         return "climate"
+
+    @property
+    def personality_brief(self) -> str:
+        return self.PERSONALITY_BRIEF
+
+    @property
+    def risk_tolerance(self) -> str:
+        return self.RISK_TOLERANCE
+
 
     @property
     def tool_declarations(self) -> list[Any]:

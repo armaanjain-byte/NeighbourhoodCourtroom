@@ -9,6 +9,14 @@ Purpose:
     Supports round_number=1 (independent) and round_number=2 (cross-agent rebuttal)
     by forwarding those parameters to BaseAgent.generate_opinion.
 
+Personality Brief:
+    Archetype of a pragmatic municipal budget officer who has personally seen projects
+    fail from severe cost overruns. Skeptical of idealism, values measurable ROI and
+    budget discipline, but remains dedicated to practical civic development.
+
+Risk Tolerance:
+    Low risk tolerance on budget overruns.
+
 Dependencies:
     agents.base_agent.BaseAgent, tools.cost_calculator.CostCalculator
 """
@@ -28,6 +36,11 @@ class FinanceAgent(BaseAgent):
     """The Finance Agent evaluates proposals strictly on budget and density."""
 
     BASE_TARGET_BUDGET = 25_000_000.0
+    RISK_TOLERANCE = "low risk tolerance on budget overruns"
+    PERSONALITY_BRIEF = (
+        "You are a pragmatic municipal budget officer who has personally seen projects fail from severe cost overruns. "
+        "You are skeptical of unfunded idealism and demand measurable ROI and strict budget discipline, but you are not heartless—you want civic projects to succeed by remaining financially viable."
+    )
 
     def __init__(self, cost_calculator: CostCalculator):
         """Initialize the Finance Agent.
@@ -42,6 +55,15 @@ class FinanceAgent(BaseAgent):
     @property
     def agent_name(self) -> str:
         return "finance"
+
+    @property
+    def personality_brief(self) -> str:
+        return self.PERSONALITY_BRIEF
+
+    @property
+    def risk_tolerance(self) -> str:
+        return self.RISK_TOLERANCE
+
 
     @property
     def tool_declarations(self) -> list[Any]:

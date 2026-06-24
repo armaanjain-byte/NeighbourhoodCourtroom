@@ -489,7 +489,7 @@ def stage_result(is_override: bool = False) -> None:
 
     # Check if deterministic fallback was used in any round
     has_fallback = any(
-        any("deterministic fallback" in op.position for op in list(rnd.round_1_opinions.values()) + list(rnd.round_2_opinions.values()))
+        any("deterministic fallback" in op.position for op in list(rnd.round_1_opinions.values()) + list(rnd.round_2_opinions.values()) + list(getattr(rnd, "round_3_opinions", {}).values()))
         for rnd in session.debate_rounds
     )
     if has_fallback:
@@ -500,12 +500,15 @@ def stage_result(is_override: bool = False) -> None:
     def _get_score(sess: CourtroomSession, name: str) -> float:
         if not sess.debate_rounds: return 0.0
         last_round = sess.debate_rounds[-1]
+        r3 = getattr(last_round, "round_3_opinions", {})
         r2 = last_round.round_2_opinions
         r1 = last_round.round_1_opinions
+        if name in r3: return r3[name].score
         if name in r2: return r2[name].score
         if name in r1: return r1[name].score
         out = last_round.agent_outputs.get(name)
         return out.score if out else 0.0
+
 
     st.markdown('<div class="section-header">📊 Agent Scores</div>', unsafe_allow_html=True)
     cols = st.columns(3)

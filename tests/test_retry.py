@@ -35,7 +35,16 @@ class RetryMockAgent(BaseAgent):
     def agent_name(self) -> str:
         return "community"
 
+    @property
+    def personality_brief(self) -> str:
+        return "Mock personality brief."
+
+    @property
+    def risk_tolerance(self) -> str:
+        return "mock risk tolerance"
+
     def evaluate(self, proposal: Proposal, context: dict) -> AgentOutput:
+
         return AgentOutput(
             agent_name="community",
             score=85.0,

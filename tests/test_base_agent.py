@@ -26,9 +26,18 @@ class MockAgent(BaseAgent):
     def agent_name(self) -> str:
         return "mock_agent"
 
+    @property
+    def personality_brief(self) -> str:
+        return "Mock personality brief."
+
+    @property
+    def risk_tolerance(self) -> str:
+        return "mock risk tolerance"
+
     def evaluate(self, proposal: Proposal, context: dict[str, Any]) -> AgentOutput:
         # Not tested directly here, but required to instantiate
         raise AgentExecutionError("Not implemented")  # pragma: no cover
+
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────

@@ -141,3 +141,28 @@ class TestCommunityAgent:
         assert output.verdict == "reject"
         assert output.proposed_changes == {}
         assert "Failed to load community-related data" in output.reasoning_and_evidence
+
+    def test_personality_and_risk_tolerance_in_system_instruction(self, proposal_strong_community: Proposal) -> None:
+        """Verify personality_brief and risk_tolerance are defined, non-empty,
+        and included in the system_instruction passed to the LLM provider."""
+        from unittest.mock import MagicMock
+        agent = CommunityAgent(MockDataLoader())
+        assert agent.personality_brief
+        assert agent.risk_tolerance
+        
+        mock_provider = MagicMock()
+        mock_provider.generate_structured.return_value = {
+            "score": 95.0, "verdict": "accept", "proposed_changes": {},
+            "position": "Pos", "reasoning": "Res", "evidence": [],
+            "confidence": 0.9, "objections": [], "supports": []
+        }
+        agent.llm_provider = mock_provider
+        
+        agent.generate_opinion(proposal_strong_community, {})
+        
+        mock_provider.generate_structured.assert_called_once()
+        _, kwargs = mock_provider.generate_structured.call_args
+        sys_inst = kwargs["system_instruction"]
+        assert agent.personality_brief in sys_inst
+        assert agent.risk_tolerance in sys_inst
+

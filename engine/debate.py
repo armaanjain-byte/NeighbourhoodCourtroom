@@ -11,8 +11,11 @@ Dependencies:
 
 Design:
     The LLM agents produce the proposed changes via `AgentOutput`, and this module
-    deterministically arbitrates the conflicts between them.
+    deterministically arbitrates the conflicts between them. Supports adaptive round
+    flow: early-stop on Round 1 consensus, standard Round 1→2, or Round 1→2→3 only for
+    stubborn HIGH conflicts.
 """
+
 
 from __future__ import annotations
 

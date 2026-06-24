@@ -78,6 +78,18 @@ class BaseAgent(abc.ABC):
         """The identifier of the agent (e.g. 'finance', 'climate', 'community')."""
         pass  # pragma: no cover
 
+    @property
+    @abc.abstractmethod
+    def personality_brief(self) -> str:
+        """The distinct personality archetype description (2-3 sentences max)."""
+        pass  # pragma: no cover
+
+    @property
+    @abc.abstractmethod
+    def risk_tolerance(self) -> str:
+        """The specific risk tolerance posture for this agent domain."""
+        pass  # pragma: no cover
+
     @abc.abstractmethod
     def evaluate(self, proposal: Proposal, context: dict[str, Any]) -> AgentOutput:
         """Evaluate a proposal and return recommended changes (deterministic fallback).
@@ -156,6 +168,8 @@ class BaseAgent(abc.ABC):
             f"You are the {self.agent_name.capitalize()} Expert in a city planning simulation. "
             f"Your role is to evaluate a neighborhood development proposal purely from a "
             f"{self.agent_name} perspective. "
+            f"{self.personality_brief} "
+            f"Your risk tolerance profile is: {self.risk_tolerance}. Your verdicts (accept/modify/reject) must reflect this consistent, explainable risk posture across all proposals. "
             "You must base your analysis ONLY on the domain data provided to you via function calls. "
             "Call the appropriate functions to fetch the data you need for your domain. "
             "Do not invent data. Do not reference information not present in the inputs."
@@ -167,10 +181,10 @@ class BaseAgent(abc.ABC):
             f"{proposal.model_dump_json(indent=2)}\n\n"
         )
 
-        if round_number == 2 and opponent_opinions:
-            # Serialise opponent Round 1 opinions for Gemini
+        if round_number in (2, 3) and opponent_opinions:
+            # Serialise opponent opinions for Gemini
             opponent_block = "\n".join(
-                f"### {name.capitalize()} Agent (Round 1)\n"
+                f"### {name.capitalize()} Agent (Previous Round)\n"
                 f"- Score: {op.score}\n"
                 f"- Position: {op.position}\n"
                 f"- Proposed changes: {json.dumps(op.recommendation)}\n"
@@ -179,14 +193,28 @@ class BaseAgent(abc.ABC):
                 if name != self.agent_name
             )
             user_prompt += (
-                f"## Round 1 Results from Other Agents\n"
+                f"## Previous Round Results from Other Agents\n"
                 f"{opponent_block}\n\n"
-                f"## Your Task (Round 2 — Cross-Agent Rebuttal)\n"
-                "Round 1 results from other agents are shown above. "
-                "You MUST explicitly address any recommendation that conflicts with yours. "
-                "Maintain your domain position but propose a compromise if the conflict is blocking.\n\n"
-                f"Recommend changes to any or all of these mutable parameters:\n{mutable_params}\n\n"
             )
+            if round_number == 3:
+                target_conflicts = context.get("target_conflicts", [])
+                conflict_details = " ".join(
+                    f"You and {tc['opponent'].capitalize()} still disagree significantly on {tc['parameter']}."
+                    for tc in target_conflicts
+                )
+                user_prompt += (
+                    f"## Your Task (Round 3 — Final Attempt)\n"
+                    f"This is a final round. {conflict_details} Propose your best final compromise — this will go to human review if you cannot converge.\n\n"
+                    f"Recommend changes to any or all of these mutable parameters:\n{mutable_params}\n\n"
+                )
+            else:
+                user_prompt += (
+                    f"## Your Task (Round 2 — Cross-Agent Rebuttal)\n"
+                    "Round 1 results from other agents are shown above. "
+                    "You MUST explicitly address any recommendation that conflicts with yours. "
+                    "Maintain your domain position but propose a compromise if the conflict is blocking.\n\n"
+                    f"Recommend changes to any or all of these mutable parameters:\n{mutable_params}\n\n"
+                )
         else:
             user_prompt += (
                 f"## Your Task (Round 1 — Independent Assessment)\n"
@@ -206,7 +234,7 @@ class BaseAgent(abc.ABC):
             '  "evidence": [<string>, ...],\n'
         )
 
-        if round_number == 2:
+        if round_number in (2, 3):
             user_prompt += (
                 '  "objections": [{"target_agent": <string>, "reason": <string>}, ...],\n'
                 '    -- List every opponent recommendation you REJECT and why.\n'
@@ -228,17 +256,18 @@ class BaseAgent(abc.ABC):
             f"- proposed_changes keys must be from this list only: {mutable_params}\n"
             f"- score must be between 0.0 and 100.0\n"
             f"- verdict must be 'accept' when proposed_changes is empty, 'modify' or 'reject' otherwise\n"
-            f"- The position field (1-sentence TLDR) MUST be written for a neighbourhood resident, not a planner. No parameter names or raw percentages. (e.g. 'This development leaves almost no room for parks...' instead of 'green_space_pct is insufficient at 20%').\n"
-            f"- The reasoning field MUST follow this structure: (1) What I found in my data, (2) Why it matters for real people, (3) What I'm proposing to change and why it fixes it.\n"
+            f"- The position field (1-sentence TLDR) MUST be written for a neighbourhood resident, not a planner. It MUST embody your distinct personality archetype, specific concerns, and vocabulary. No parameter names or raw percentages. (e.g. 'This development leaves almost no room for parks...' instead of 'green_space_pct is insufficient at 20%').\n"
+            f"- The reasoning field (2-4 sentences max) MUST reflect your personality archetype's specific concerns and vocabulary, strictly adhering to this structure: (1) What I found in my data, (2) Why it matters for real people, (3) What I'm proposing to change and why it fixes it.\n"
             f"- evidence items MUST be one-sentence facts with real numbers, written in plain English (e.g. 'Phoenix already runs 7°F hotter...' instead of 'heat_island_risk: 5').\n"
         )
-        if round_number == 2:
+        if round_number in (2, 3):
             user_prompt += (
                 "- objections MUST name what the opponent is asking for in plain terms, then explain why it hurts real people. (e.g. 'Finance wants to cut parks to save money, but that leaves zero shade...').\n"
                 "- objections and supports must each name an agent from: "
                 f"{[name for name in (opponent_opinions or {}) if name != self.agent_name]}\n"
             )
         user_prompt += "- Return ONLY the JSON object, no markdown fences, no extra text."
+
 
         # ── Call LLM Provider ─────────────────────────────────────────────────
         try:

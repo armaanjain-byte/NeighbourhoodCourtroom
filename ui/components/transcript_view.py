@@ -66,9 +66,18 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
 
 def build_transcript_html(session: CourtroomSession) -> str:
     phases = []
+    round_phase_indices = []
     for i, r in enumerate(session.debate_rounds):
+        indices = []
         phases.append((f"D{i+1} - R1", r.round_1_opinions))
-        phases.append((f"D{i+1} - R2", r.round_2_opinions))
+        indices.append(len(phases) - 1)
+        if r.round_2_opinions:
+            phases.append((f"D{i+1} - R2", r.round_2_opinions))
+            indices.append(len(phases) - 1)
+        if getattr(r, "round_3_opinions", None):
+            phases.append((f"D{i+1} - R3", r.round_3_opinions))
+            indices.append(len(phases) - 1)
+        round_phase_indices.append(indices)
 
     agents = ["finance", "climate", "community"]
     columns_html = ""
@@ -98,13 +107,14 @@ def build_transcript_html(session: CourtroomSession) -> str:
 
     # Collect conflicts
     conflicts_js = []
-    for i, r in enumerate(session.debate_rounds):
-        phase_idx = i * 2 + 1 # Link at Round 2 (Phase B) of each debate
+    for r, phase_indices in zip(session.debate_rounds, round_phase_indices):
         for c in r.detected_conflicts:
             if c.disagreement_severity in ["medium", "high"]:
+                phase_a = next((idx for idx in reversed(phase_indices) if c.agent_a in phases[idx][1]), phase_indices[0])
+                phase_b = next((idx for idx in reversed(phase_indices) if c.agent_b in phases[idx][1]), phase_indices[0])
                 conflicts_js.append({
-                    "from": f"{c.agent_a}-p{phase_idx}",
-                    "to": f"{c.agent_b}-p{phase_idx}",
+                    "from": f"{c.agent_a}-p{phase_a}",
+                    "to": f"{c.agent_b}-p{phase_b}",
                     "param": c.parameter
                 })
 
