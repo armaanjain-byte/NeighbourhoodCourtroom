@@ -11,10 +11,12 @@ Covers:
 """
 
 import pytest
+from pydantic import ValidationError
 from typing import Any
 
 from models.proposal import Proposal
 from models.agent_output import AgentOutput
+from models.agent_opinion import AgentOpinion, TargetStatement
 from engine.state import create_initial_proposal
 from agents.base_agent import BaseAgent, AgentValidationError, AgentExecutionError
 
@@ -133,6 +135,10 @@ from unittest.mock import MagicMock, patch
 from llm.base import LLMProvider
 
 class TestBaseAgentGenerateOpinion:
+    def test_target_statement_requires_engages_with(self) -> None:
+        with pytest.raises(ValidationError):
+            TargetStatement(target_agent="finance", reason="Generic disagreement")
+
     def test_generate_opinion_success(self, agent: MockAgent) -> None:
         """Test that generate_opinion parses a valid LLM response."""
         mock_provider = MagicMock(spec=LLMProvider)
@@ -158,6 +164,78 @@ class TestBaseAgentGenerateOpinion:
         assert opinion.recommendation == {"green_space_pct": 30.0}
         assert opinion.tension == "Mock tension statement."
         assert opinion.position == "Needs green space."
+
+    def test_round_2_objections_capture_engagement_and_flag_superficial_references(
+        self, agent: MockAgent
+    ) -> None:
+        """Round 2 keeps weak objections but identifies number-only engagement."""
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate_structured.return_value = {
+            "score": 75.0,
+            "verdict": "modify",
+            "proposed_changes": {"green_space_pct": 35.0},
+            "tension": "More park space competes with housing capacity.",
+            "position": "Protect enough park space to keep residents cool.",
+            "reasoning": "Heat exposure outweighs the modest capacity tradeoff.",
+            "evidence": [],
+            "objections": [
+                {
+                    "target_agent": "finance",
+                    "engages_with": "park maintenance would strain the operating budget",
+                    "reason": "The avoided heat costs outweigh that recurring expense.",
+                },
+                {
+                    "target_agent": "finance",
+                    "engages_with": "green_space_pct 30",
+                    "reason": "That amount is too low.",
+                },
+                {
+                    "target_agent": "finance",
+                    "engages_with": "",
+                    "reason": "The recommendation is unconvincing.",
+                },
+            ],
+            "supports": [
+                {
+                    "target_agent": "finance",
+                    "engages_with": "construction costs must remain manageable",
+                    "reason": "Phasing the park work supports that concern.",
+                }
+            ],
+            "confidence": 0.8,
+        }
+        agent.llm_provider = mock_provider
+        opponent = AgentOpinion(
+            agent="finance",
+            score=60.0,
+            recommendation={"green_space_pct": 30.0},
+            tension="Parks have an operating cost.",
+            position="Keep park spending controlled.",
+            reasoning="Park maintenance would strain the operating budget.",
+            evidence=["Annual maintenance costs rise with additional park acreage."],
+            confidence=0.8,
+        )
+
+        opinion = agent.generate_opinion(
+            create_initial_proposal("phoenix_az"),
+            {},
+            round_number=2,
+            opponent_opinions={"finance": opponent},
+        )
+
+        assert opinion.objections[0].engages_with == (
+            "park maintenance would strain the operating budget"
+        )
+        assert opinion.supports[0].engages_with == (
+            "construction costs must remain manageable"
+        )
+        assert opinion.engagement_warnings == [
+            "finance:green_space_pct 30",
+            "finance:",
+        ]
+        prompt = mock_provider.generate_structured.call_args.kwargs["user_prompt"]
+        assert "For each objection, you MUST first quote or closely paraphrase" in prompt
+        assert "Annual maintenance costs rise" in prompt
 
     def test_missing_tension_field_triggers_fallback(self, agent: MockAgent) -> None:
         """Test that a mocked LLM response missing the required tension field triggers deterministic fallback."""

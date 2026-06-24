@@ -1,4 +1,5 @@
 import json
+from html import escape
 from engine.session import CourtroomSession
 from models.agent_opinion import AgentOpinion
 
@@ -23,10 +24,22 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
     
     callouts = ""
     for obj in op.objections:
+        warning_label = f"{obj.target_agent}:{obj.engages_with}"
+        warning_badge = ""
+        if warning_label in op.engagement_warnings:
+            warning_badge = (
+                '<span class="inline-flex items-center gap-1 px-2 py-0.5 ml-1 '
+                'bg-amber-100 text-amber-800 rounded text-[11px] font-bold '
+                'border border-amber-300">weak engagement</span>'
+            )
         callouts += f'''
-        <div class="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-red-100 text-error rounded-full text-label-sm border border-red-200">
+        <div class="mb-4 px-3 py-2 bg-red-100 text-error rounded border border-red-200 text-label-sm">
+            <div class="flex items-center gap-2 font-semibold">
             <span class="material-symbols-outlined text-[16px]">warning</span>
-            Objection vs {obj.target_agent.title()}: {obj.reason}
+            Responding to {escape(obj.target_agent.title())}'s claim that
+            "{escape(obj.engages_with)}" {warning_badge}
+            </div>
+            <div class="mt-1">{escape(obj.reason)}</div>
         </div><br>
         '''
     for sup in op.supports:

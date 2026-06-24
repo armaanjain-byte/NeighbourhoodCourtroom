@@ -25,6 +25,7 @@ Dependencies:
 
 import abc
 import logging
+import re
 from typing import Any
 
 from models.proposal import Proposal
@@ -188,7 +189,8 @@ class BaseAgent(abc.ABC):
                 f"- Score: {op.score}\n"
                 f"- Position: {op.position}\n"
                 f"- Proposed changes: {json.dumps(op.recommendation)}\n"
-                f"- Reasoning: {op.reasoning}"
+                f"- Reasoning: {op.reasoning}\n"
+                f"- Evidence: {json.dumps(op.evidence)}"
                 for name, op in opponent_opinions.items()
                 if name != self.agent_name
             )
@@ -237,10 +239,10 @@ class BaseAgent(abc.ABC):
 
         if round_number in (2, 3):
             user_prompt += (
-                '  "objections": [{"target_agent": <string>, "reason": <string>}, ...],\n'
+                '  "objections": [{"target_agent": <string>, "engages_with": <string, one short clause>, "reason": <string>}, ...],\n'
                 '    -- List every opponent recommendation you REJECT and why.\n'
                 '       Leave empty [] only if you agree with all opponents.\n'
-                '  "supports": [{"target_agent": <string>, "reason": <string>}, ...],\n'
+                '  "supports": [{"target_agent": <string>, "engages_with": <string, one short clause>, "reason": <string>}, ...],\n'
                 '    -- List every opponent recommendation you AGREE with.\n'
                 '       Leave empty [] only if you object to everything.\n'
             )
@@ -264,7 +266,8 @@ class BaseAgent(abc.ABC):
         )
         if round_number in (2, 3):
             user_prompt += (
-                "- objections MUST name what the opponent is asking for in plain terms, then explain why it hurts real people. (e.g. 'Finance wants to cut parks to save money, but that leaves zero shade...').\n"
+                "- For each objection, you MUST first quote or closely paraphrase the SPECIFIC evidence or reasoning point from the opponent's opinion you are responding to (the engages_with field), THEN explain why that specific reasoning is flawed, insufficient, or outweighed (the reason field) - do not write generic objections that only reference the opponent's proposed number without engaging their argument.\n"
+                "- Keep engages_with to one short clause, not a full quotation.\n"
                 "- objections and supports must each name an agent from: "
                 f"{[name for name in (opponent_opinions or {}) if name != self.agent_name]}\n"
             )
@@ -312,6 +315,7 @@ class BaseAgent(abc.ABC):
                     if isinstance(item, dict):
                         result.append({
                             "target_agent": str(item.get("target_agent", "")),
+                            "engages_with": str(item.get("engages_with", "")).strip(),
                             "reason": str(item.get("reason", "")),
                         })
                 return result
@@ -319,6 +323,11 @@ class BaseAgent(abc.ABC):
             objections_raw = _parse_target_list(data.get("objections", []))
             supports_raw = _parse_target_list(data.get("supports", []))
             evidence_list = list(data.get("evidence", []))
+            engagement_warnings = [
+                self._engagement_warning_label(obj)
+                for obj in objections_raw
+                if self._is_superficial_engagement(obj, opponent_opinions or {})
+            ]
 
             # Extract tool numbers and check grounding
             def _extract_numbers(obj: Any, numbers: set[float]) -> None:
@@ -349,6 +358,7 @@ class BaseAgent(abc.ABC):
                 supports=supports_raw,
                 confidence=float(data.get("confidence", 0.8)),
                 grounding_warnings=grounding_warnings,
+                engagement_warnings=engagement_warnings,
             )
 
         except Exception as e:
@@ -427,6 +437,38 @@ class BaseAgent(abc.ABC):
 
         return results
 
+    @staticmethod
+    def _engagement_warning_label(objection: dict[str, str]) -> str:
+        """Return the stable label used to associate an objection with its warning."""
+        return f"{objection['target_agent']}:{objection['engages_with']}"
+
+    def _is_superficial_engagement(
+        self,
+        objection: dict[str, str],
+        opponent_opinions: dict[str, AgentOpinion],
+    ) -> bool:
+        """Flag empty or parameter/number-only references without rejecting them."""
+        engages_with = objection["engages_with"].strip()
+        if not engages_with:
+            return True
+
+        target_opinion = opponent_opinions.get(objection["target_agent"])
+        parameter_terms: set[str] = set()
+        if target_opinion:
+            for parameter in target_opinion.recommendation:
+                parameter_terms.update(re.findall(r"[a-z]+", parameter.lower()))
+
+        words = re.findall(r"[a-z]+", engages_with.lower())
+        generic_terms = {
+            "parameter", "parameters", "proposed", "proposal", "recommendation",
+            "value", "values", "number", "numbers", "percent", "percentage", "pct",
+        }
+        reasoning_words = [
+            word for word in words
+            if word not in parameter_terms and word not in generic_terms
+        ]
+        return not reasoning_words
+
     def _fallback_opinion(
         self,
         proposal: Proposal,
@@ -465,6 +507,7 @@ class BaseAgent(abc.ABC):
             supports=[],
             confidence=0.5,
             grounding_warnings=[],
+            engagement_warnings=[],
         )
 
     @property

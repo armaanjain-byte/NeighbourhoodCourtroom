@@ -8,6 +8,7 @@ class TranscriptEntry(BaseModel):
     target_agent: Optional[str] = None
     content: str
     is_grounding_warning: bool = False
+    is_engagement_warning: bool = False
 
 class CourtroomTranscript(BaseModel):
     entries: list[TranscriptEntry] = Field(default_factory=list)

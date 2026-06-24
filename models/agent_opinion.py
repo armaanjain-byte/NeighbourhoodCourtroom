@@ -1,9 +1,11 @@
-from typing import Any
 from pydantic import BaseModel, Field
+
 
 class TargetStatement(BaseModel):
     target_agent: str
+    engages_with: str
     reason: str
+
 
 class AgentOpinion(BaseModel):
     agent: str
@@ -17,4 +19,4 @@ class AgentOpinion(BaseModel):
     supports: list[TargetStatement] = Field(default_factory=list)
     confidence: float
     grounding_warnings: list[str] = Field(default_factory=list)
-
+    engagement_warnings: list[str] = Field(default_factory=list)

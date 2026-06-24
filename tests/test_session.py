@@ -249,7 +249,23 @@ class TestCourtroomSession:
         # To cleanly differentiate agent1 and agent2, let's patch their bound methods directly
         def gen_op_1(proposal, context, round_number=1, opponent_opinions=None):
             if round_number in [1, 2]:
-                return AgentOpinion(agent="agent1", score=50.0, recommendation={"green_space_pct": 10.0}, tension="Mock tension.", position=f"R{round_number}", reasoning="R", confidence=1.0)
+                objections = []
+                if round_number == 2:
+                    objections = [{
+                        "target_agent": "agent2",
+                        "engages_with": "larger parks provide meaningful cooling",
+                        "reason": "The claimed cooling benefit ignores the housing tradeoff.",
+                    }]
+                return AgentOpinion(
+                    agent="agent1",
+                    score=50.0,
+                    recommendation={"green_space_pct": 10.0},
+                    tension="Mock tension.",
+                    position=f"R{round_number}",
+                    reasoning="R",
+                    objections=objections,
+                    confidence=1.0,
+                )
             else:
                 return AgentOpinion(agent="agent1", score=50.0, recommendation={"green_space_pct": 48.0}, tension="Mock tension.", position="R3", reasoning="R3 compromise", confidence=1.0)
 
@@ -270,4 +286,10 @@ class TestCourtroomSession:
         assert round_record.round_3_opinions is not None
         assert len(round_record.round_3_opinions) == 2
         assert session.round_3_attempted is True
-
+        objection_entries = [
+            entry for entry in session.transcript.entries
+            if entry.statement_type == "objection"
+        ]
+        assert len(objection_entries) == 1
+        assert "larger parks provide meaningful cooling" in objection_entries[0].content
+        assert "ignores the housing tradeoff" in objection_entries[0].content

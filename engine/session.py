@@ -162,12 +162,17 @@ class CourtroomSession(BaseModel):
                     is_grounding_warning=(ev in opinion.grounding_warnings),
                 ))
             for obj in opinion.objections:
+                warning_label = f"{obj.target_agent}:{obj.engages_with}"
                 self.transcript.entries.append(TranscriptEntry(
                     round_number=debate_round_number,
                     agent=agent.agent_name,
                     statement_type="objection",
                     target_agent=obj.target_agent,
-                    content=obj.reason
+                    content=(
+                        f"Responding to {obj.target_agent}'s claim that "
+                        f"'{obj.engages_with}': {obj.reason}"
+                    ),
+                    is_engagement_warning=(warning_label in opinion.engagement_warnings),
                 ))
             for sup in opinion.supports:
                 self.transcript.entries.append(TranscriptEntry(
@@ -260,12 +265,17 @@ class CourtroomSession(BaseModel):
                         is_grounding_warning=(ev in opinion.grounding_warnings),
                     ))
                 for obj in opinion.objections:
+                    warning_label = f"{obj.target_agent}:{obj.engages_with}"
                     self.transcript.entries.append(TranscriptEntry(
                         round_number=debate_round_number,
                         agent=agent.agent_name,
                         statement_type="objection",
                         target_agent=obj.target_agent,
-                        content=obj.reason
+                        content=(
+                            f"Responding to {obj.target_agent}'s claim that "
+                            f"'{obj.engages_with}': {obj.reason}"
+                        ),
+                        is_engagement_warning=(warning_label in opinion.engagement_warnings),
                     ))
                 for sup in opinion.supports:
                     self.transcript.entries.append(TranscriptEntry(
