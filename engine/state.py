@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 import logging
 from typing import Any
 
+from pydantic import ValidationError
 from models.proposal import Proposal
 from tools.cost_calculator import CostCalculator
 
@@ -35,6 +36,15 @@ MUTABLE_PARAMETERS: set[str] = {
     "parking_spaces",
     "community_center_sqft",
     "estimated_cost",
+}
+
+PARAM_BOUNDS: dict[str, tuple[float, float]] = {
+    "green_space_pct": (0.0, 100.0),
+    "affordable_housing_pct": (0.0, 100.0),
+    "housing_units": (0, 100000),
+    "parking_spaces": (0, 100000),
+    "community_center_sqft": (0.0, 1000000.0),
+    "estimated_cost": (0.0, 10_000_000_000.0),
 }
 
 # Parameters whose Proposal field type is int (agents send floats)
@@ -189,16 +199,36 @@ def apply_changes(
             continue
 
         has_activity = True
-        setattr(updated, param, new_value)
-        updated.change_log.append({
-            "version": proposal.version + 1,
-            "actor": actor,
-            "action": "changed",
-            "parameter": param,
-            "old": old_value,
-            "new": new_value,
-            "timestamp": timestamp,
-        })
+        try:
+            setattr(updated, param, new_value)
+            updated.change_log.append({
+                "version": proposal.version + 1,
+                "actor": actor,
+                "action": "changed",
+                "parameter": param,
+                "old": old_value,
+                "new": new_value,
+                "timestamp": timestamp,
+            })
+        except ValidationError:
+            min_bound, max_bound = PARAM_BOUNDS[param]
+            clamped_value = max(min_bound, min(max_bound, new_value))
+            clamped_value = _coerce_value(param, clamped_value)
+            
+            bound_str = f"max {max_bound}" if new_value > max_bound else f"min {min_bound}"
+            logger.warning(f"Agent {actor} proposed {param}={new_value}, clamped to {bound_str}")
+            
+            setattr(updated, param, clamped_value)
+            updated.change_log.append({
+                "version": proposal.version + 1,
+                "actor": actor,
+                "action": "clamped",
+                "parameter": param,
+                "old": old_value,
+                "requested": new_value,
+                "new": clamped_value,
+                "timestamp": timestamp,
+            })
 
     # 2. Recalculate estimated cost using CostCalculator
     if cost_calculator is not None:
@@ -206,16 +236,33 @@ def apply_changes(
         old_cost = updated.estimated_cost
         if old_cost != new_cost:
             has_activity = True
-            updated.estimated_cost = new_cost
-            updated.change_log.append({
-                "version": proposal.version + 1,
-                "actor": "cost_calculator",
-                "action": "recalculated",
-                "parameter": "estimated_cost",
-                "old": old_cost,
-                "new": new_cost,
-                "timestamp": timestamp,
-            })
+            try:
+                updated.estimated_cost = new_cost
+                updated.change_log.append({
+                    "version": proposal.version + 1,
+                    "actor": "cost_calculator",
+                    "action": "recalculated",
+                    "parameter": "estimated_cost",
+                    "old": old_cost,
+                    "new": new_cost,
+                    "timestamp": timestamp,
+                })
+            except ValidationError:
+                min_bound, max_bound = PARAM_BOUNDS["estimated_cost"]
+                clamped_cost = max(min_bound, min(max_bound, new_cost))
+                bound_str = f"max {max_bound}" if new_cost > max_bound else f"min {min_bound}"
+                logger.warning(f"CostCalculator calculated estimated_cost={new_cost}, clamped to {bound_str}")
+                updated.estimated_cost = clamped_cost
+                updated.change_log.append({
+                    "version": proposal.version + 1,
+                    "actor": "cost_calculator",
+                    "action": "clamped",
+                    "parameter": "estimated_cost",
+                    "old": old_cost,
+                    "requested": new_cost,
+                    "new": clamped_cost,
+                    "timestamp": timestamp,
+                })
 
     if has_activity:
         updated.version = proposal.version + 1

@@ -78,4 +78,15 @@ To verify the entire test suite cleanly without external API calls, run: `python
 
 ## Security
 - **API Keys**: The `GEMINI_API_KEY` is strictly managed via environment variables (e.g., `.env`). It is never committed to the repository and never exposed to the frontend/client.
-- **Input Validation**: All proposal parameters submitted via the UI intake form are strictly validated and clamped server-side before reaching the core engine. This prevents invalid types or out-of-bounds parameters (e.g., negative housing units or percentages > 100) from bypassing UI constraints and causing engine failures.
+- **Two-Layer Input Validation**: All proposal parameters undergo strict two-layer validation and sanitization. First, UI-level clamping at intake sanitizes initial form submissions against sensible upper and lower bounds. Second, rigorous model-level validation (`validate_assignment=True` on the Pydantic `Proposal` model) is enforced on every subsequent mutation throughout the entire debate lifecycle. If an LLM agent proposes or a human overrides a parameter with an out-of-bounds value mid-session, the engine intercepts the validation error, clamps the value to the nearest valid bound, logs a clear warning, and records the clamping event directly in the audit trail.
+
+
+## Course Concepts Demonstrated
+
+This project explicitly demonstrates four of the core course concepts across its code and interactive demo:
+
+1. **Agent / Multi-agent system (Code & Video)**: Demonstrates a comprehensive multi-agent system featuring three specialized AI agents (`FinanceAgent`, `ClimateAgent`, `CommunityAgent` in `agents/`) with distinct data partitioning, personality archetypes, and risk tolerances. They debate and negotiate urban planning trade-offs across adaptive rounds orchestrated by `CourtroomSession` (`engine/session.py`). *(Note: This project implements a custom multi-agent system and does not use Google's ADK framework).*
+2. **Security features (Code)**: See the **Security** section above. Demonstrated via two-layer input validation/clamping in `app.py`, Pydantic validation on assignment (`models/proposal.py`), out-of-bounds recovery in `engine/state.py`, and strict environment variable API key isolation.
+3. **Deployability (Code & Video)**: See `DEPLOYMENT.md` and the submission video. Demonstrated via stable version pinning in `requirements.txt`, container-friendly static Streamlit custom components (`ui_component_dir/`), dynamic relative file path resolution, an example secrets template (`.streamlit/secrets.toml.example`), and public demo quota safeguards (`LLM_DAILY_BUDGET`).
+4. **Agent skills (Code)**: Demonstrated via agent function calling and tool usage. Agents utilize custom tools (`CostCalculator` in `tools/cost_calculator.py` and `DataLoader` in `tools/data_loader.py`) via the LLM provider abstraction (`llm/gemini_provider.py`) to actively fetch real-world demographic, climate, walkability, and construction cost data during the debate rounds.
+

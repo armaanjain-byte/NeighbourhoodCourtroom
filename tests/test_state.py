@@ -267,6 +267,22 @@ class TestApplyChanges:
         expected_cost = (100 * 1000) + (150 * 500) + (50.0 * 100)
         assert updated.estimated_cost == expected_cost
 
+    def test_out_of_bounds_change_clamps(self, base_proposal: Proposal, caplog: pytest.LogCaptureFixture) -> None:
+        """Agent proposing out of bounds value should be clamped rather than crashing."""
+        updated = apply_changes(base_proposal, {"housing_units": 500000}, "community")
+        
+        assert updated.housing_units == 100000
+        assert "community" in caplog.text
+        assert "clamped to max 100000" in caplog.text
+        
+        # Verify clamping event in change_log
+        clamped_log = [e for e in updated.change_log if e["action"] == "clamped"]
+        assert len(clamped_log) == 1
+        assert clamped_log[0]["parameter"] == "housing_units"
+        assert clamped_log[0]["requested"] == 500000
+        assert clamped_log[0]["new"] == 100000
+
+
 
 # ── apply_human_override ───────────────────────────────────────────────────
 

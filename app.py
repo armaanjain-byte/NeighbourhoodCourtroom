@@ -408,10 +408,10 @@ def stage_input() -> None:
                 
             green_space_pct = max(0.0, min(100.0, float(result.get("green_space_pct", 0.0))))
             affordable_housing_pct = max(0.0, min(100.0, float(result.get("affordable_housing_pct", 0.0))))
-            housing_units = max(0, int(result.get("housing_units", 0)))
-            parking_spaces = max(0, int(result.get("parking_spaces", 0)))
-            community_center_sqft = max(0.0, float(result.get("community_center_sqft", 0.0)))
-            total_budget = max(0.0, float(result.get("total_budget", 0.0)))
+            housing_units = max(0, min(100000, int(result.get("housing_units", 0))))
+            parking_spaces = max(0, min(100000, int(result.get("parking_spaces", 0))))
+            community_center_sqft = max(0.0, min(1000000.0, float(result.get("community_center_sqft", 0.0))))
+            total_budget = max(0.0, min(10_000_000_000.0, float(result.get("total_budget", 0.0))))
             
             proposal = create_initial_proposal(
                 city_slug=city_slug,
