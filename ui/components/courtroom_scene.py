@@ -530,13 +530,15 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
         const evidence = (op.evidence || []).map(e => `<li>${{escHtml(e)}}</li>`).join('');
         const tension = escHtml(op.tension || '');
         const hasConcession = op.concession_rationale && op.concession_rationale.trim();
+        const isFallback = op.is_fallback;
+        const fallbackTag = isFallback ? `<span style="display:inline-block;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);margin-bottom:6px;margin-left:6px;">⚙️ Baseline calc</span>` : '';
 
         let positionHtml;
 
         if (hasConcession) {{
             positionHtml = `
                 <div class="bubble bubble-concession">
-                    <div class="con-header">🤝 Concession · Round ${{rn}}</div>
+                    <div class="con-header">🤝 Concession · Round ${{rn}}${{fallbackTag}}</div>
                     <div class="position-text">${{escHtml(op.position || '')}}</div>
                     <details class="bubble-detail">
                         <summary>Concession rationale &amp; detail</summary>
@@ -549,7 +551,7 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
                 </div>`;
         }} else {{
             positionHtml = `
-                <span class="round-tag">Round ${{rn}}</span>
+                <span class="round-tag">Round ${{rn}}</span>${{fallbackTag}}
                 <div class="position-text">${{escHtml(op.position || '')}}</div>
                 <details class="bubble-detail">
                     <summary>Reasoning &amp; evidence</summary>

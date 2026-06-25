@@ -407,15 +407,15 @@ class BaseAgent(abc.ABC):
             if "Gemini not configured" in error_msg:
                 reason = "Gemini not configured"
             elif isinstance(e, LLMAuthError) or "API key" in error_msg or "400" in error_msg or "403" in error_msg or "APIError" in err_type:
-                reason = "Invalid or missing Gemini API key. Please check your configuration."
+                reason = "auth_error"
             elif isinstance(e, LLMRateLimitError):
-                reason = f"Rate limit or daily quota exhausted: {e}"
+                reason = "quota_exhausted"
             elif isinstance(e, LLMTransientError):
-                reason = f"Transient network/server error: {e}"
+                reason = "transient_error"
             elif isinstance(e, LLMInvalidResponseError):
-                reason = f"Invalid model response: {e}"
+                reason = "invalid_response"
             else:
-                reason = f"Gemini call failed: {e}"
+                reason = "provider_error"
             return self._fallback_opinion(
                 proposal, context, reason=reason
             )
@@ -527,16 +527,23 @@ class BaseAgent(abc.ABC):
         -------
         AgentOpinion
         """
+        fallback_position = {
+            "quota_exhausted": "AI reasoning quota temporarily exhausted — using deterministic fallback with verified baseline calculations instead.",
+            "auth_error": "AI reasoning unconfigured (please check API key configuration) — using deterministic fallback with verified baseline calculations instead.",
+            "transient_error": "AI reasoning temporarily unavailable (Transient network/server error) — using deterministic fallback with verified baseline calculations instead.",
+            "invalid_response": "AI reasoning produced unexpected format (Invalid model response) — using deterministic fallback with verified baseline calculations instead.",
+            "provider_error": "AI reasoning temporarily unavailable — using deterministic fallback with verified baseline calculations instead.",
+            "Daily budget exhausted": "AI reasoning daily budget exhausted (Daily budget exhausted) — using deterministic fallback with verified baseline calculations instead.",
+            "Gemini not configured": "AI reasoning unconfigured (Gemini not configured) — using deterministic fallback with verified baseline calculations instead.",
+        }.get(reason, f"{self.agent_name.capitalize()} using deterministic fallback. Reason: {reason}")
+
         math_results = self.evaluate(proposal, context)
         return AgentOpinion(
             agent=self.agent_name,
             score=math_results.score,
             recommendation=math_results.proposed_changes,
             tension="Considered alternative viewpoints, but fell back to deterministic mathematical modeling due to execution constraints.",
-            position=(
-                f"{self.agent_name.capitalize()} using deterministic fallback. "
-                f"Reason: {reason}"
-            ),
+            position=fallback_position,
             reasoning=math_results.reasoning_and_evidence,
             evidence=[],
             objections=[],
@@ -544,6 +551,7 @@ class BaseAgent(abc.ABC):
             confidence=0.5,
             grounding_warnings=[],
             engagement_warnings=[],
+            is_fallback=True,
         )
 
     @property

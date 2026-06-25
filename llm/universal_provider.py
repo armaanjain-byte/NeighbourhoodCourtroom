@@ -68,7 +68,7 @@ class UniversalProvider(LLMProvider):
             model = custom_model or "openrouter/free"
         elif self.provider_name == "groq":
             url = custom_url or "https://api.groq.com/openai/v1/chat/completions"
-            model = custom_model or "llama3-70b-8192"
+            model = custom_model or "llama-3.3-70b-versatile"
         elif self.provider_name == "openai":
             url = custom_url or "https://api.openai.com/v1/chat/completions"
             model = custom_model or "gpt-4o"

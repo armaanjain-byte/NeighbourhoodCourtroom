@@ -22,4 +22,4 @@ class AgentOpinion(BaseModel):
     engagement_warnings: list[str] = Field(default_factory=list)
     concession_rationale: str | None = None
     own_previous_position: dict[str, float] | None = None
-
+    is_fallback: bool = False

@@ -414,3 +414,32 @@ class TestBaseAgentGenerateOpinion:
         op_success = agent.generate_opinion(proposal, {}, round_number=2, own_previous_opinion=prev_opinion)
         assert op_success.concession_rationale is None
         assert op_success.own_previous_position == {"green_space_pct": 35.0}
+
+    def test_fallback_position_never_contains_raw_exception_text(self, agent: MockAgent) -> None:
+        """Test that LLM exceptions trigger fallback without leaking raw exception text to UI."""
+        from llm.base import LLMRateLimitError, LLMAuthError, LLMTransientError, LLMInvalidResponseError
+        
+        proposal = create_initial_proposal("phoenix_az")
+        raw_error_msg = '{"error": {"message": "Out of quota / raw JSON stack trace leak"}}'
+        
+        errors = [
+            LLMRateLimitError(raw_error_msg),
+            LLMAuthError(raw_error_msg),
+            LLMTransientError(raw_error_msg),
+            LLMInvalidResponseError(raw_error_msg),
+            Exception(raw_error_msg),
+        ]
+        
+        for exc in errors:
+            mock_provider = MagicMock(spec=LLMProvider)
+            mock_provider.generate_structured.side_effect = exc
+            agent.llm_provider = mock_provider
+            
+            with patch.object(agent, 'evaluate') as mock_eval:
+                mock_eval.return_value = agent.build_output(score=50.0, verdict="modify", changes={"green_space_pct": 21.0}, reasoning="Fallback")
+                opinion = agent.generate_opinion(proposal, {})
+                
+                assert opinion.is_fallback is True
+                assert "using deterministic fallback" in opinion.position
+                assert raw_error_msg not in opinion.position
+                assert raw_error_msg not in opinion.reasoning
