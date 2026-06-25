@@ -298,6 +298,7 @@ def _init_state() -> None:
         "session": None,
         "error": None,
         "city_slug": "phoenix_az",
+        "onboarding_dismissed": False,
         # Live debate streaming state
         "live_events": [],
         "debate_gen": None,
@@ -421,6 +422,39 @@ def stage_input() -> None:
         unsafe_allow_html=True,
     )
 
+    # ── First-time onboarding card ─────────────────────────────────────────
+    if not st.session_state.get("onboarding_dismissed"):
+        with st.container():
+            st.markdown("""
+<div style="
+    background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12));
+    border: 1px solid rgba(139,92,246,0.4);
+    border-radius: 16px;
+    padding: 1.2rem 1.5rem 1rem;
+    margin-bottom: 1.2rem;
+">
+<div style="font-size:1.05rem;font-weight:700;color:#c4b5fd;margin-bottom:0.5rem;">👋 New here? Here's what this is</div>
+<div style="color:#e2e8f0;font-size:0.88rem;line-height:1.65;">
+This app simulates a <strong>city council–style review</strong> of a real estate development proposal.
+<br><br>
+🏗️ <strong>You play the role of a city planner</strong> — pick a city, propose initial numbers (green space, housing units, budget, etc.), and submit.
+<br><br>
+🤖 <strong>Three AI agents then debate your proposal</strong>, each representing a different stakeholder perspective:
+<ul style="margin:0.4rem 0 0.4rem 1.2rem;padding:0;">
+  <li><span style="color:#fbd38d">💰 Finance</span> — focuses on cost feasibility and return on investment</li>
+  <li><span style="color:#9ae6b4">🌿 Climate</span> — focuses on environmental impact and green infrastructure</li>
+  <li><span style="color:#d6bcfa">🏘️ Community</span> — focuses on resident quality of life and social equity</li>
+</ul>
+Agents negotiate across up to three rounds, proposing changes and responding to each other's objections. Where they disagree sharply on a parameter, you get to make the final ruling as the judge.
+<br><br>
+⚖️ <strong>You see the final negotiated numbers</strong> — and can use the override slider to lock any parameter to a value of your choosing and watch them re-negotiate.
+</div>
+</div>
+""", unsafe_allow_html=True)
+            if st.button("Got it — let's go ✓", key="dismiss_onboarding"):
+                st.session_state["onboarding_dismissed"] = True
+                st.rerun()
+
     if st.session_state.get("error"):
         st.error(f"Previous run failed: {st.session_state['error']}")
         st.session_state["error"] = None
@@ -491,6 +525,15 @@ def stage_debating() -> None:
     )
 
     events: list = st.session_state.get("live_events") or []
+
+    # Brief contextual hint for first-time viewers
+    st.caption(
+        "🟡 **Amber dot** = that agent is currently thinking (LLM call in progress). "
+        "🟢 **Green dot** = that agent has spoken this round. "
+        "Each bubble = one agent's stated position. "
+        "Red bubbles = objections directed at another agent. "
+        "Gold bubbles = a concession (agent moving toward compromise)."
+    )
 
     # Render the live feed with whatever events we have so far
     render_live_feed(events)
@@ -608,6 +651,17 @@ def stage_result(is_override: bool = False) -> None:
 
 
     st.markdown('<div class="section-header">📊 Agent Scores</div>', unsafe_allow_html=True)
+
+    # Agent legend — always visible, one line per agent
+    st.markdown("""
+<div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:0.8rem;font-size:0.8rem;">
+  <span><span style="background:#744210;color:#fefcbf;padding:2px 8px;border-radius:12px;font-weight:700;">💰 FINANCE</span>&nbsp; Cost feasibility &amp; ROI — penalises over-budget proposals</span>
+  <span><span style="background:#276749;color:#c6f6d5;padding:2px 8px;border-radius:12px;font-weight:700;">🌿 CLIMATE</span>&nbsp; Environmental impact &amp; green infrastructure</span>
+  <span><span style="background:#553c9a;color:#e9d8fd;padding:2px 8px;border-radius:12px;font-weight:700;">🏘️ COMMUNITY</span>&nbsp; Resident quality of life &amp; social equity</span>
+</div>
+<div style="font-size:0.76rem;color:#718096;margin-bottom:0.6rem;">Score = 0–100. Each agent rates how well the final proposal serves their domain. Higher is better.</div>
+""", unsafe_allow_html=True)
+
     cols = st.columns(3)
     
     for i, agent_name in enumerate(["finance", "climate", "community"]):
@@ -700,12 +754,38 @@ def stage_result(is_override: bool = False) -> None:
         render_debate_transcript(session)
 
     with tab_conf:
+        # Conflict legend
+        st.markdown("""
+<div style="
+    background:rgba(252,129,129,0.07);border:1px solid rgba(252,129,129,0.25);
+    border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.8rem;color:#e2e8f0;
+    line-height:1.6;
+">
+<strong style="color:#fc8181;">⚡ What is a conflict?</strong> &nbsp;A conflict occurs when two agents propose
+<em>significantly different</em> values for the same parameter (e.g. Finance wants 5% green space, Climate wants 40%).
+The coloured dots on the bar below show each agent's proposed value; the red bar spans the disagreement range.
+<br>
+<strong>Severity:</strong>&nbsp;
+<span style="background:#742a2a;color:#feb2b2;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;">HIGH</span> → escalated to your ruling &nbsp;|
+<span style="background:#744210;color:#fefcbf;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;">MODERATE</span> → resolved by weighted average &nbsp;|
+<span style="background:#276749;color:#c6f6d5;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;">LOW</span> → accepted directly.
+<br>
+<strong>Weighted average</strong> means the engine splits the difference, giving more weight to the agent with higher confidence. The italic line at the bottom of each card shows the resolved value.
+</div>
+""", unsafe_allow_html=True)
         render_conflicts(session)
 
     with tab_prop:
         st.markdown(
             '<div class="section-header">Final Proposal Parameters</div>',
             unsafe_allow_html=True,
+        )
+        # Proposal table legend
+        st.caption(
+            "**Opening** = the numbers you originally submitted. "
+            "**Final** = the numbers after all rounds of negotiation. "
+            "**↑ green** = increased by agents, **↓ green** = decreased. "
+            "Unchanged rows mean all agents agreed to keep your number as-is."
         )
         st.markdown('<div class="card">', unsafe_allow_html=True)
         render_proposal_table(session)
@@ -726,8 +806,13 @@ def stage_result(is_override: bool = False) -> None:
                 st.rerun()
 
     # ── Override panel ────────────────────────────────────────────────────
-    st.markdown('<div class="flex items-center justify-between border-b border-gray-300 pb-2 mb-4"><h2 class="font-bold text-2xl text-gray-900">Your Ruling 🔨</h2></div>', unsafe_allow_html=True)
-    
+    st.markdown('<div class="section-header">🔨 Your Ruling</div>', unsafe_allow_html=True)
+    st.caption(
+        "As the judge, you can **lock any parameter** to a specific value — overriding what the agents negotiated. "
+        "Once you lock a value, the agents re-debate the remaining parameters with your ruling as a hard constraint. "
+        "Locked parameters cannot be changed again by any agent in future rounds."
+    )
+
     ov_param = st.selectbox(
         "Select parameter to lock",
         options=["green_space_pct", "affordable_housing_pct", "parking_spaces", "housing_units"],
