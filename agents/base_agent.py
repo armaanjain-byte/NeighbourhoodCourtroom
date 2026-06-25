@@ -302,13 +302,15 @@ class BaseAgent(abc.ABC):
                 "tension", "position", "reasoning", "evidence", "confidence",
                 "objections", "supports",
             }
-            data = self.llm_provider.generate_structured(
-                system_instruction=system_instruction,
-                user_prompt=user_prompt,
-                tool_declarations=self.tool_declarations or None,
-                tool_executor=self.execute_tool_call,
-                required_keys=required,
-            )
+            from llm.retry import op_deadline
+            with op_deadline(25.0):
+                data = self.llm_provider.generate_structured(
+                    system_instruction=system_instruction,
+                    user_prompt=user_prompt,
+                    tool_declarations=self.tool_declarations or None,
+                    tool_executor=self.execute_tool_call,
+                    required_keys=required,
+                )
 
             # Validate required keys (redundant check in case provider didn't validate)
             if not required.issubset(data.keys()):

@@ -10,7 +10,7 @@ Dependencies:
     models.proposal.Proposal, models.debate_round.DebateRound
 """
 
-from typing import Any, Literal
+from typing import Any, Generator, Literal
 from uuid import uuid4
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
@@ -41,18 +41,28 @@ class CourtroomSession(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     round_3_attempted: bool = False
 
-    def run_round(self, agents: list[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> DebateRound:
-        """Run a debate round using the provided agents with adaptive stopping.
+    def stream_round(self, agents: list[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> Generator[dict[str, Any], None, None]:
+        """Run a debate round as a generator, yielding structured progress events.
 
-        Adaptive flow:
-            Phase A — Round 1 (independent): each agent generates an opinion
-                      based only on its own domain data slice. If zero conflicts
-                      or all conflicts are LOW severity, early-stop and skip Round 2.
-            Phase B — Round 2 (cross-agent rebuttal): each agent sees the Round 1
-                      opinions of the other agents and addresses conflicts.
-            Phase C — Round 3 (bounded compromise): triggers only for agents involved
-                      in unresolved HIGH severity conflicts after Round 2, running
-                      at most once per session.
+        This preserves ALL logic of the original run_round (early-stop, bounded
+        Round 3, conflict resolution math, transcript recording, status transitions)
+        — only control flow is restructured with ``yield`` inserted at each
+        observable milestone, so the caller can stream live progress.
+
+        Yielded event dicts
+        -------------------
+        - ``{"event": "agent_thinking", "round": N, "agent": name}``
+          Fired immediately before each agent LLM call starts.
+        - ``{"event": "agent_spoke", "round": N, "agent": name, "opinion": dict}``
+          Fired immediately after each agent opinion completes.
+        - ``{"event": "conflicts_detected", "round": N, "conflicts": [dict, ...]}``
+          Fired after Round 1 conflict detection (may be empty list).
+        - ``{"event": "round3_triggered", "agents": [...], "conflicts": [dict, ...]}``
+          Fired when bounded Round 3 is initiated for high-conflict agents.
+        - ``{"event": "round_resolved", "round": N, "summary": str}``
+          Fired after the debate round is fully resolved.
+        - ``{"event": "session_complete", "debate_round": dict}``
+          Terminal event — always the last event emitted.
 
         Parameters
         ----------
@@ -63,10 +73,10 @@ class CourtroomSession(BaseModel):
         cost_calculator : CostCalculator
             The single source of truth for computing costs.
 
-        Returns
-        -------
-        DebateRound
-            The resulting DebateRound after all conflicts are processed.
+        Yields
+        ------
+        dict
+            Structured progress event dicts, in chronological order.
         """
         if self.status in ["WAITING_FOR_JUDGE", "COMPLETED"]:
             raise ValueError(f"Cannot run debate round in status: {self.status}")
@@ -77,6 +87,7 @@ class CourtroomSession(BaseModel):
         # ── Phase A: Round 1 opinions (independent, domain-scoped) ──────────
         round_1_opinions: dict[str, AgentOpinion] = {}
         for agent in agents:
+            yield {"event": "agent_thinking", "round": 1, "agent": agent.agent_name}
             opinion = agent.generate_opinion(
                 self.current_proposal,
                 context,
@@ -84,6 +95,7 @@ class CourtroomSession(BaseModel):
                 opponent_opinions=None,
             )
             round_1_opinions[agent.agent_name] = opinion
+            yield {"event": "agent_spoke", "round": 1, "agent": agent.agent_name, "opinion": opinion.model_dump()}
 
             # Record Round 1 opinion to transcript
             self.transcript.entries.append(TranscriptEntry(
@@ -114,6 +126,8 @@ class CourtroomSession(BaseModel):
             )
         
         r1_conflicts = detect_conflicts(r1_agent_outputs)
+        yield {"event": "conflicts_detected", "round": 1, "conflicts": [c.model_dump() for c in r1_conflicts]}
+
         if not r1_conflicts or all(c.disagreement_severity == "low" for c in r1_conflicts):
             print(f"Session {self.session_id}: Round 2 skipped due to early consensus (0 conflicts or all LOW severity).")
             debate_round, updated_proposal = run_debate_round(
@@ -127,7 +141,9 @@ class CourtroomSession(BaseModel):
             self.current_proposal = updated_proposal
             if any(c.disagreement_severity == "high" for c in debate_round.detected_conflicts):
                 self.status = "WAITING_FOR_JUDGE"
-            return debate_round
+            yield {"event": "round_resolved", "round": debate_round_number, "summary": debate_round.engine_summary}
+            yield {"event": "session_complete", "debate_round": debate_round.model_dump()}
+            return
 
         # ── Phase B: Round 2 opinions (cross-agent rebuttal) ────────────────
         round_2_opinions: dict[str, AgentOpinion] = {}
@@ -138,6 +154,7 @@ class CourtroomSession(BaseModel):
                 for name, op in round_1_opinions.items()
                 if name != agent.agent_name
             }
+            yield {"event": "agent_thinking", "round": 2, "agent": agent.agent_name}
             opinion = agent.generate_opinion(
                 self.current_proposal,
                 context,
@@ -146,6 +163,7 @@ class CourtroomSession(BaseModel):
                 own_previous_opinion=round_1_opinions.get(agent.agent_name),
             )
             round_2_opinions[agent.agent_name] = opinion
+            yield {"event": "agent_spoke", "round": 2, "agent": agent.agent_name, "opinion": opinion.model_dump()}
 
             # Record Round 2 position to transcript
             self.transcript.entries.append(TranscriptEntry(
@@ -219,7 +237,13 @@ class CourtroomSession(BaseModel):
             for c in high_conflicts:
                 conflicted_agent_names.add(c.agent_a)
                 conflicted_agent_names.add(c.agent_b)
-                
+            
+            yield {
+                "event": "round3_triggered",
+                "agents": list(conflicted_agent_names),
+                "conflicts": [c.model_dump() for c in high_conflicts],
+            }
+
             round_3_opinions: dict[str, AgentOpinion] = {}
             for agent in agents:
                 if agent.agent_name not in conflicted_agent_names:
@@ -242,6 +266,7 @@ class CourtroomSession(BaseModel):
                     if name != agent.agent_name
                 }
                 
+                yield {"event": "agent_thinking", "round": 3, "agent": agent.agent_name}
                 opinion = agent.generate_opinion(
                     self.current_proposal,
                     r3_context,
@@ -250,6 +275,7 @@ class CourtroomSession(BaseModel):
                     own_previous_opinion=round_2_opinions.get(agent.agent_name),
                 )
                 round_3_opinions[agent.agent_name] = opinion
+                yield {"event": "agent_spoke", "round": 3, "agent": agent.agent_name, "opinion": opinion.model_dump()}
 
                 
                 # Record Round 3 statements to transcript
@@ -318,9 +344,36 @@ class CourtroomSession(BaseModel):
         if any(c.disagreement_severity == "high" for c in debate_round.detected_conflicts):
             self.status = "WAITING_FOR_JUDGE"
 
-        return debate_round
+        yield {"event": "round_resolved", "round": debate_round_number, "summary": debate_round.engine_summary}
+        yield {"event": "session_complete", "debate_round": debate_round.model_dump()}
 
+    def run_round(self, agents: list[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> DebateRound:
+        """Run a debate round synchronously, blocking until completion.
 
+        Thin wrapper around :meth:`stream_round` that drains the generator and
+        returns the final :class:`~models.debate_round.DebateRound`.  All
+        existing callers (tests, non-streaming code paths) continue to work
+        unchanged without any modifications.
+
+        Parameters
+        ----------
+        agents : list[BaseAgent]
+            The specialized agents participating in the round.
+        context : dict[str, Any]
+            Additional data or configuration provided to the agents.
+        cost_calculator : CostCalculator
+            The single source of truth for computing costs.
+
+        Returns
+        -------
+        DebateRound
+            The resulting DebateRound after all conflicts are processed.
+        """
+        for _event in self.stream_round(agents, context, cost_calculator):
+            pass  # drain — session state is mutated as a side-effect
+        if not self.debate_rounds:
+            raise RuntimeError("stream_round completed without recording a DebateRound")
+        return self.debate_rounds[-1]
 
     def apply_override(self, parameter: str, value: float) -> Proposal:
         """Apply a human override to a parameter, locking it from future agent edits.

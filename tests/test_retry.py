@@ -95,13 +95,13 @@ class TestRetryUtility:
         assert mock_sleep.call_count == 0
 
     def test_transient_error_retry(self, mock_sleep) -> None:
-        """Test that 5xx transient error retries up to 3 times before raising."""
+        """Test that 5xx transient error retries up to 2 times before raising."""
         mock_func = MagicMock()
         mock_func.side_effect = Exception("503 Service Unavailable: Server overloaded")
         with pytest.raises(LLMTransientError, match="Transient error persisted"):
             execute_with_retry(mock_func)
-        assert mock_func.call_count == 4  # Initial + 3 retries
-        assert mock_sleep.call_count == 3
+        assert mock_func.call_count == 3  # Initial + 2 retries
+        assert mock_sleep.call_count == 2
 
 
 class TestGeminiProviderAdvanced:
@@ -136,6 +136,64 @@ class TestGeminiProviderAdvanced:
             assert opinion.recommendation == {"green_space_pct": 25.0}
             assert "deterministic fallback" in opinion.position
             assert "Invalid model response" in opinion.position
+
+    @patch("llm.gemini_provider.genai.Client")
+    def test_empty_response_fresh_retry_then_fallback(self, mock_client_cls) -> None:
+        """Test empty response triggers a fresh API call with modified prompt, then fallback."""
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_chat_1 = MagicMock()
+        mock_chat_2 = MagicMock()
+        mock_client.chats.create.side_effect = [mock_chat_1, mock_chat_2]
+
+        # Return empty response on initial prompt AND on the fresh retry prompt
+        mock_response_1 = MagicMock()
+        mock_response_1.function_calls = []
+        mock_response_1.text = ""
+
+        mock_response_2 = MagicMock()
+        mock_response_2.function_calls = []
+        mock_response_2.text = ""
+
+        mock_chat_1.send_message.return_value = mock_response_1
+        mock_chat_2.send_message.return_value = mock_response_2
+
+        agent = RetryMockAgent()
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key", "LLM_PROVIDER": "gemini"}):
+            proposal = create_initial_proposal("phoenix_az")
+            opinion = agent.generate_opinion(proposal, {})
+
+            # Must have created two separate chats (initial + fresh retry)
+            assert mock_client.chats.create.call_count == 2
+            assert mock_chat_1.send_message.call_count == 1
+            assert mock_chat_2.send_message.call_count == 1
+            # Must have cleanly routed to fallback
+            assert opinion.score == 85.0
+            assert opinion.recommendation == {"green_space_pct": 25.0}
+            assert "deterministic fallback" in opinion.position
+            assert "Invalid model response" in opinion.position
+
+    @patch("llm.gemini_provider.genai.Client")
+    @patch("time.time")
+    def test_overall_elapsed_time_ceiling(self, mock_time, mock_client_cls) -> None:
+        """Test that exceeding the overall elapsed time ceiling triggers immediate fallback."""
+        # Simulate time advancing past the 25s deadline during execute_with_retry
+        mock_time.side_effect = [100.0, 100.1, 130.0, 130.1, 130.2]
+        
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_chat = MagicMock()
+        mock_client.chats.create.return_value = mock_chat
+        mock_chat.send_message.side_effect = Exception("503 Service Unavailable")
+
+        agent = RetryMockAgent()
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key", "LLM_PROVIDER": "gemini"}):
+            proposal = create_initial_proposal("phoenix_az")
+            opinion = agent.generate_opinion(proposal, {})
+
+            assert opinion.score == 85.0
+            assert "deterministic fallback" in opinion.position
+            assert "Transient network/server error" in opinion.position
 
     @patch("llm.gemini_provider.genai.Client")
     def test_budget_exhausted_skips_call_entirely(self, mock_client_cls) -> None:

@@ -112,7 +112,9 @@ class FinanceAgent(BaseAgent):
                 green_space_pct=args["green_space_pct"],
                 parking_spaces=args["parking_spaces"],
                 community_center_sqft=args["community_center_sqft"],
-                city_slug=args["city_slug"]
+                city_slug=args["city_slug"],
+                affordable_housing_pct=0.0,
+                estimated_cost=0.0,
             )
             return {"estimated_cost": self.cost_calculator.calculate_estimated_cost(proposal)}
         else:

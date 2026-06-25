@@ -41,6 +41,673 @@ def render_courtroom_scene(session: CourtroomSession) -> None:
     components.html(html, height=850, scrolling=True)
 
 
+def render_live_feed(events: list) -> None:
+    """Render the live chat-bubble courtroom feed during an active debate.
+
+    Parameters
+    ----------
+    events : list[dict]
+        Ordered list of event dicts yielded by ``stream_round``.
+    """
+    html = build_live_feed_html(events)
+    components.html(html, height=900, scrolling=True)
+
+
+def build_live_feed_html(events: list) -> str:
+    """Build a self-contained HTML document showing the live courtroom chat feed.
+
+    The document renders the full event list on every call (safe to call
+    repeatedly as Streamlit reruns the page). Bubbles already seen in a
+    previous render are detected via ``sessionStorage`` and rendered without
+    animation — only genuinely new bubbles animate in, giving a live feel
+    without a jarring full-replay flicker on every Streamlit rerun.
+
+    Parameters
+    ----------
+    events : list[dict]
+        Ordered list of event dicts as produced by
+        :meth:`~engine.session.CourtroomSession.stream_round`.
+
+    Returns
+    -------
+    str
+        Complete, self-contained ``<!DOCTYPE html>`` document string.
+    """
+    import json as _json
+    events_json = _json.dumps(events)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Live Courtroom Feed</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    min-height: 100vh;
+    color: #e2e8f0;
+}}
+
+/* ── Layout ── */
+.courtroom-wrap {{
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 12px;
+    min-height: 880px;
+}}
+.agent-columns {{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}}
+.system-strip {{
+    padding: 4px 0;
+}}
+
+/* ── Agent column ── */
+.agent-col {{
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    min-height: 200px;
+}}
+.agent-header {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+}}
+.agent-icon {{ font-size: 1.6rem; }}
+.agent-label {{
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}}
+.presence-dot {{
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #4a5568;
+    margin-left: auto;
+    transition: background 0.3s;
+    flex-shrink: 0;
+}}
+.presence-dot.thinking {{
+    background: #f6ad55;
+    animation: presence-pulse 1.0s ease-in-out infinite;
+}}
+.presence-dot.spoke {{
+    background: #68d391;
+    animation: none;
+}}
+
+@keyframes presence-pulse {{
+    0%,100% {{ box-shadow: 0 0 0 0 rgba(246,173,85,0.7); }}
+    50% {{ box-shadow: 0 0 0 6px rgba(246,173,85,0); }}
+}}
+
+.agent-feed {{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    overflow-y: auto;
+}}
+
+/* ── Column flash overlay ── */
+.col-flash {{
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 10;
+}}
+.col-flash.flash-red {{
+    background: rgba(252,129,129,0.35);
+    animation: col-flash-anim 0.7s ease-out forwards;
+}}
+.col-flash.flash-green {{
+    background: rgba(72,187,120,0.3);
+    animation: col-flash-anim 0.7s ease-out forwards;
+}}
+@keyframes col-flash-anim {{
+    0%   {{ opacity: 1; }}
+    100% {{ opacity: 0; }}
+}}
+
+/* ── Chat bubbles ── */
+.bubble {{
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+    word-break: break-word;
+}}
+.bubble.bubble-new {{
+    animation: bubble-popin 0.32s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}}
+.bubble.bubble-static {{
+    animation: none;
+    opacity: 1;
+    transform: none;
+}}
+@keyframes bubble-popin {{
+    from {{ opacity: 0; transform: scale(0.88) translateY(8px); }}
+    to   {{ opacity: 1; transform: scale(1)   translateY(0); }}
+}}
+
+/* Position bubble: main statement */
+.bubble-position {{
+    background: rgba(255,255,255,0.07);
+    border-left: 3px solid rgba(255,255,255,0.3);
+}}
+.bubble-position .position-text {{
+    font-weight: 700;
+    font-size: 0.92rem;
+    margin-bottom: 8px;
+}}
+.bubble-position .round-tag {{
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 6px;
+}}
+
+/* Expandable detail */
+details.bubble-detail {{
+    margin-top: 6px;
+}}
+details.bubble-detail summary {{
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    padding: 3px 0;
+}}
+details.bubble-detail summary::-webkit-details-marker {{ display: none; }}
+details.bubble-detail summary::before {{ content: '▶ '; font-size: 0.6rem; }}
+details.bubble-detail[open] summary::before {{ content: '▼ '; }}
+.detail-body {{
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.65);
+    line-height: 1.5;
+}}
+.evidence-list {{
+    margin-top: 5px;
+    padding-left: 14px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.5);
+}}
+.evidence-list li {{ margin-bottom: 2px; }}
+
+/* Objection bubble */
+.bubble-objection {{
+    border: 2px solid #fc8181;
+    background: rgba(252,129,129,0.08);
+}}
+.bubble-objection .obj-header {{
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #fc8181;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 5px;
+}}
+.bubble-objection .obj-claim {{
+    font-size: 0.74rem;
+    color: rgba(252,129,129,0.75);
+    font-style: italic;
+    margin-bottom: 5px;
+    padding: 4px 8px;
+    background: rgba(252,129,129,0.06);
+    border-radius: 6px;
+    border-left: 2px solid rgba(252,129,129,0.4);
+}}
+.bubble-objection .obj-reason {{ font-size: 0.82rem; font-weight: 500; }}
+
+/* Support bubble */
+.bubble-support {{
+    border: 2px solid #68d391;
+    background: rgba(72,187,120,0.07);
+}}
+.bubble-support .sup-header {{
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #68d391;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 5px;
+}}
+
+/* Concession bubble */
+.bubble-concession {{
+    border: 2px solid #fbd38d;
+    background: rgba(251,211,141,0.07);
+}}
+.bubble-concession .con-header {{
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #fbd38d;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 5px;
+}}
+
+/* ── Thinking indicator ── */
+.thinking-indicator {{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.45);
+    padding: 6px 10px;
+    font-style: italic;
+}}
+.thinking-dots span {{
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    animation: dot-bounce 1.2s infinite;
+}}
+.thinking-dots span:nth-child(2) {{ animation-delay: 0.2s; }}
+.thinking-dots span:nth-child(3) {{ animation-delay: 0.4s; }}
+@keyframes dot-bounce {{
+    0%,80%,100% {{ transform: translateY(0); }}
+    40% {{ transform: translateY(-6px); }}
+}}
+
+/* ── System strips (conflict dividers, banners) ── */
+.system-banner {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin: 6px 0;
+    border: 1px solid rgba(255,255,255,0.08);
+    animation: banner-fadein 0.5s ease-out forwards;
+}}
+@keyframes banner-fadein {{
+    from {{ opacity: 0; transform: scaleX(0.96); }}
+    to   {{ opacity: 1; transform: scaleX(1); }}
+}}
+.banner-conflict-high  {{ background: rgba(126,34,34,0.55); border-color: #fc8181; color: #fed7d7; }}
+.banner-conflict-medium{{ background: rgba(116,66,16,0.55); border-color: #f6ad55; color: #fefcbf; }}
+.banner-conflict-low   {{ background: rgba(22,78,51,0.5);  border-color: #68d391; color: #c6f6d5; }}
+.banner-neutral        {{ background: rgba(30,30,60,0.7);   border-color: rgba(255,255,255,0.15); color: #e2e8f0; }}
+.banner-r3             {{ background: rgba(88,28,135,0.6);  border-color: #b794f4; color: #e9d8fd; }}
+.banner-complete       {{ background: rgba(22,78,51,0.6);   border-color: #68d391; color: #c6f6d5; }}
+.sev-badge {{
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}}
+.sev-badge.high   {{ background: #742a2a; color: #feb2b2; }}
+.sev-badge.medium {{ background: #744210; color: #fefcbf; }}
+.sev-badge.low    {{ background: #276749; color: #c6f6d5; }}
+
+/* Agent-specific tint colors */
+.col-finance  {{ border-top: 3px solid #d69e2e; }}
+.col-climate  {{ border-top: 3px solid #38a169; }}
+.col-community{{ border-top: 3px solid #6b46c1; }}
+.col-finance  .agent-header  {{ background: rgba(116,66,16,0.25); }}
+.col-climate  .agent-header  {{ background: rgba(39,103,73,0.25); }}
+.col-community .agent-header {{ background: rgba(85,60,154,0.25); }}
+
+.thinking-strip {{
+    font-size: 0.68rem;
+    font-style: italic;
+    color: rgba(255,255,255,0.35);
+    padding: 4px 10px;
+    display: none;
+}}
+</style>
+</head>
+<body>
+<div class="courtroom-wrap">
+  <!-- Three agent columns -->
+  <div class="agent-columns" id="columns-row">
+    <div class="agent-col col-finance" id="col-finance">
+      <div class="agent-header">
+        <span class="agent-icon">💰</span>
+        <span class="agent-label">Finance</span>
+        <div class="presence-dot" id="dot-finance"></div>
+        <div class="col-flash" id="flash-finance"></div>
+      </div>
+      <div class="agent-feed" id="feed-finance"></div>
+    </div>
+    <div class="agent-col col-climate" id="col-climate">
+      <div class="agent-header">
+        <span class="agent-icon">🌿</span>
+        <span class="agent-label">Climate</span>
+        <div class="presence-dot" id="dot-climate"></div>
+        <div class="col-flash" id="flash-climate"></div>
+      </div>
+      <div class="agent-feed" id="feed-climate"></div>
+    </div>
+    <div class="agent-col col-community" id="col-community">
+      <div class="agent-header">
+        <span class="agent-icon">🏘️</span>
+        <span class="agent-label">Community</span>
+        <div class="presence-dot" id="dot-community"></div>
+        <div class="col-flash" id="flash-community"></div>
+      </div>
+      <div class="agent-feed" id="feed-community"></div>
+    </div>
+  </div>
+
+  <!-- System events strip (conflict dividers, round3, complete) -->
+  <div id="system-strip" class="system-strip"></div>
+</div>
+
+<script>
+(function() {{
+    const events = {events_json};
+
+    // sessionStorage key for tracking rendered bubble IDs
+    const STORAGE_KEY = 'ncrt_rendered_bubbles';
+
+    function getRendered() {{
+        try {{
+            return new Set(JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]'));
+        }} catch(e) {{
+            return new Set();
+        }}
+    }}
+    function saveRendered(set) {{
+        try {{
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+        }} catch(e) {{}}
+    }}
+
+    const rendered = getRendered();
+    const newlyRendered = new Set();
+
+    // Helpers
+    function feed(agent) {{
+        return document.getElementById('feed-' + agent);
+    }}
+    function dot(agent) {{
+        return document.getElementById('dot-' + agent);
+    }}
+    function flashCol(agent, color) {{
+        const el = document.getElementById('flash-' + agent);
+        if (!el) return;
+        el.className = 'col-flash flash-' + color;
+        // reset after animation
+        setTimeout(() => {{ el.className = 'col-flash'; }}, 800);
+    }}
+
+    function addBubble(agent, id, html) {{
+        const container = feed(agent);
+        if (!container) return;
+        const div = document.createElement('div');
+        const isNew = !rendered.has(id);
+        div.className = 'bubble ' + (isNew ? 'bubble-new' : 'bubble-static');
+        div.dataset.bubbleId = id;
+        div.innerHTML = html;
+        container.appendChild(div);
+        if (isNew) {{
+            newlyRendered.add(id);
+            container.scrollTop = container.scrollHeight;
+        }}
+    }}
+
+    function addThinking(agent) {{
+        const container = feed(agent);
+        if (!container) return;
+        // Remove old thinking indicator for this agent
+        const old = container.querySelector('.thinking-indicator');
+        if (old) old.remove();
+        const div = document.createElement('div');
+        div.className = 'thinking-indicator';
+        div.id = 'thinking-' + agent;
+        div.innerHTML = '<span>Thinking</span><span class="thinking-dots"><span></span><span></span><span></span></span>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }}
+
+    function removeThinking(agent) {{
+        const indicator = document.getElementById('thinking-' + agent);
+        if (indicator) indicator.remove();
+    }}
+
+    function addSystem(html) {{
+        const strip = document.getElementById('system-strip');
+        if (!strip) return;
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        strip.appendChild(div);
+    }}
+
+    function escHtml(s) {{
+        if (!s) return '';
+        return String(s)
+            .replace(/&/g,'&amp;')
+            .replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;');
+    }}
+
+    function renderPositionBubble(ev) {{
+        const op = ev.opinion || {{}};
+        const rn = ev.round;
+        const agent = ev.agent;
+        const id = 'pos-' + agent + '-r' + rn + '-' + (op.position || '').slice(0,20).replace(/\W/g,'');
+
+        const reasoning = escHtml(op.reasoning || '');
+        const evidence = (op.evidence || []).map(e => `<li>${{escHtml(e)}}</li>`).join('');
+        const tension = escHtml(op.tension || '');
+        const hasConcession = op.concession_rationale && op.concession_rationale.trim();
+
+        let positionHtml;
+
+        if (hasConcession) {{
+            positionHtml = `
+                <div class="bubble bubble-concession">
+                    <div class="con-header">🤝 Concession · Round ${{rn}}</div>
+                    <div class="position-text">${{escHtml(op.position || '')}}</div>
+                    <details class="bubble-detail">
+                        <summary>Concession rationale &amp; detail</summary>
+                        <div class="detail-body">
+                            <em style="color:rgba(251,211,141,0.8)">${{escHtml(op.concession_rationale)}}</em>
+                            ${{reasoning ? `<p style="margin-top:6px">${{reasoning}}</p>` : ''}}
+                            ${{evidence ? `<ul class="evidence-list">${{evidence}}</ul>` : ''}}
+                        </div>
+                    </details>
+                </div>`;
+        }} else {{
+            positionHtml = `
+                <span class="round-tag">Round ${{rn}}</span>
+                <div class="position-text">${{escHtml(op.position || '')}}</div>
+                <details class="bubble-detail">
+                    <summary>Reasoning &amp; evidence</summary>
+                    <div class="detail-body">
+                        ${{tension ? `<p style="margin-bottom:4px;font-style:italic;color:rgba(255,255,255,0.45)">"${{tension}}"</p>` : ''}}
+                        ${{reasoning ? `<p>${{reasoning}}</p>` : ''}}
+                        ${{evidence ? `<ul class="evidence-list">${{evidence}}</ul>` : ''}}
+                    </div>
+                </details>`;
+        }}
+
+        const bubbleId = id + '-pos';
+        const isNew = !rendered.has(bubbleId);
+        const container = feed(agent);
+        if (!container) return;
+        const div = document.createElement('div');
+        div.className = 'bubble bubble-position ' + (isNew ? 'bubble-new' : 'bubble-static');
+        div.dataset.bubbleId = bubbleId;
+        div.innerHTML = positionHtml;
+        container.appendChild(div);
+        if (isNew) {{
+            newlyRendered.add(bubbleId);
+            container.scrollTop = container.scrollHeight;
+        }}
+
+        // Objections
+        (op.objections || []).forEach((obj, idx) => {{
+            const objId = 'obj-' + agent + '-r' + rn + '-' + idx;
+            if (!rendered.has(objId)) {{
+                newlyRendered.add(objId);
+                // Flash the target column
+                if (obj.target_agent) flashCol(obj.target_agent, 'red');
+            }}
+            const objHtml = `
+                <div class="obj-header">⚡ Objection → ${{escHtml((obj.target_agent || '').toUpperCase())}}</div>
+                <div class="obj-claim">Claim: "${{escHtml(obj.engages_with || '')}}"</div>
+                <div class="obj-reason">${{escHtml(obj.reason || '')}}</div>`;
+            const isObjNew = !rendered.has(objId);
+            const objDiv = document.createElement('div');
+            objDiv.className = 'bubble bubble-objection ' + (isObjNew ? 'bubble-new' : 'bubble-static');
+            objDiv.dataset.bubbleId = objId;
+            objDiv.innerHTML = objHtml;
+            container.appendChild(objDiv);
+            if (isObjNew) container.scrollTop = container.scrollHeight;
+        }});
+
+        // Supports
+        (op.supports || []).forEach((sup, idx) => {{
+            const supId = 'sup-' + agent + '-r' + rn + '-' + idx;
+            if (!rendered.has(supId)) {{
+                newlyRendered.add(supId);
+                if (sup.target_agent) flashCol(sup.target_agent, 'green');
+            }}
+            const supHtml = `
+                <div class="sup-header">🤝 Support → ${{escHtml((sup.target_agent || '').toUpperCase())}}</div>
+                <div style="font-size:0.82rem;margin-top:4px">${{escHtml(sup.reason || '')}}</div>`;
+            const isSupNew = !rendered.has(supId);
+            const supDiv = document.createElement('div');
+            supDiv.className = 'bubble bubble-support ' + (isSupNew ? 'bubble-new' : 'bubble-static');
+            supDiv.dataset.bubbleId = supId;
+            supDiv.innerHTML = supHtml;
+            container.appendChild(supDiv);
+            if (isSupNew) container.scrollTop = container.scrollHeight;
+        }});
+    }}
+
+    function renderConflictsBanner(ev) {{
+        const conflicts = ev.conflicts || [];
+        const rn = ev.round;
+        if (conflicts.length === 0) {{
+            const bannerId = 'banner-noconflict-r' + rn;
+            if (!rendered.has(bannerId)) {{
+                addSystem(`<div class="system-banner banner-neutral" data-bid="${{bannerId}}">✅ Round ${{rn}} — No material conflicts detected</div>`);
+                newlyRendered.add(bannerId);
+            }}
+            return;
+        }}
+        conflicts.forEach((c, idx) => {{
+            const sev = c.disagreement_severity || 'low';
+            const bannerId = 'banner-conflict-r' + rn + '-' + idx;
+            if (!rendered.has(bannerId)) {{
+                const sevClass = 'banner-conflict-' + sev;
+                const sevBadge = `<span class="sev-badge ${{sev}}">${{sev.toUpperCase()}}</span>`;
+                const icon = sev === 'high' ? '⚡' : sev === 'medium' ? '⚠️' : '·';
+                addSystem(`<div class="system-banner ${{sevClass}}" data-bid="${{bannerId}}">${{icon}} Round ${{rn}} conflict: <strong>${{escHtml(c.parameter)}}</strong>&nbsp;${{sevBadge}}&nbsp;<span style="opacity:0.7">${{escHtml(c.agent_a)}} ${{c.proposed_value_a}} vs ${{escHtml(c.agent_b)}} ${{c.proposed_value_b}}</span></div>`);
+                newlyRendered.add(bannerId);
+            }}
+        }});
+    }}
+
+    function renderRound3Banner(ev) {{
+        const bannerId = 'banner-r3';
+        if (!rendered.has(bannerId)) {{
+            const agents = (ev.agents || []).join(', ');
+            addSystem(`<div class="system-banner banner-r3" data-bid="${{bannerId}}">⚠️ <strong>Final Attempt — Round 3</strong> &nbsp; Unresolved HIGH conflicts. Agents involved: ${{escHtml(agents)}}</div>`);
+            newlyRendered.add(bannerId);
+        }}
+    }}
+
+    function renderRoundResolved(ev) {{
+        const bannerId = 'banner-resolved-r' + ev.round;
+        if (!rendered.has(bannerId)) {{
+            addSystem(`<div class="system-banner banner-neutral" data-bid="${{bannerId}}">⚖️ <strong>Round ${{ev.round}} resolved</strong> — ${{escHtml(ev.summary || '')}}</div>`);
+            newlyRendered.add(bannerId);
+        }}
+    }}
+
+    function renderComplete(ev) {{
+        const bannerId = 'banner-complete';
+        if (!rendered.has(bannerId)) {{
+            addSystem(`<div class="system-banner banner-complete" data-bid="${{bannerId}}">✅ <strong>Session Complete</strong> — Debate concluded. Review results in the tabs above.</div>`);
+            newlyRendered.add(bannerId);
+        }}
+    }}
+
+    // Process all events in order
+    events.forEach(ev => {{
+        switch(ev.event) {{
+            case 'agent_thinking':
+                addThinking(ev.agent);
+                dot(ev.agent) && dot(ev.agent).classList.add('thinking');
+                dot(ev.agent) && dot(ev.agent).classList.remove('spoke');
+                break;
+            case 'agent_spoke':
+                removeThinking(ev.agent);
+                dot(ev.agent) && dot(ev.agent).classList.remove('thinking');
+                dot(ev.agent) && dot(ev.agent).classList.add('spoke');
+                renderPositionBubble(ev);
+                break;
+            case 'conflicts_detected':
+                renderConflictsBanner(ev);
+                break;
+            case 'round3_triggered':
+                renderRound3Banner(ev);
+                break;
+            case 'round_resolved':
+                renderRoundResolved(ev);
+                break;
+            case 'session_complete':
+                renderComplete(ev);
+                // Dim all presence dots
+                ['finance','climate','community'].forEach(a => {{
+                    const d = dot(a);
+                    if (d) {{ d.classList.remove('thinking','spoke'); }}
+                }});
+                break;
+        }}
+    }});
+
+    // Persist the updated rendered set
+    for (const id of newlyRendered) rendered.add(id);
+    saveRendered(rendered);
+}})();
+</script>
+</body>
+</html>"""
+
+
 def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = False) -> str:
     """Generate the self-contained HTML bundle for the courtroom scene animation and transcript fallback.
 

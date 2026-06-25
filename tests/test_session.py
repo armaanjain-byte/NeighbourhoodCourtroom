@@ -307,3 +307,106 @@ class TestCourtroomSession:
         assert len(objection_entries) == 1
         assert "larger parks prompt" or "larger parks provide meaningful cooling" in objection_entries[0].content
         assert "ignores the housing tradeoff" in objection_entries[0].content
+
+
+# ── stream_round-specific tests ───────────────────────────────────────────────
+
+class TestStreamRound:
+    """Tests specifically targeting the stream_round generator interface."""
+
+    def test_stream_round_yields_agent_thinking_before_spoke(
+        self,
+        initial_proposal: Proposal,
+        cost_calculator: CostCalculator,
+    ) -> None:
+        """agent_thinking must be emitted before the matching agent_spoke."""
+        session = create_session(initial_proposal)
+        agent = MockAgent("agent1", {"green_space_pct": 21.0})
+
+        events = list(session.stream_round([agent], {}, cost_calculator))
+        event_types = [e["event"] for e in events]
+
+        # There must be at least one thinking/spoke pair
+        assert "agent_thinking" in event_types
+        assert "agent_spoke" in event_types
+
+        # For every agent_spoke there must have been a prior agent_thinking for the same agent
+        for i, ev in enumerate(events):
+            if ev["event"] == "agent_spoke":
+                prior_types = [e["event"] for e in events[:i]]
+                assert "agent_thinking" in prior_types, (
+                    "agent_spoke appeared before any agent_thinking"
+                )
+
+    def test_stream_round_yields_conflicts_detected_even_when_empty(
+        self,
+        initial_proposal: Proposal,
+        cost_calculator: CostCalculator,
+    ) -> None:
+        """conflicts_detected must always be emitted, even when the list is empty."""
+        session = create_session(initial_proposal)
+        # Single agent → guaranteed zero conflicts
+        agent = MockAgent("agent1", {"green_space_pct": 21.0})
+
+        events = list(session.stream_round([agent], {}, cost_calculator))
+        conflicts_events = [e for e in events if e["event"] == "conflicts_detected"]
+
+        assert len(conflicts_events) >= 1
+        assert isinstance(conflicts_events[0]["conflicts"], list)
+
+    def test_stream_round_terminal_event_is_session_complete(
+        self,
+        initial_proposal: Proposal,
+        cost_calculator: CostCalculator,
+    ) -> None:
+        """The last event emitted by stream_round must always be session_complete."""
+        session = create_session(initial_proposal)
+        agent = MockAgent("agent1", {"parking_spaces": 80.0})
+
+        events = list(session.stream_round([agent], {}, cost_calculator))
+
+        assert events, "stream_round emitted no events"
+        assert events[-1]["event"] == "session_complete"
+        # The terminal event must carry a debate_round dict
+        assert "debate_round" in events[-1]
+        assert isinstance(events[-1]["debate_round"], dict)
+
+    def test_run_round_wrapper_returns_debate_round(
+        self,
+        initial_proposal: Proposal,
+        cost_calculator: CostCalculator,
+    ) -> None:
+        """run_round (sync wrapper) must return a DebateRound, not None or a dict."""
+        from models.debate_round import DebateRound
+
+        session = create_session(initial_proposal)
+        agent = MockAgent("agent1", {"green_space_pct": 22.0})
+
+        result = session.run_round([agent], {}, cost_calculator)
+
+        assert isinstance(result, DebateRound), (
+            f"run_round should return DebateRound, got {type(result)}"
+        )
+        assert result.round_number == 1
+        assert len(session.debate_rounds) == 1
+
+    def test_stream_round_event_sequence_with_r2(
+        self,
+        initial_proposal: Proposal,
+        cost_calculator: CostCalculator,
+    ) -> None:
+        """With two conflicting agents the stream must include Round 2 events."""
+        session = create_session(initial_proposal)
+        # Small conflict (medium severity) — triggers Round 2
+        agent1 = MockAgent("agent1", {"green_space_pct": 10.0})
+        agent2 = MockAgent("agent2", {"green_space_pct": 30.0})
+
+        events = list(session.stream_round([agent1, agent2], {}, cost_calculator))
+        event_types = [e["event"] for e in events]
+        spoke_rounds = [e["round"] for e in events if e["event"] == "agent_spoke"]
+
+        # With medium/high conflict we should have both round 1 and 2 spokes
+        assert 1 in spoke_rounds
+        assert 2 in spoke_rounds
+        assert "round_resolved" in event_types
+        assert event_types[-1] == "session_complete"

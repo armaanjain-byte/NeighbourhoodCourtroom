@@ -8,6 +8,8 @@ and transient network/server failures.
 import time
 import random
 import logging
+import threading
+from contextlib import contextmanager
 from typing import Callable, Any
 
 from llm.base import (
@@ -20,6 +22,18 @@ from llm.base import (
 
 logger = logging.getLogger(__name__)
 
+_retry_context = threading.local()
+
+@contextmanager
+def op_deadline(timeout: float):
+    """Context manager to set a hard ceiling on overall elapsed time for an operation."""
+    _retry_context.deadline = time.time() + timeout
+    try:
+        yield
+    finally:
+        if hasattr(_retry_context, "deadline"):
+            del _retry_context.deadline
+
 
 def execute_with_retry(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
     """Execute an API call with exponential backoff and jitter, distinguishing error types.
@@ -27,17 +41,24 @@ def execute_with_retry(func: Callable[..., Any], *args: Any, **kwargs: Any) -> A
     1. 429 with RESOURCE_EXHAUSTED + per-minute framing -> retry with backoff (max 4 retries, base 2s).
     2. 429 with daily/RPD framing -> do NOT retry, raise LLMRateLimitError immediately.
     3. 401/403/API key -> raise LLMAuthError immediately, never retry.
-    4. 5xx / connection errors / timeouts -> retry with backoff (max 3 retries, base 1s).
+    4. 5xx / connection errors / timeouts -> retry with backoff (max 2 retries, base 1s, cap 10s).
     """
     attempt_rate_limit = 0
     attempt_transient = 0
     max_rate_limit = 4
-    max_transient = 3
+    max_transient = 2
 
     while True:
+        if hasattr(_retry_context, "deadline") and time.time() > _retry_context.deadline:
+            logger.error("Overall agent generate_opinion call exceeded elapsed-time ceiling.")
+            raise LLMTransientError("Overall elapsed time exceeded hard ceiling of 25-30 seconds")
         try:
             return func(*args, **kwargs)
         except Exception as e:
+            if hasattr(_retry_context, "deadline") and time.time() > _retry_context.deadline:
+                logger.error(f"Overall agent generate_opinion call exceeded elapsed-time ceiling after error: {e}")
+                raise LLMTransientError("Overall elapsed time exceeded hard ceiling of 25-30 seconds") from e
+
             error_msg = str(e)
             err_type = type(e).__name__
 
@@ -71,6 +92,11 @@ def execute_with_retry(func: Callable[..., Any], *args: Any, **kwargs: Any) -> A
                 # Random jitter (±20%)
                 jitter = delay * 0.2 * (random.random() * 2 - 1)
                 sleep_time = delay + jitter
+
+                if hasattr(_retry_context, "deadline") and (time.time() + sleep_time) > _retry_context.deadline:
+                    logger.error("Scheduled sleep would exceed overall elapsed-time ceiling. Aborting retry.")
+                    raise LLMTransientError("Overall elapsed time exceeded hard ceiling of 25-30 seconds") from e
+
                 logger.warning(
                     f"Rate limit encountered (attempt {attempt_rate_limit}/{max_rate_limit}). "
                     f"Sleeping for {sleep_time:.2f}s before retry. Error: {e}"
@@ -87,10 +113,15 @@ def execute_with_retry(func: Callable[..., Any], *args: Any, **kwargs: Any) -> A
                     raise LLMTransientError(f"Transient error persisted after {max_transient} retries: {e}") from e
 
                 attempt_transient += 1
-                # Base delay 1s, doubling each retry, capped at 60s
-                delay = min(60.0, 1.0 * (2 ** (attempt_transient - 1)))
+                # Base delay 1s, doubling each retry, capped at 10s
+                delay = min(10.0, 1.0 * (2 ** (attempt_transient - 1)))
                 jitter = delay * 0.2 * (random.random() * 2 - 1)
                 sleep_time = delay + jitter
+
+                if hasattr(_retry_context, "deadline") and (time.time() + sleep_time) > _retry_context.deadline:
+                    logger.error("Scheduled sleep would exceed overall elapsed-time ceiling. Aborting retry.")
+                    raise LLMTransientError("Overall elapsed time exceeded hard ceiling of 25-30 seconds") from e
+
                 logger.warning(
                     f"Transient error encountered (attempt {attempt_transient}/{max_transient}). "
                     f"Sleeping for {sleep_time:.2f}s before retry. Error: {e}"

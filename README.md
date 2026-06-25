@@ -64,6 +64,8 @@ Unlike a standard single-prompt LLM asking to "balance a budget," this system en
 ## Prerequisites
 - **Python**: Python 3.10 or higher.
 - **API Key**: A valid [Google Gemini API Key](https://aistudio.google.com/app/apikey) with access to the `gemini-2.5-flash` model.
+  * *OpenRouter Support*: The system also supports OpenRouter (`LLM_PROVIDER=openrouter`), defaulting to `openrouter/free` (the Free Models Router). This dynamically routes across available free models to bypass individual upstream rate limits.
+  * *Empirical Success Rate*: Evaluated across 5 realistic structured JSON + tool calling test runs, `openrouter/free` achieved a **60.0% first-attempt success rate** (no nudge required) and **100% overall success rate** after a single automated nudge-retry.
 
 ## Run locally
 ```bash

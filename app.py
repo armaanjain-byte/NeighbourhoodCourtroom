@@ -31,7 +31,7 @@ from ui.components.transcript_view import build_transcript_html
 from ui.components.conflict_view import build_conflict_meters_html
 from ui.components.override_slider import render_override_slider
 from ui.components.causal_chain_view import build_causal_chain_html
-from ui.components.courtroom_scene import render_courtroom_scene
+from ui.components.courtroom_scene import render_courtroom_scene, render_live_feed
 
 # ── Engine / model imports ──────────────────────────────────────────────────
 from engine.state import create_initial_proposal, MUTABLE_PARAMETERS, PARAM_LABELS
@@ -298,6 +298,22 @@ def _init_state() -> None:
         "session": None,
         "error": None,
         "city_slug": "phoenix_az",
+        # Live debate streaming state
+        "live_events": [],
+        "debate_gen": None,
+        "debate_session": None,
+        "debate_agents": None,
+        "debate_calc": None,
+        "debate_round_num": 1,
+        "debate_exhausted": False,
+        # Live override streaming state
+        "override_live_events": [],
+        "override_gen": None,
+        "override_session": None,
+        "override_calc": None,
+        "override_agents": None,
+        "override_round_num": 1,
+        "override_exhausted": False,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -451,14 +467,45 @@ def stage_input() -> None:
 # Stage: DEBATING
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _reset_debate_state() -> None:
+    """Clear all live debate streaming keys from session_state."""
+    for key in ["live_events", "debate_gen", "debate_session", "debate_agents",
+                "debate_calc", "debate_round_num", "debate_exhausted"]:
+        st.session_state[key] = None if key not in ("live_events",) else []
+    st.session_state["debate_round_num"] = 1
+    st.session_state["debate_exhausted"] = False
+
+
 def stage_debating() -> None:
+    """Live-streaming debate stage — advances the generator one event per rerun.
+
+    Each Streamlit rerun:
+    1. Renders the full live feed so far (only new bubbles animate).
+    2. Advances the generator by one event (one LLM call completion).
+    3. Reruns to trigger the next step.
+    """
     st.markdown('<div class="hero-title">⚖️ Neighbourhood Courtroom</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="hero-sub">Agents are deliberating live — watch as each speaks…</div>',
+        unsafe_allow_html=True,
+    )
 
-    proposal = st.session_state["proposal"]
+    events: list = st.session_state.get("live_events") or []
 
-    with st.spinner("🤝 Three agents are deliberating — this may take a moment…"):
-        try:
-            # Build infrastructure
+    # Render the live feed with whatever events we have so far
+    render_live_feed(events)
+
+    # If already exhausted, transition to result
+    if st.session_state.get("debate_exhausted"):
+        st.session_state["session"] = st.session_state["debate_session"]
+        st.session_state["stage"] = "result"
+        st.rerun()
+        return
+
+    try:
+        # ── Bootstrap: build infrastructure once ────────────────────────────
+        if st.session_state.get("debate_session") is None:
+            proposal = st.session_state["proposal"]
             data_loader = DataLoader()
             calc = CostCalculator(data_loader)
             agents: list[BaseAgent] = [
@@ -466,26 +513,59 @@ def stage_debating() -> None:
                 FinanceAgent(calc),
                 CommunityAgent(data_loader),
             ]
-
-            context: dict[str, Any] = {}
-
-            # Create session and run two debate rounds
             session = create_session(proposal)
-            session.run_round(agents, context, calc)
-            if session.status not in ["WAITING_FOR_JUDGE", "COMPLETED"]:
-                session.run_round(agents, context, calc)
+            st.session_state["debate_session"] = session
+            st.session_state["debate_agents"] = agents
+            st.session_state["debate_calc"] = calc
 
-            st.session_state["session"] = session
-            st.session_state["stage"] = "result"
+        session = st.session_state["debate_session"]
+        agents = st.session_state["debate_agents"]
+        calc = st.session_state["debate_calc"]
+
+        # ── Spawn generator for this round if needed ─────────────────────────
+        # NOTE: Python generators are not picklable, but Streamlit stores
+        # session_state in-memory within the same process, so the generator
+        # object survives across reruns within the same browser session.
+        if st.session_state.get("debate_gen") is None:
+            if session.status in ["WAITING_FOR_JUDGE", "COMPLETED"]:
+                # Can't run another round; mark done
+                st.session_state["debate_exhausted"] = True
+                st.rerun()
+                return
+            st.session_state["debate_gen"] = session.stream_round(agents, {}, calc)
+
+        gen = st.session_state["debate_gen"]
+
+        # ── Advance the generator by one event ───────────────────────────────
+        try:
+            event = next(gen)
+            st.session_state["live_events"] = events + [event]
+
+            if event["event"] == "session_complete":
+                # This round is done. Check if we should run another round.
+                st.session_state["debate_gen"] = None
+                rnd_num = st.session_state.get("debate_round_num", 1)
+                if rnd_num == 1 and session.status not in ["WAITING_FOR_JUDGE", "COMPLETED"]:
+                    # Spawn round 2
+                    st.session_state["debate_round_num"] = 2
+                    # Generator for next round will be created on next rerun
+                else:
+                    st.session_state["debate_exhausted"] = True
+
             st.rerun()
 
-        except Exception as exc:
-            st.session_state["error"] = str(exc)
-            st.session_state["stage"] = "input"
-            # Show traceback in expander for debugging
-            with st.expander("Error details"):
-                st.code(traceback.format_exc())
+        except StopIteration:
+            st.session_state["debate_gen"] = None
+            st.session_state["debate_exhausted"] = True
             st.rerun()
+
+    except Exception as exc:
+        _reset_debate_state()
+        st.session_state["error"] = str(exc)
+        st.session_state["stage"] = "input"
+        with st.expander("Error details"):
+            st.code(traceback.format_exc())
+        st.rerun()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -658,9 +738,73 @@ def stage_result(is_override: bool = False) -> None:
     ov_value = render_override_slider(session, ov_param, key="ov_slider")
     
     if ov_value is not None:
-        locked_proposal = apply_human_override(session.current_proposal, ov_param, ov_value)
-        
-        with st.spinner("🤖 Agents are re-negotiating based on your lock..."):
+        # Store override parameters and switch to a dedicated override-debating stage
+        st.session_state["locked_param"] = ov_param
+        st.session_state["locked_value"] = ov_value
+        st.session_state["pre_override_session"] = session
+        # Reset override streaming state
+        for key in ["override_live_events", "override_gen", "override_session",
+                    "override_calc", "override_agents", "override_round_num", "override_exhausted"]:
+            st.session_state[key] = [] if key == "override_live_events" else None
+        st.session_state["override_round_num"] = 1
+        st.session_state["override_exhausted"] = False
+        st.session_state["override_locked_proposal"] = apply_human_override(
+            session.current_proposal, ov_param, ov_value
+        )
+        st.session_state["judge_brief"] = None
+        st.session_state["stage"] = "override_debating"
+        st.rerun()
+
+    # ── Reset ─────────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🔄 Start New Case", key="reset"):
+        for key in ["proposal", "session", "error", "pre_override_session", "locked_param",
+                    "locked_value", "judge_brief", "live_events", "debate_gen",
+                    "debate_session", "debate_agents", "debate_calc", "debate_exhausted",
+                    "override_live_events", "override_gen", "override_session",
+                    "override_agents", "override_calc", "override_exhausted",
+                    "override_locked_proposal"]:
+            st.session_state[key] = None
+        st.session_state["live_events"] = []
+        st.session_state["override_live_events"] = []
+        st.session_state["debate_round_num"] = 1
+        st.session_state["override_round_num"] = 1
+        st.session_state["debate_exhausted"] = False
+        st.session_state["override_exhausted"] = False
+        st.session_state["stage"] = "input"
+        st.rerun()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage: OVERRIDE DEBATING (live stream re-negotiation)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def stage_override_debating() -> None:
+    """Live-streaming re-negotiation stage after a human override ruling.
+
+    Mirrors stage_debating but uses the override-specific session_state keys
+    so the main debate feed is preserved for the result tabs.
+    """
+    st.markdown('<div class="hero-title">⚖️ Neighbourhood Courtroom</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="hero-sub">Agents are re-negotiating your ruling — watch live…</div>',
+        unsafe_allow_html=True,
+    )
+
+    events: list = st.session_state.get("override_live_events") or []
+
+    render_live_feed(events)
+
+    if st.session_state.get("override_exhausted"):
+        new_session = st.session_state["override_session"]
+        st.session_state["session"] = new_session
+        st.session_state["stage"] = "override_result"
+        st.rerun()
+        return
+
+    try:
+        if st.session_state.get("override_session") is None:
+            locked_proposal = st.session_state["override_locked_proposal"]
             data_loader = DataLoader()
             calc = CostCalculator(data_loader)
             agents: list[BaseAgent] = [
@@ -669,25 +813,47 @@ def stage_result(is_override: bool = False) -> None:
                 CommunityAgent(data_loader),
             ]
             new_session = create_session(locked_proposal)
-            new_session.run_round(agents, {}, calc)
-            if new_session.status not in ["WAITING_FOR_JUDGE", "COMPLETED"]:
-                new_session.run_round(agents, {}, calc)
-            
-            st.session_state["locked_param"] = ov_param
-            st.session_state["locked_value"] = ov_value
-            st.session_state["pre_override_session"] = session
-            st.session_state["session"] = new_session
-            st.session_state["stage"] = "override_result"
-            st.session_state["judge_brief"] = None
+            st.session_state["override_session"] = new_session
+            st.session_state["override_agents"] = agents
+            st.session_state["override_calc"] = calc
+
+        session = st.session_state["override_session"]
+        agents = st.session_state["override_agents"]
+        calc = st.session_state["override_calc"]
+
+        if st.session_state.get("override_gen") is None:
+            if session.status in ["WAITING_FOR_JUDGE", "COMPLETED"]:
+                st.session_state["override_exhausted"] = True
+                st.rerun()
+                return
+            st.session_state["override_gen"] = session.stream_round(agents, {}, calc)
+
+        gen = st.session_state["override_gen"]
+
+        try:
+            event = next(gen)
+            st.session_state["override_live_events"] = events + [event]
+
+            if event["event"] == "session_complete":
+                st.session_state["override_gen"] = None
+                rnd_num = st.session_state.get("override_round_num", 1)
+                if rnd_num == 1 and session.status not in ["WAITING_FOR_JUDGE", "COMPLETED"]:
+                    st.session_state["override_round_num"] = 2
+                else:
+                    st.session_state["override_exhausted"] = True
+
             st.rerun()
 
-    # ── Reset ─────────────────────────────────────────────────────────────
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🔄 Start New Case", key="reset"):
-        for key in ["proposal", "session", "error", "pre_override_session", "locked_param", "locked_value", "judge_brief"]:
-            if key in st.session_state:
-                st.session_state[key] = None
-        st.session_state["stage"] = "input"
+        except StopIteration:
+            st.session_state["override_gen"] = None
+            st.session_state["override_exhausted"] = True
+            st.rerun()
+
+    except Exception as exc:
+        st.session_state["error"] = str(exc)
+        st.session_state["stage"] = "result"
+        with st.expander("Error details"):
+            st.code(traceback.format_exc())
         st.rerun()
 
 
@@ -702,6 +868,8 @@ def main() -> None:
         stage_input()
     elif stage == "debating":
         stage_debating()
+    elif stage == "override_debating":
+        stage_override_debating()
     elif stage == "result":
         stage_result(is_override=False)
     elif stage == "override_result":

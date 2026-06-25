@@ -65,7 +65,7 @@ class UniversalProvider(LLMProvider):
 
         if self.provider_name == "openrouter":
             url = custom_url or "https://openrouter.ai/api/v1/chat/completions"
-            model = custom_model or "meta-llama/llama-3.3-70b-instruct"
+            model = custom_model or "openrouter/free"
         elif self.provider_name == "groq":
             url = custom_url or "https://api.groq.com/openai/v1/chat/completions"
             model = custom_model or "llama3-70b-8192"
@@ -115,7 +115,7 @@ class UniversalProvider(LLMProvider):
 
         def _call() -> dict[str, Any]:
             try:
-                with urllib.request.urlopen(req, timeout=30.0) as response:
+                with urllib.request.urlopen(req, timeout=15.0) as response:
                     resp_body = response.read().decode("utf-8")
                     return json.loads(resp_body)
             except urllib.error.HTTPError as e:
@@ -313,34 +313,73 @@ class UniversalProvider(LLMProvider):
                 raise LLMInvalidResponseError(f"Failed to parse JSON response: {e}")
 
         try:
+            if not final_text or not final_text.strip():
+                raise LLMInvalidResponseError("Empty response received from LLM")
             data = _parse_and_validate(final_text)
         except LLMInvalidResponseError as e:
-            logger.warning(f"Invalid JSON or missing keys encountered: {e}. Nudging model once in same chat.")
-            nudge_msg = (
-                "Your previous response was invalid or missing required keys. "
-                "Please return ONLY valid JSON matching the exact schema requested, with no markdown fences."
-            )
-            if self.provider_name == "anthropic":
-                messages.append({"role": "user", "content": nudge_msg})
-                payload["messages"] = messages
-                resp = self._make_request(payload)
-                content = resp.get("content", [])
-                txt_part = next((p for p in content if p.get("type") == "text"), None)
-                if txt_part:
-                    final_text = txt_part.get("text", "")
+            if not final_text or not final_text.strip():
+                logger.warning(f"Empty response encountered: {e}. Skipping nudge and making a SECOND fresh API call.")
+                fresh_messages = []
+                if system_instruction:
+                    if self.provider_name != "anthropic":
+                        fresh_messages.append({"role": "system", "content": system_instruction})
+                fresh_prompt = "Respond with valid JSON only.\n" + user_prompt
+                fresh_messages.append({"role": "user", "content": fresh_prompt})
+                
+                fresh_payload = {
+                    "model": self.default_model,
+                    "messages": fresh_messages,
+                }
+                if self.provider_name == "anthropic":
+                    fresh_payload["system"] = system_instruction
+                    fresh_payload["max_tokens"] = 4096
+                
+                resp2 = self._make_request(fresh_payload)
+                
+                if self.provider_name == "anthropic":
+                    content2 = resp2.get("content", [])
+                    txt_part2 = next((p for p in content2 if p.get("type") == "text"), None)
+                    final_text2 = txt_part2.get("text", "") if txt_part2 else ""
+                else:
+                    choice2 = resp2.get("choices", [{}])[0]
+                    final_text2 = choice2.get("message", {}).get("content", "") or ""
+                
+                if not final_text2 or not final_text2.strip():
+                    logger.error("Second fresh API call also returned empty response. Falling back immediately.")
+                    raise LLMInvalidResponseError("Second fresh API call returned empty response")
+                
+                try:
+                    data = _parse_and_validate(final_text2)
+                except LLMInvalidResponseError as e2:
+                    logger.error(f"LLMInvalidResponseError: Second fresh API call failed to produce valid JSON: {e2}")
+                    raise LLMInvalidResponseError(f"Failed to produce valid JSON on fresh retry: {e2}") from e2
             else:
-                messages.append({"role": "user", "content": nudge_msg})
-                payload["messages"] = messages
-                if "tools" in payload:
-                    del payload["tools"]
-                resp = self._make_request(payload)
-                choice = resp.get("choices", [{}])[0]
-                final_text = choice.get("message", {}).get("content", "")
+                logger.warning(f"Invalid JSON or missing keys encountered: {e}. Nudging model once in same chat.")
+                nudge_msg = (
+                    "Your previous response was invalid or missing required keys. "
+                    "Please return ONLY valid JSON matching the exact schema requested, with no markdown fences."
+                )
+                if self.provider_name == "anthropic":
+                    messages.append({"role": "user", "content": nudge_msg})
+                    payload["messages"] = messages
+                    resp = self._make_request(payload)
+                    content = resp.get("content", [])
+                    txt_part = next((p for p in content if p.get("type") == "text"), None)
+                    if txt_part:
+                        final_text = txt_part.get("text", "")
+                else:
+                    messages.append({"role": "user", "content": nudge_msg})
+                    payload["messages"] = messages
+                    if "tools" in payload:
+                        del payload["tools"]
+                    resp = self._make_request(payload)
+                    choice = resp.get("choices", [{}])[0]
+                    final_text = choice.get("message", {}).get("content", "")
 
-            try:
-                data = _parse_and_validate(final_text)
-            except LLMInvalidResponseError as e2:
-                logger.error(f"LLMInvalidResponseError: Second attempt failed after nudge: {e2}")
-                raise LLMInvalidResponseError(f"Failed to produce valid JSON after nudge: {e2}") from e2
+                try:
+                    data = _parse_and_validate(final_text)
+                except LLMInvalidResponseError as e2:
+                    logger.error(f"LLMInvalidResponseError: Second attempt failed after nudge: {e2}")
+                    raise LLMInvalidResponseError(f"Failed to produce valid JSON after nudge: {e2}") from e2
 
         return data

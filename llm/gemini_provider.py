@@ -53,8 +53,8 @@ class GeminiProvider(LLMProvider):
             raise LLMAuthError("Gemini not configured")
 
         try:
-            # Set request timeout (30s) on every individual API call
-            client = genai.Client(api_key=api_key, http_options={"timeout": 30.0})
+            # Set request timeout (15s) on every individual API call
+            client = genai.Client(api_key=api_key, http_options={"timeout": 15.0})
             tools = [{"function_declarations": tool_declarations}] if tool_declarations else None
             chat = client.chats.create(
                 model="gemini-2.5-flash",
@@ -118,19 +118,40 @@ class GeminiProvider(LLMProvider):
                     raise LLMInvalidResponseError(f"Failed to parse JSON response: {e}")
 
             try:
+                if not response.text or not response.text.strip():
+                    raise LLMInvalidResponseError("Empty response received from Gemini")
                 data = _parse_and_validate(response.text)
             except LLMInvalidResponseError as e:
-                logger.warning(f"Invalid JSON or missing keys encountered: {e}. Nudging model once in same chat.")
-                nudge_msg = (
-                    "Your previous response was invalid or missing required keys. "
-                    "Please return ONLY valid JSON matching the exact schema requested, with no markdown fences."
-                )
-                response = _send(nudge_msg)
-                try:
-                    data = _parse_and_validate(response.text)
-                except LLMInvalidResponseError as e2:
-                    logger.error(f"LLMInvalidResponseError: Second attempt failed after nudge: {e2}")
-                    raise LLMInvalidResponseError(f"Failed to produce valid JSON after nudge: {e2}") from e2
+                if not response.text or not response.text.strip():
+                    logger.warning(f"Empty response encountered: {e}. Skipping nudge and making a SECOND fresh API call.")
+                    fresh_chat = client.chats.create(
+                        model="gemini-2.5-flash",
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction,
+                        )
+                    )
+                    fresh_prompt = "Respond with valid JSON only.\n" + user_prompt
+                    resp2 = execute_with_retry(fresh_chat.send_message, fresh_prompt)
+                    if not resp2.text or not resp2.text.strip():
+                        logger.error("Second fresh API call also returned empty response. Falling back immediately.")
+                        raise LLMInvalidResponseError("Second fresh API call returned empty response")
+                    try:
+                        data = _parse_and_validate(resp2.text)
+                    except LLMInvalidResponseError as e2:
+                        logger.error(f"LLMInvalidResponseError: Second fresh API call failed to produce valid JSON: {e2}")
+                        raise LLMInvalidResponseError(f"Failed to produce valid JSON on fresh retry: {e2}") from e2
+                else:
+                    logger.warning(f"Invalid JSON or missing keys encountered: {e}. Nudging model once in same chat.")
+                    nudge_msg = (
+                        "Your previous response was invalid or missing required keys. "
+                        "Please return ONLY valid JSON matching the exact schema requested, with no markdown fences."
+                    )
+                    response = _send(nudge_msg)
+                    try:
+                        data = _parse_and_validate(response.text)
+                    except LLMInvalidResponseError as e2:
+                        logger.error(f"LLMInvalidResponseError: Second attempt failed after nudge: {e2}")
+                        raise LLMInvalidResponseError(f"Failed to produce valid JSON after nudge: {e2}") from e2
 
             increment_call_count()
             return data
@@ -157,7 +178,7 @@ class GeminiProvider(LLMProvider):
             raise LLMAuthError("Gemini API key not found")
 
         try:
-            client = genai.Client(api_key=api_key, http_options={"timeout": 30.0})
+            client = genai.Client(api_key=api_key, http_options={"timeout": 15.0})
             config = types.GenerateContentConfig(
                 system_instruction=system_instruction
             ) if system_instruction else None
