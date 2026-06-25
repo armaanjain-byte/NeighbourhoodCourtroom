@@ -106,6 +106,7 @@ class CommunityAgent(BaseAgent):
         *,
         round_number: int = 1,
         opponent_opinions: dict[str, AgentOpinion] | None = None,
+        own_previous_opinion: AgentOpinion | None = None,
     ) -> AgentOpinion:
         """Generate a community-domain AgentOpinion using Gemini.
 
@@ -123,6 +124,8 @@ class CommunityAgent(BaseAgent):
             1 for independent opinion, 2 for cross-agent rebuttal.
         opponent_opinions : dict[str, AgentOpinion] | None
             Round 1 opinions of the other agents (required for round_number=2).
+        own_previous_opinion : AgentOpinion | None, optional
+            The agent's own opinion from the previous round (used for concession rationale).
 
         Returns
         -------
@@ -133,6 +136,7 @@ class CommunityAgent(BaseAgent):
             context,
             round_number=round_number,
             opponent_opinions=opponent_opinions,
+            own_previous_opinion=own_previous_opinion,
         )
 
     def evaluate(self, proposal: Proposal, context: dict[str, Any]) -> AgentOutput:

@@ -34,10 +34,13 @@ class TestProviderFactory:
         provider = get_provider("gemini")
         assert isinstance(provider, GeminiProvider)
 
-    def test_get_provider_unknown(self) -> None:
-        """Requesting an unknown provider must raise ValueError."""
-        with pytest.raises(ValueError, match="Unknown LLM provider: unknown_ai"):
-            get_provider("unknown_ai")
+    def test_get_provider_universal(self) -> None:
+        """Requesting any non-gemini provider returns UniversalProvider."""
+        from llm.universal_provider import UniversalProvider
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "fake_key"}):
+            provider = get_provider("openrouter")
+            assert isinstance(provider, UniversalProvider)
+            assert provider.provider_name == "openrouter"
 
 
 class TestGeminiProvider:
@@ -130,3 +133,52 @@ class TestGeminiProvider:
             mock_client.models.generate_content.side_effect = Exception("Some unknown error")
             with pytest.raises(LLMProviderError):
                 provider.generate_text("System", "Prompt")
+
+
+class TestUniversalProvider:
+    @patch("urllib.request.urlopen")
+    def test_generate_text_success(self, mock_urlopen) -> None:
+        """Test successful text generation via REST."""
+        from llm.universal_provider import UniversalProvider
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"choices": [{"message": {"content": "Hello REST world"}}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "fake_key"}):
+            provider = UniversalProvider("openrouter")
+            result = provider.generate_text("System", "Prompt")
+            assert result == "Hello REST world"
+
+    @patch("urllib.request.urlopen")
+    def test_generate_structured_success(self, mock_urlopen) -> None:
+        """Test successful structured generation via REST."""
+        from llm.universal_provider import UniversalProvider
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"choices": [{"message": {"content": "{\\"score\\": 95.0, \\"verdict\\": \\"accept\\"}"}}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        with patch.dict("os.environ", {"GROQ_API_KEY": "fake_key"}):
+            provider = UniversalProvider("groq")
+            data = provider.generate_structured("System", "Prompt")
+            assert data["score"] == 95.0
+            assert data["verdict"] == "accept"
+
+    def test_missing_api_key(self) -> None:
+        """Missing API key must raise LLMAuthError."""
+        from llm.universal_provider import UniversalProvider
+        with patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(LLMAuthError, match="API key not found for provider 'openrouter'"):
+                UniversalProvider("openrouter")
+
+    @patch("urllib.request.urlopen")
+    def test_anthropic_text_success(self, mock_urlopen) -> None:
+        """Test successful text generation for Anthropic format."""
+        from llm.universal_provider import UniversalProvider
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"content": [{"type": "text", "text": "Hello Anthropic"}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "fake_key"}):
+            provider = UniversalProvider("anthropic")
+            result = provider.generate_text("System", "Prompt")
+            assert result == "Hello Anthropic"

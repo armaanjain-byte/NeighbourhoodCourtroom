@@ -8,16 +8,19 @@ Purpose:
 Design (generate_opinion):
     Round 1 (round_number=1):
         Gemini receives the proposal state and this agent's domain data slice.
-        It returns score, verdict, proposed_changes, position, reasoning, evidence,
-        objections, supports, and confidence.  The returned proposed_changes become
+        It returns tension, position, reasoning, evidence, score, verdict, and
+        confidence. No compromise needed. The returned proposed_changes become
         the authoritative output; evaluate() is the fallback.
 
     Round 2 (round_number=2):
-        Gemini additionally receives the Round 1 AgentOpinion objects of the OTHER
-        two agents.  The prompt instructs Gemini to explicitly address every
-        conflicting recommendation, maintain its domain position, and propose a
-        compromise where a conflict is blocking.  The returned JSON must include
-        a non-empty objections[] for each rejection and a supports[] for agreements.
+        Gemini additionally receives its own Round 1 opinion and opponents' Round 1
+        opinions. It must produce engages_with-grounded objections/supports and provide
+        a concession_rationale if its own position changed.
+
+    Round 3 (round_number=3):
+        Bounded final round, executed only for agents involved in unresolved HIGH-severity
+        conflicts. Uses the same mechanics as Round 2 but framed as a final attempt
+        to achieve consensus before human review.
 
 Dependencies:
     models.proposal.Proposal, models.agent_output.AgentOutput, engine.state.MUTABLE_PARAMETERS
@@ -122,15 +125,20 @@ class BaseAgent(abc.ABC):
 
         Round 1 (round_number=1):
             Gemini receives only the proposal state. It can fetch its own domain data
-            via tool calling. It returns score, verdict, proposed_changes, position,
-            reasoning, evidence, objections, supports, and confidence.
+            via tool calling. It returns score, verdict, proposed_changes, tension,
+            position, reasoning, evidence, objections, supports, and confidence.
             The returned proposed_changes become the authoritative output.
 
         Round 2 (round_number=2):
-            Gemini additionally receives the Round 1 AgentOpinion objects of the
-            other agents.  The prompt instructs Gemini to explicitly address every
-            conflicting recommendation, maintain its domain position, and propose a
-            compromise where a conflict is blocking.
+            Gemini additionally receives its own Round 1 opinion and opponents' Round 1
+            opinions. The prompt instructs Gemini to explicitly address conflicting
+            recommendations with engages_with-grounded objections/supports, and provide
+            a concession_rationale if its own position changed.
+
+        Round 3 (round_number=3):
+            Bounded final round, executed only for agents in unresolved HIGH-severity
+            conflicts. Uses the same mechanics as Round 2 but framed as a final attempt
+            to achieve consensus before human review.
 
         Falls back to evaluate() if Gemini is unavailable or returns
         invalid/unparseable JSON.
@@ -271,9 +279,9 @@ class BaseAgent(abc.ABC):
             f"- proposed_changes keys must be from this list only: {mutable_params}\n"
             f"- score must be between 0.0 and 100.0\n"
             f"- verdict must be 'accept' when proposed_changes is empty, 'modify' or 'reject' otherwise\n"
-            f"- The tension field (1-2 sentences) MUST state: Before giving your position, state the single strongest reason someone might disagree with your domain's typical stance on this proposal — a real consideration, not a strawman. Then explain specifically why it doesn't change your conclusion (or, if it's strong enough that it SHOULD change your conclusion, say so).\n"
+            f"- The tension field (1-2 sentences) MUST state the single strongest reason someone might disagree with your domain's typical stance on this proposal — a real consideration, not a strawman — before giving your position. Then explain specifically why it doesn't change your conclusion (or, if it's strong enough that it SHOULD change your conclusion, say so).\n"
             f"- The position field (1-sentence TLDR) MUST be written for a neighbourhood resident, not a planner. It MUST embody your distinct personality archetype, specific concerns, and vocabulary. No parameter names or raw percentages. (e.g. 'This development leaves almost no room for parks...' instead of 'green_space_pct is insufficient at 20%').\n"
-            f"- The reasoning field (2-4 sentences max) MUST reflect your personality archetype's specific concerns and vocabulary, strictly adhering to this structure: (1) What I found in my data, (2) Why it matters for real notable people, (3) What I'm proposing to change and why it fixes it. reasoning (2-4 sentences) MUST explicitly reference the tension you just identified and explain how your final position accounts for or overrides it — do not ignore the tension you raised.\n"
+            f"- The reasoning field (2-4 sentences max) MUST reflect your personality archetype's specific concerns and vocabulary, strictly adhering to this three-part structure: (1) What I found in my data, (2) Why it matters for the people actually affected by this proposal, and (3) What I'm proposing to change and why it fixes it. Your reasoning MUST explicitly reference the tension you just identified and explain how your final position accounts for or overrides it — do not ignore the tension you raised.\n"
             f"- evidence items MUST be one-sentence facts with real numbers, written in plain English (e.g. 'Phoenix already runs 7°F hotter...' instead of 'heat_island_risk: 5').\n"
         )
         if round_number in (2, 3):

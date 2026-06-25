@@ -36,5 +36,6 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
     if provider_name == "gemini":
         from llm.gemini_provider import GeminiProvider
         return GeminiProvider()
-    # Future providers (groq, openrouter, openai) will be added here
-    raise ValueError(f"Unknown LLM provider: {provider_name}")
+    
+    from llm.universal_provider import UniversalProvider
+    return UniversalProvider(provider_name=provider_name)

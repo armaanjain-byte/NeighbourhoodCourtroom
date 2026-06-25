@@ -31,6 +31,7 @@ from ui.components.transcript_view import build_transcript_html
 from ui.components.conflict_view import build_conflict_meters_html
 from ui.components.override_slider import render_override_slider
 from ui.components.causal_chain_view import build_causal_chain_html
+from ui.components.courtroom_scene import render_courtroom_scene
 
 # ── Engine / model imports ──────────────────────────────────────────────────
 from engine.state import create_initial_proposal, MUTABLE_PARAMETERS, PARAM_LABELS
@@ -588,12 +589,16 @@ def stage_result(is_override: bool = False) -> None:
             
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Tabs: Transcript / Conflicts / Proposal ───────────────────────────
-    tab_tx, tab_conf, tab_prop = st.tabs([
+    # ── Tabs: Scene / Transcript / Conflicts / Proposal ───────────────────
+    tab_scene, tab_tx, tab_conf, tab_prop = st.tabs([
+        "🎭 Courtroom Scene",
         "📜 Debate Transcript",
         "⚡ Conflicts",
         "📋 Final Proposal",
     ])
+
+    with tab_scene:
+        render_courtroom_scene(session)
 
     with tab_tx:
         render_debate_transcript(session)
