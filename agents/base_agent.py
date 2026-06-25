@@ -116,6 +116,7 @@ class BaseAgent(abc.ABC):
         *,
         round_number: int = 1,
         opponent_opinions: dict[str, AgentOpinion] | None = None,
+        own_previous_opinion: AgentOpinion | None = None,
     ) -> AgentOpinion:
         """Generate an AgentOpinion by asking Gemini to recommend parameter changes.
 
@@ -145,6 +146,8 @@ class BaseAgent(abc.ABC):
         opponent_opinions : dict[str, AgentOpinion] | None
             Round 1 opinions of the OTHER agents.  Required when round_number == 2;
             ignored when round_number == 1.
+        own_previous_opinion : AgentOpinion | None
+            The agent's own opinion from the previous round, used to evaluate concessions.
 
         Returns
         -------
@@ -182,22 +185,30 @@ class BaseAgent(abc.ABC):
             f"{proposal.model_dump_json(indent=2)}\n\n"
         )
 
-        if round_number in (2, 3) and opponent_opinions:
-            # Serialise opponent opinions for Gemini
-            opponent_block = "\n".join(
-                f"### {name.capitalize()} Agent (Previous Round)\n"
-                f"- Score: {op.score}\n"
-                f"- Position: {op.position}\n"
-                f"- Proposed changes: {json.dumps(op.recommendation)}\n"
-                f"- Reasoning: {op.reasoning}\n"
-                f"- Evidence: {json.dumps(op.evidence)}"
-                for name, op in opponent_opinions.items()
-                if name != self.agent_name
-            )
-            user_prompt += (
-                f"## Previous Round Results from Other Agents\n"
-                f"{opponent_block}\n\n"
-            )
+        if round_number in (2, 3):
+            if own_previous_opinion:
+                user_prompt += (
+                    f"## Your Own Previous Position\n"
+                    f"- Score: {own_previous_opinion.score}\n"
+                    f"- Position: {own_previous_opinion.position}\n"
+                    f"- Proposed changes: {json.dumps(own_previous_opinion.recommendation)}\n\n"
+                )
+            if opponent_opinions:
+                # Serialise opponent opinions for Gemini
+                opponent_block = "\n".join(
+                    f"### {name.capitalize()} Agent (Previous Round)\n"
+                    f"- Score: {op.score}\n"
+                    f"- Position: {op.position}\n"
+                    f"- Proposed changes: {json.dumps(op.recommendation)}\n"
+                    f"- Reasoning: {op.reasoning}\n"
+                    f"- Evidence: {json.dumps(op.evidence)}"
+                    for name, op in opponent_opinions.items()
+                    if name != self.agent_name
+                )
+                user_prompt += (
+                    f"## Previous Round Results from Other Agents\n"
+                    f"{opponent_block}\n\n"
+                )
             if round_number == 3:
                 target_conflicts = context.get("target_conflicts", [])
                 conflict_details = " ".join(
@@ -231,6 +242,7 @@ class BaseAgent(abc.ABC):
             '  "score": <float 0.0–100.0, your approval score>,\n'
             '  "verdict": <"accept" | "modify" | "reject">,\n'
             '  "proposed_changes": <dict of param->value; empty dict {} if no changes>,\n'
+            '  "concession_rationale": <string or null, required ONLY when proposed_changes differs from your own previous round position (i.e. when making a concession)>,\n'
             '  "tension": <string, 1-2 sentences. Before giving your position, state the single strongest reason someone might disagree with your domain\'s typical stance on this proposal — a real consideration, not a strawman. Then explain specifically why it doesn\'t change your conclusion (or, if it\'s strong enough that it SHOULD change your conclusion, say so).>,\n'
             '  "position": <string, 1-sentence TLDR of your stance>,\n'
             '  "reasoning": <string, 2-4 sentence explanation. MUST explicitly reference the tension you just identified and explain how your final position accounts for or overrides it — do not ignore the tension you raised.>,\n'
@@ -261,11 +273,12 @@ class BaseAgent(abc.ABC):
             f"- verdict must be 'accept' when proposed_changes is empty, 'modify' or 'reject' otherwise\n"
             f"- The tension field (1-2 sentences) MUST state: Before giving your position, state the single strongest reason someone might disagree with your domain's typical stance on this proposal — a real consideration, not a strawman. Then explain specifically why it doesn't change your conclusion (or, if it's strong enough that it SHOULD change your conclusion, say so).\n"
             f"- The position field (1-sentence TLDR) MUST be written for a neighbourhood resident, not a planner. It MUST embody your distinct personality archetype, specific concerns, and vocabulary. No parameter names or raw percentages. (e.g. 'This development leaves almost no room for parks...' instead of 'green_space_pct is insufficient at 20%').\n"
-            f"- The reasoning field (2-4 sentences max) MUST reflect your personality archetype's specific concerns and vocabulary, strictly adhering to this structure: (1) What I found in my data, (2) Why it matters for real people, (3) What I'm proposing to change and why it fixes it. reasoning (2-4 sentences) MUST explicitly reference the tension you just identified and explain how your final position accounts for or overrides it — do not ignore the tension you raised.\n"
+            f"- The reasoning field (2-4 sentences max) MUST reflect your personality archetype's specific concerns and vocabulary, strictly adhering to this structure: (1) What I found in my data, (2) Why it matters for real notable people, (3) What I'm proposing to change and why it fixes it. reasoning (2-4 sentences) MUST explicitly reference the tension you just identified and explain how your final position accounts for or overrides it — do not ignore the tension you raised.\n"
             f"- evidence items MUST be one-sentence facts with real numbers, written in plain English (e.g. 'Phoenix already runs 7°F hotter...' instead of 'heat_island_risk: 5').\n"
         )
         if round_number in (2, 3):
             user_prompt += (
+                "- If you are changing your own previous position on any parameter (a concession), you MUST explain in concession_rationale what you are prioritizing over your original position and why - e.g. 'I am accepting a lower green_space_pct than my original recommendation because the proposal's affordable housing target cannot be met within budget otherwise, and housing access matters more here than the marginal heat-island reduction from a few more percentage points of green space.' Do not concede without stating what you are trading and why that trade is acceptable given your domain's priorities.\n"
                 "- For each objection, you MUST first quote or closely paraphrase the SPECIFIC evidence or reasoning point from the opponent's opinion you are responding to (the engages_with field), THEN explain why that specific reasoning is flawed, insufficient, or outweighed (the reason field) - do not write generic objections that only reference the opponent's proposed number without engaging their argument.\n"
                 "- Keep engages_with to one short clause, not a full quotation.\n"
                 "- objections and supports must each name an agent from: "
@@ -298,6 +311,16 @@ class BaseAgent(abc.ABC):
             filtered_changes = self.filter_unknown_parameters(
                 {k: float(v) for k, v in data["proposed_changes"].items()}
             )
+
+            # Check concession_rationale requirement
+            concession_rationale = data.get("concession_rationale")
+            own_previous_position = own_previous_opinion.recommendation if own_previous_opinion else None
+            if own_previous_position is not None and filtered_changes != own_previous_position:
+                if not concession_rationale:
+                    raise LLMInvalidResponseError("concession_rationale is required when proposed_changes differs from previous round position")
+            else:
+                if not concession_rationale:
+                    concession_rationale = None
 
             # Validate score and verdict
             score = float(data["score"])
@@ -359,7 +382,10 @@ class BaseAgent(abc.ABC):
                 confidence=float(data.get("confidence", 0.8)),
                 grounding_warnings=grounding_warnings,
                 engagement_warnings=engagement_warnings,
+                concession_rationale=concession_rationale,
+                own_previous_position=own_previous_position,
             )
+
 
         except Exception as e:
             error_msg = str(e)

@@ -143,6 +143,7 @@ class CourtroomSession(BaseModel):
                 context,
                 round_number=2,
                 opponent_opinions=opponent_r1,
+                own_previous_opinion=round_1_opinions.get(agent.agent_name),
             )
             round_2_opinions[agent.agent_name] = opinion
 
@@ -246,8 +247,10 @@ class CourtroomSession(BaseModel):
                     r3_context,
                     round_number=3,
                     opponent_opinions=opponent_r2,
+                    own_previous_opinion=round_2_opinions.get(agent.agent_name),
                 )
                 round_3_opinions[agent.agent_name] = opinion
+
                 
                 # Record Round 3 statements to transcript
                 self.transcript.entries.append(TranscriptEntry(

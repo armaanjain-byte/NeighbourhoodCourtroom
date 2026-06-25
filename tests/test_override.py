@@ -12,7 +12,7 @@ from models.proposal import Proposal
 from engine.override import apply_human_override, calculate_change_summary
 
 
-def test_override_initialization(sample_fixture: Any) -> None:
+def test_override_initialization() -> None:
     """Verify basic initialization and execution of override utilities."""
     base_proposal = Proposal(
         city_slug="phoenix_az",

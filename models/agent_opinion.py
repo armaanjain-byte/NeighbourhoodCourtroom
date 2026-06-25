@@ -20,3 +20,6 @@ class AgentOpinion(BaseModel):
     confidence: float
     grounding_warnings: list[str] = Field(default_factory=list)
     engagement_warnings: list[str] = Field(default_factory=list)
+    concession_rationale: str | None = None
+    own_previous_position: dict[str, float] | None = None
+

@@ -9,7 +9,7 @@ def _fmt_value(param: str, value: float) -> str:
         return f"{value:,.0f} sqft"
     return str(value)
 
-def build_causal_chain_html(old_proposal, new_proposal, locked_param: str, locked_value: float) -> str:
+def build_causal_chain_html(old_proposal, new_proposal, locked_param: str, locked_value: float, session=None) -> str:
     # 1. Human lock
     locked_str = _fmt_value(locked_param, locked_value)
     param_label = PARAM_LABELS.get(locked_param, locked_param)
@@ -46,12 +46,24 @@ def build_causal_chain_html(old_proposal, new_proposal, locked_param: str, locke
     fin_text = _summarize(finance_changes)
     com_text = _summarize(community_changes)
     
+    from html import escape
+    fin_concession = ""
+    com_concession = ""
+    if session and session.debate_rounds:
+        last_r = session.debate_rounds[-1]
+        for op_dict in [getattr(last_r, "round_3_opinions", {}), getattr(last_r, "round_2_opinions", {})]:
+            if not fin_concession and op_dict and "finance" in op_dict and op_dict["finance"].concession_rationale:
+                fin_concession = f'<div class="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-950 shadow-sm"><div class="font-bold text-indigo-900 mb-1">🤝 Strategic Concession Rationale:</div><div class="italic">"{escape(op_dict["finance"].concession_rationale)}"</div></div>'
+            if not com_concession and op_dict and "community" in op_dict and op_dict["community"].concession_rationale:
+                com_concession = f'<div class="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-950 shadow-sm"><div class="font-bold text-indigo-900 mb-1">🤝 Strategic Concession Rationale:</div><div class="italic">"{escape(op_dict["community"].concession_rationale)}"</div></div>'
+    
     steps_html += f'''
         <div class="relative">
             <div class="absolute -left-6 w-3 h-3 rounded-full bg-amber-500 ring-4 ring-white"></div>
             <div class="flex flex-col">
                 <span class="font-semibold text-[12px] text-gray-500 uppercase">Step 2</span>
                 <span class="text-[16px] text-gray-600"><span class="font-bold">Finance</span> responded: {fin_text}</span>
+                {fin_concession}
             </div>
         </div>
         <div class="relative">
@@ -59,6 +71,7 @@ def build_causal_chain_html(old_proposal, new_proposal, locked_param: str, locke
             <div class="flex flex-col">
                 <span class="font-semibold text-[12px] text-gray-500 uppercase">Step 3</span>
                 <span class="text-[16px] text-gray-600"><span class="font-bold">Community</span> responded: {com_text}</span>
+                {com_concession}
             </div>
         </div>
         <div class="relative">
@@ -71,6 +84,7 @@ def build_causal_chain_html(old_proposal, new_proposal, locked_param: str, locke
     '''
     
     html = f'''
+
     <!DOCTYPE html>
     <html lang="en">
     <head>

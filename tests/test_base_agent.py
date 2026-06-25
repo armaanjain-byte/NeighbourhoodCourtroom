@@ -342,3 +342,75 @@ class TestBaseAgentGenerateOpinion:
         opinion = agent.generate_opinion(proposal, {})
         
         assert opinion.grounding_warnings == ["The city population grew by 500000 residents."]
+
+    def test_concession_rationale_required_when_changed(self, agent: MockAgent) -> None:
+        """Test concession_rationale is required when proposed_changes differs from previous position."""
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate_structured.return_value = {
+            "score": 85.0,
+            "verdict": "modify",
+            "proposed_changes": {"green_space_pct": 25.0},
+            "tension": "Mock tension.",
+            "position": "Lower green space.",
+            "reasoning": "Budget constraint.",
+            "evidence": [],
+            "objections": [],
+            "supports": [],
+            "confidence": 0.9,
+        }
+        agent.llm_provider = mock_provider
+        
+        prev_opinion = AgentOpinion(
+            agent="mock_agent",
+            score=90.0,
+            recommendation={"green_space_pct": 35.0},
+            tension="Previous tension.",
+            position="High green space.",
+            reasoning="Heat island effect.",
+            confidence=0.9,
+        )
+        
+        # Omitting concession_rationale when position changed triggers fallback
+        with patch.object(agent, 'evaluate') as mock_eval:
+            mock_eval.return_value = agent.build_output(score=50.0, verdict="modify", changes={"green_space_pct": 21.0}, reasoning="Fallback")
+            proposal = create_initial_proposal("phoenix_az")
+            op_fallback = agent.generate_opinion(proposal, {}, round_number=2, own_previous_opinion=prev_opinion)
+            assert "using deterministic fallback" in op_fallback.position
+
+        # Providing concession_rationale succeeds
+        mock_provider.generate_structured.return_value["concession_rationale"] = "Trading green space for budget."
+        op_success = agent.generate_opinion(proposal, {}, round_number=2, own_previous_opinion=prev_opinion)
+        assert op_success.concession_rationale == "Trading green space for budget."
+        assert op_success.own_previous_position == {"green_space_pct": 35.0}
+
+    def test_concession_rationale_optional_when_unchanged(self, agent: MockAgent) -> None:
+        """Test concession_rationale is optional when proposed_changes matches previous position."""
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate_structured.return_value = {
+            "score": 90.0,
+            "verdict": "modify",
+            "proposed_changes": {"green_space_pct": 35.0},
+            "tension": "Mock tension.",
+            "position": "Holding firm on green space.",
+            "reasoning": "Heat island effect remains critical.",
+            "evidence": [],
+            "objections": [],
+            "supports": [],
+            "confidence": 0.9,
+        }
+        agent.llm_provider = mock_provider
+        
+        prev_opinion = AgentOpinion(
+            agent="mock_agent",
+            score=90.0,
+            recommendation={"green_space_pct": 35.0},
+            tension="Previous tension.",
+            position="High green space.",
+            reasoning="Heat island effect.",
+            confidence=0.9,
+        )
+        
+        proposal = create_initial_proposal("phoenix_az")
+        op_success = agent.generate_opinion(proposal, {}, round_number=2, own_previous_opinion=prev_opinion)
+        assert op_success.concession_rationale is None
+        assert op_success.own_previous_position == {"green_space_pct": 35.0}

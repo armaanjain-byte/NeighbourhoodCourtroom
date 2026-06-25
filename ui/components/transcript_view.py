@@ -59,6 +59,18 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
     if not evidence_items:
         evidence_items = "<li>No specific evidence provided.</li>"
         
+    concession_html = ""
+    if op.concession_rationale and op.own_previous_position is not None and op.own_previous_position != op.recommendation:
+        concession_html = f'''
+        <div class="mb-4 p-3.5 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-950 shadow-sm">
+            <div class="flex items-center gap-1.5 font-bold text-indigo-900 mb-1 text-[13px]">
+                <span class="material-symbols-outlined text-[18px]">handshake</span>
+                🤝 Strategic Concession Rationale:
+            </div>
+            <div class="italic leading-relaxed">"{escape(op.concession_rationale)}"</div>
+        </div>
+        '''
+        
     html = f'''
     <div class="bg-surface-container-lowest border {border_class} p-6 rounded-lg relative mb-6 shadow-sm" id="{card_id}">
         <span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{phase_label}</span>
@@ -67,6 +79,7 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
             "{op.tension}"
         </div>
         <p class="font-bold text-body-lg mb-4">{op.position}</p>
+        {concession_html}
         {callouts}
         <details class="group">
             <summary class="flex items-center justify-between cursor-pointer text-primary font-label-md">

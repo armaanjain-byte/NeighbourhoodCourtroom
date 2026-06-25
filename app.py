@@ -540,8 +540,8 @@ def stage_result(is_override: bool = False) -> None:
         locked_value = st.session_state["locked_value"]
         st.markdown('<div class="section-header">📈 Negotiation Delta</div>', unsafe_allow_html=True)
         
-        causal_html = build_causal_chain_html(old_proposal, new_proposal, locked_param, locked_value)
-        components.html(causal_html, height=350, scrolling=True)
+        causal_html = build_causal_chain_html(old_proposal, new_proposal, locked_param, locked_value, session=session)
+        components.html(causal_html, height=420, scrolling=True)
 
         # Build Diff Table
         changes = {}
