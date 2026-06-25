@@ -46,12 +46,12 @@ class UniversalProvider(LLMProvider):
         for k in env_keys:
             val = os.environ.get(k)
             if val:
-                return val
+                return val.strip().strip('"').strip("'")
 
         # Search for any variable containing the provider name and API_KEY
         for k, val in os.environ.items():
             if self.provider_name.upper() in k and "KEY" in k:
-                return val
+                return val.strip().strip('"').strip("'")
 
         raise LLMAuthError(
             f"API key not found for provider '{self.provider_name}'. "

@@ -23,7 +23,7 @@ import traceback
 from typing import Any
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -54,6 +54,22 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+# ── Startup Sanity Check Logging ──────────────────────────────────────────────
+import logging
+import os
+from llm.provider_factory import get_provider
+
+logger = logging.getLogger("streamlit_app")
+try:
+    provider = get_provider()
+    p_name = getattr(provider, "provider_name", "gemini")
+    p_model = getattr(provider, "default_model", "gemini-2.5-flash")
+    print(f"\n[STARTUP SANITY CHECK] LLM_PROVIDER configured: {p_name.upper()} | Active Model: {p_model}\n")
+    logger.info(f"[STARTUP SANITY CHECK] LLM_PROVIDER configured: {p_name.upper()} | Active Model: {p_model}")
+except Exception as e:
+    print(f"\n[STARTUP SANITY CHECK ERROR] Could not initialize provider: {e}\n")
+    logger.warning(f"[STARTUP SANITY CHECK ERROR] Could not initialize provider: {e}")
 
 # ── Inline CSS ───────────────────────────────────────────────────────────────
 st.markdown("""

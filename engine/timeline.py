@@ -37,8 +37,10 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
         return beats
 
     last_round_num = 1
+    last_sub_round = 1
 
     for dr_index, dr in enumerate(session.debate_rounds):
+        session_attempt = dr_index + 1
         sub_rounds = [
             (1, dr.round_1_opinions),
             (2, dr.round_2_opinions),
@@ -51,11 +53,14 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
 
             round_number = sub_round_num if len(session.debate_rounds) == 1 else (dr_index * 3 + sub_round_num)
             last_round_num = round_number
+            last_sub_round = sub_round_num
 
             # 1. round_start beat
             beats.append({
                 "beat_type": "round_start",
                 "round_number": round_number,
+                "session_attempt": session_attempt,
+                "negotiation_round": sub_round_num,
                 "duration_hint_seconds": 2.0,
                 "content": {"message": f"Round {round_number} starting."}
             })
@@ -67,6 +72,8 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
                     beats.append({
                         "beat_type": "agent_statement",
                         "round_number": round_number,
+                        "session_attempt": session_attempt,
+                        "negotiation_round": sub_round_num,
                         "agent": agent_name,
                         "duration_hint_seconds": 8.0,
                         "content": {
@@ -87,6 +94,8 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
                             beats.append({
                                 "beat_type": "objection",
                                 "round_number": round_number,
+                                "session_attempt": session_attempt,
+                                "negotiation_round": sub_round_num,
                                 "agent": agent_name,
                                 "target_agent": obj.target_agent,
                                 "duration_hint_seconds": 4.0,
@@ -99,6 +108,8 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
                             beats.append({
                                 "beat_type": "support",
                                 "round_number": round_number,
+                                "session_attempt": session_attempt,
+                                "negotiation_round": sub_round_num,
                                 "agent": agent_name,
                                 "target_agent": sup.target_agent,
                                 "duration_hint_seconds": 4.0,
@@ -129,6 +140,8 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
                 beats.append({
                     "beat_type": "conflict_flare",
                     "round_number": round_number,
+                    "session_attempt": session_attempt,
+                    "negotiation_round": sub_round_num,
                     "agent": c.agent_a,
                     "target_agent": c.agent_b,
                     "severity": c.disagreement_severity,
@@ -151,6 +164,8 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
                         beats.append({
                             "beat_type": "concession",
                             "round_number": round_number,
+                            "session_attempt": session_attempt,
+                            "negotiation_round": sub_round_num,
                             "agent": agent_name,
                             "duration_hint_seconds": 5.0,
                             "content": {
@@ -162,6 +177,8 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
             beats.append({
                 "beat_type": "round_resolution",
                 "round_number": round_number,
+                "session_attempt": session_attempt,
+                "negotiation_round": sub_round_num,
                 "duration_hint_seconds": 4.0,
                 "content": {
                     "engine_summary": summary,
@@ -178,21 +195,51 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
         outcome = status.lower()
 
     unresolved = []
+    unresolved_attempts = {}
+    consecutive_unlocked_warnings = []
+
     if session.debate_rounds:
         last_dr = session.debate_rounds[-1]
         for c in last_dr.detected_conflicts:
             if c.disagreement_severity == "high" and c.parameter not in session.current_proposal.human_locks:
                 unresolved.append(c.parameter)
 
+        # Calculate unresolved attempts across all session rounds
+        for dr in session.debate_rounds:
+            for c in dr.detected_conflicts:
+                if c.disagreement_severity == "high" and c.parameter not in session.current_proposal.human_locks:
+                    unresolved_attempts[c.parameter] = unresolved_attempts.get(c.parameter, 0) + 1
+
+        # Check for parameters flagged across 2+ consecutive session attempts without human lock/override
+        if len(session.debate_rounds) >= 2:
+            prev_dr = session.debate_rounds[-2]
+            curr_dr = session.debate_rounds[-1]
+            prev_highs = {c.parameter for c in prev_dr.detected_conflicts if c.disagreement_severity == "high"}
+            curr_highs = {c.parameter for c in curr_dr.detected_conflicts if c.disagreement_severity == "high"}
+            
+            for param in curr_highs.intersection(prev_highs):
+                # Verify whether human override was actually applied between session attempts
+                has_override = (param in session.current_proposal.human_locks) or any(
+                    ov.get("parameter") == param for ov in session.override_history
+                )
+                if not has_override:
+                    consecutive_unlocked_warnings.append(
+                        f"Parameter '{param}' has been flagged for human review across {unresolved_attempts.get(param, 2)} consecutive session attempts without an override. We strongly suggest using the override slider below to lock this parameter rather than re-running the debate, as re-running without intervening is unlikely to resolve a genuine values disagreement between agents."
+                    )
+
     beats.append({
         "beat_type": "final_verdict",
         "round_number": last_round_num,
+        "session_attempt": len(session.debate_rounds) if session.debate_rounds else 1,
+        "negotiation_round": last_sub_round,
         "duration_hint_seconds": 5.0,
         "content": {
             "status": status,
             "outcome": outcome,
             "final_proposal": session.current_proposal.model_dump(),
             "unresolved_conflicts": sorted(list(set(unresolved))),
+            "unresolved_attempts": unresolved_attempts,
+            "consecutive_unlocked_warnings": consecutive_unlocked_warnings,
         }
     })
 

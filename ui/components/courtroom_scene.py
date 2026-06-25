@@ -419,11 +419,18 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
             // Update progress bar & label
             const progressPct = ((index + 1) / beats.length) * 100;
             document.getElementById('beat-progress-fill').style.width = `${{progressPct}}%`;
-            document.getElementById('beat-label').innerText = `Round ${{beat.round_number}} · ${{beat.beat_type.replace('_', ' ').toUpperCase()}} (${{index + 1}}/${{beats.length}})`;
+            const attemptStr = (beat.session_attempt > 1) ? `Attempt ${{beat.session_attempt}} · ` : '';
+            document.getElementById('beat-label').innerText = `${{attemptStr}}Round ${{beat.negotiation_round || beat.round_number}} · ${{beat.beat_type.replace('_', ' ').toUpperCase()}} (${{index + 1}}/${{beats.length}})`;
 
             // Reset UI state
             document.getElementById('lines-container').innerHTML = '';
-            document.getElementById('status-banner').innerHTML = '';
+            const sb = document.getElementById('status-banner');
+            if (sb) {{
+                sb.innerHTML = '';
+                sb.className = 'absolute top-6 left-0 right-0 z-30 px-8 flex justify-center pointer-events-none min-h-[100px]';
+            }}
+            const stage = document.getElementById('stage-panels');
+            if (stage) stage.classList.remove('hidden');
             ['finance', 'climate', 'community'].forEach(agent => {{
                 const panel = document.getElementById(`panel-${{agent}}`);
                 if (panel) {{
@@ -448,9 +455,10 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                     p.classList.remove('opacity-40', 'scale-98');
                     p.classList.add('opacity-90');
                 }});
+                const startTitle = (beat.session_attempt > 1) ? `⚖️ Session Attempt ${{beat.session_attempt}} (Round ${{beat.negotiation_round}}) Commencing` : `⚖️ Round ${{beat.negotiation_round || beat.round_number}} Commencing`;
                 document.getElementById('status-banner').innerHTML = `
                     <div class="bg-indigo-950 bg-opacity-95 text-white border-2 border-indigo-400 p-6 rounded-3xl shadow-2xl text-center animate-bounce max-w-xl mx-auto">
-                        <h2 class="text-2xl font-black tracking-wider uppercase">⚖️ Round ${{beat.round_number}} Commencing</h2>
+                        <h2 class="text-2xl font-black tracking-wider uppercase">${{startTitle}}</h2>
                         <p class="text-indigo-200 text-sm mt-2 font-semibold">${{beat.content.message || ''}}</p>
                     </div>
                 `;
@@ -581,16 +589,10 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                 `;
             }}
             else if (beat.beat_type === 'round_resolution' || beat.beat_type === 'final_verdict') {{
-                ['finance', 'climate', 'community'].forEach(agent => {{
-                    const p = document.getElementById(`panel-${{agent}}`);
-                    p.classList.remove('opacity-40', 'scale-98');
-                    p.classList.add('opacity-90');
-                }});
-                
                 const isFinal = beat.beat_type === 'final_verdict';
                 const c = beat.content;
                 
-                let title = `⚖️ Round ${{beat.round_number}} Resolution Achieved`;
+                let title = (beat.session_attempt > 1) ? `⚖️ Session Attempt ${{beat.session_attempt}} — Negotiation Resolved` : `⚖️ Resolution Achieved`;
                 let desc = c.engine_summary || '';
                 let extraHtml = '';
 
@@ -604,8 +606,15 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                                     <span class="material-symbols-outlined text-[20px]">gavel</span>
                                     Escalated to Human Review (High Conflicts Persist):
                                 </div>
-                                <ul class="list-disc pl-6 space-y-1.5 font-bold">
-                                    ${{c.unresolved_conflicts.map(p => `<li>${{p}}</li>`).join('')}}
+                                <ul class="list-disc pl-6 space-y-2 font-bold">
+                                    ${{c.unresolved_conflicts.map(p => {{
+                                        const attempts = (c.unresolved_attempts && c.unresolved_attempts[p]) ? c.unresolved_attempts[p] : 1;
+                                        if (attempts > 1) {{
+                                            return `<li>${{p}} <span class="ml-2 px-2 py-0.5 bg-red-800 text-white rounded text-xs font-extrabold">This parameter has required human review across ${{attempts}} attempts</span></li>`;
+                                        }} else {{
+                                            return `<li>${{p}}</li>`;
+                                        }}
+                                    }}).join('')}}
                                 </ul>
                             </div>
                         `;
@@ -617,15 +626,59 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                             </div>
                         `;
                     }}
-                }}
 
-                document.getElementById('status-banner').innerHTML = `
-                    <div class="bg-slate-900 bg-opacity-95 border-2 border-slate-500 p-8 rounded-3xl shadow-2xl max-w-2xl mx-auto text-center animate-fade-in">
-                        <h2 class="text-2xl font-black tracking-wider text-white uppercase">${{title}}</h2>
-                        <p class="text-slate-300 text-base mt-3 font-semibold">${{desc}}</p>
-                        ${{extraHtml}}
-                    </div>
-                `;
+                    if (c.consecutive_unlocked_warnings && c.consecutive_unlocked_warnings.length > 0) {{
+                        extraHtml += `
+                            <div class="mt-4 bg-amber-950 bg-opacity-90 border border-amber-500 p-5 rounded-2xl text-left text-amber-200 text-sm shadow-inner">
+                                <div class="font-black text-amber-400 uppercase mb-2 flex items-center gap-1.5 text-[15px]">
+                                    <span class="material-symbols-outlined text-[20px]">lightbulb</span>
+                                    Suggested Judge Intervention:
+                                </div>
+                                <div class="space-y-2 font-bold text-xs leading-relaxed">
+                                    ${{c.consecutive_unlocked_warnings.map(w => `<p>${{w}}</p>`).join('')}}
+                                </div>
+                            </div>
+                        `;
+                    }}
+
+                    const stage = document.getElementById('stage-panels');
+                    if (stage) stage.classList.add('hidden');
+                    
+                    const sb = document.getElementById('status-banner');
+                    if (sb) {{
+                        sb.className = 'absolute inset-0 z-30 flex items-center justify-center p-8 pointer-events-auto';
+                        sb.innerHTML = `
+                            <div class="bg-slate-900 bg-opacity-95 border-2 border-slate-500 p-10 rounded-3xl shadow-2xl max-w-3xl w-full text-center animate-fade-in">
+                                <h2 class="text-3xl font-black tracking-wider text-white uppercase">${{title}}</h2>
+                                <p class="text-slate-300 text-lg mt-4 font-semibold">${{desc}}</p>
+                                ${{extraHtml}}
+                            </div>
+                        `;
+                    }}
+                }} else {{
+                    ['finance', 'climate', 'community'].forEach(agent => {{
+                        const p = document.getElementById(`panel-${{agent}}`);
+                        p.classList.remove('opacity-40', 'scale-98');
+                        p.classList.add('opacity-90');
+                    }});
+
+                    const sb = document.getElementById('status-banner');
+                    if (sb) {{
+                        sb.className = 'absolute top-6 left-0 right-0 z-30 px-8 flex justify-center pointer-events-none min-h-[100px]';
+                        sb.innerHTML = `
+                            <div class="bg-slate-900 bg-opacity-95 border-2 border-slate-500 p-8 rounded-3xl shadow-2xl max-w-2xl mx-auto text-center animate-fade-in">
+                                <h2 class="text-2xl font-black tracking-wider text-white uppercase">${{title}}</h2>
+                                <p class="text-slate-300 text-base mt-3 font-semibold">${{desc}}</p>
+                                ${{extraHtml}}
+                            </div>
+                        `;
+                    }}
+
+                    subTimeoutIds.push(setTimeout(() => {{
+                        const banner = document.getElementById('status-banner');
+                        if (banner) banner.innerHTML = '';
+                    }}, duration * 0.85));
+                }}
             }}
 
             if (isPlaying) {{
