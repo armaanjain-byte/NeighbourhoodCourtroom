@@ -1,7 +1,7 @@
 # Neighbourhood Courtroom ⚖️
 An AI-driven simulation engine where specialized LLM agents debate and negotiate urban planning trade-offs.
 
-**Live demo:** [https://neighbourhood-courtroom.demo.app](https://neighbourhood-courtroom.demo.app)
+**Live Public Demo:** [https://neighbourhood-courtroom.streamlit.app](https://neighbourhood-courtroom.streamlit.app) *(Deployability verified 24/7 on Streamlit Community Cloud)*
 
 ---
 
@@ -83,11 +83,30 @@ To verify the entire test suite cleanly without external API calls, run: `python
 - **Two-Layer Input Validation**: All proposal parameters undergo strict two-layer validation and sanitization. First, UI-level clamping at intake sanitizes initial form submissions against sensible upper and lower bounds. Second, rigorous model-level validation (`validate_assignment=True` on the Pydantic `Proposal` model) is enforced on every subsequent mutation throughout the entire debate lifecycle. If an LLM agent proposes or a human overrides a parameter with an out-of-bounds value mid-session, the engine intercepts the validation error, clamps the value to the nearest valid bound, logs a clear warning, and records the clamping event directly in the audit trail.
 
 
+## Agent Skills (`agentskills.io` / `SKILL.md`)
+
+This project implements open-standard Agent Skills located in `.agents/skills/`. These skill files contain YAML frontmatter and structured markdown instructions designed to provide faster, more consistent onboarding for anyone—including AI coding assistants like Antigravity, Claude Code, and Gemini CLI—extending this codebase.
+
+### Available Skills
+- **`add-new-domain-agent`**: Instructions for correctly adding a new domain agent to the courtroom system (subclassing `BaseAgent`, defining `PERSONALITY_BRIEF`/`RISK_TOLERANCE`, registering tools, updating `engine/session.py` and `app.py`, and writing unit tests).
+- **`run-and-debug-tests`**: Instructions for running the test suite correctly (`python -m pytest`), handling common failure patterns (such as stale `google.genai` imports or mock mutations), and interpreting coverage output.
+- **`extend-conflict-resolution`**: Instructions for safely modifying `engine/conflict.py`'s severity thresholds or domain weights, enforcing the critical safety invariant that `HIGH` severity disagreements must always escalate to human review.
+
+### Verification & Tooling Installation
+To verify skill discovery and manage the agent lifecycle, install the official `google-agents-cli` and `uv` toolchain:
+```bash
+python -m pip install google-agents-cli uv
+agents-cli info
+agents-cli setup
+```
+The CLI automatically registers and symlinks these skills into compatible coding agents (`Antigravity`, `Claude Code`, `Gemini CLI`, `GitHub Copilot`, `OpenHands`), empowering them with instant, localized expertise about this specific repository.
+
+
 ## Course Concepts Demonstrated
 
-This project explicitly demonstrates three of the core course concepts across its code and interactive demo:
+This project explicitly demonstrates four core course concepts across its code and interactive demo:
 
 1. **Agent / Multi-agent system (Code & Video)**: Demonstrates a comprehensive multi-agent system featuring three specialized AI agents (`FinanceAgent`, `ClimateAgent`, `CommunityAgent` in `agents/`) with distinct data partitioning, personality archetypes, and risk tolerances. They debate and negotiate urban planning trade-offs across adaptive rounds orchestrated by `CourtroomSession` (`engine/session.py`). *(Note: This project implements a custom multi-agent system and does not use Google's ADK framework).*
 2. **Security features (Code)**: See the **Security** section above. Demonstrated via two-layer input validation/clamping in `app.py`, Pydantic validation on assignment (`models/proposal.py`), out-of-bounds recovery in `engine/state.py`, and strict environment variable API key isolation.
-3. **Deployability (Code & Video)**: See `DEPLOYMENT.md` and the submission video. Demonstrated via stable version pinning in `requirements.txt`, container-friendly static Streamlit custom components (`ui_component_dir/`), dynamic relative file path resolution, an example secrets template (`.streamlit/secrets.toml.example`), and public demo quota safeguards (`LLM_DAILY_BUDGET`).
-
+3. **Deployability (Code & Video)**: See `DEPLOYMENT.md` and the submission video. Demonstrated via stable version pinning in `requirements.txt`, container-friendly static Streamlit custom components (`ui_component_dir/`), dynamic relative file path resolution, an example secrets template (`.streamlit/secrets.toml.example`), live deployment at `https://neighbourhood-courtroom.streamlit.app`, and public demo quota safeguards (`LLM_DAILY_BUDGET`).
+4. **Agent skills (Code & Video)**: See the **Agent Skills** section above. Demonstrated via genuinely useful procedural knowledge encoded in `.agents/skills/<skill-name>/SKILL.md` format, seamlessly discovered and utilized by `agents-cli` and Antigravity.

@@ -86,15 +86,12 @@ class GeminiRestChat:
         if isinstance(content_parts, str):
             new_content = {"role": "user", "parts": [{"text": content_parts}]}
         else:
-            role = "user"
-            if any("functionResponse" in p for p in content_parts):
-                role = "tool"
-            new_content = {"role": role, "parts": content_parts}
+            new_content = {"role": "user", "parts": content_parts}
 
         self.contents.append(new_content)
 
         payload: dict[str, Any] = {
-            "contents": self.contents
+            "contents": list(self.contents)
         }
         if self.system_instruction:
             payload["systemInstruction"] = {"parts": [{"text": self.system_instruction}]}

@@ -127,6 +127,33 @@ class TestGeminiProvider:
             with pytest.raises(LLMProviderError):
                 provider.generate_text("System", "Prompt")
 
+    @patch("requests.post")
+    def test_gemini_rest_chat_function_response_role(self, mock_post) -> None:
+        """Test that functionResponse messages correctly use role 'user' and not 'tool'."""
+        from llm.gemini_provider import GeminiRestChat
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "candidates": [{"content": {"role": "model", "parts": [{"text": "final response"}]}}]
+        }
+        mock_post.return_value = mock_response
+
+        chat = GeminiRestChat(api_key="fake_key", model="gemini-2.5-flash")
+        
+        # Send initial user prompt
+        chat.send_message("Hello")
+        assert mock_post.call_args.kwargs["json"]["contents"][-1]["role"] == "user"
+
+        # Send function response payload
+        function_response_part = [{"functionResponse": {"name": "get_weather", "response": {"result": "sunny"}}}]
+        chat.send_message(function_response_part)
+
+        # Assert on the exact JSON body sent to requests.post
+        last_request_json = mock_post.call_args.kwargs["json"]
+        # Specifically assert role == "user" for the functionResponse message
+        assert last_request_json["contents"][-1]["role"] == "user"
+        assert last_request_json["contents"][-1]["parts"] == function_response_part
+
 
 class TestUniversalProvider:
     @patch("urllib.request.urlopen")
