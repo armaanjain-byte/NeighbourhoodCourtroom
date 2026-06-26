@@ -44,14 +44,15 @@ class TestProviderFactory:
 
 
 class TestGeminiProvider:
-    @patch("llm.gemini_provider.genai.Client")
-    def test_generate_text_success(self, mock_client_cls) -> None:
+    @patch("requests.post")
+    def test_generate_text_success(self, mock_post) -> None:
         """Test successful text generation."""
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
         mock_response = MagicMock()
-        mock_response.text = "Hello world"
-        mock_client.models.generate_content.return_value = mock_response
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": "Hello world"}]}}]
+        }
+        mock_post.return_value = mock_response
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
             provider = GeminiProvider()
@@ -67,18 +68,15 @@ class TestGeminiProvider:
             with pytest.raises(LLMAuthError, match="Gemini not configured"):
                 provider.generate_structured("System", "Prompt")
 
-    @patch("llm.gemini_provider.genai.Client")
-    def test_generate_structured_success(self, mock_client_cls) -> None:
+    @patch("requests.post")
+    def test_generate_structured_success(self, mock_post) -> None:
         """Test successful structured generation with JSON parsing."""
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_client.chats.create.return_value = mock_chat
-
         mock_response = MagicMock()
-        mock_response.function_calls = []
-        mock_response.text = '{"score": 95.0, "verdict": "accept"}'
-        mock_chat.send_message.return_value = mock_response
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": '{"score": 95.0, "verdict": "accept"}'}]}}]
+        }
+        mock_post.return_value = mock_response
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
             provider = GeminiProvider()
@@ -87,50 +85,45 @@ class TestGeminiProvider:
             assert data["verdict"] == "accept"
             assert data["text"] == '{"score": 95.0, "verdict": "accept"}'
 
-    @patch("llm.gemini_provider.genai.Client")
-    def test_generate_structured_invalid_json(self, mock_client_cls) -> None:
+    @patch("requests.post")
+    def test_generate_structured_invalid_json(self, mock_post) -> None:
         """Unparseable JSON must raise LLMInvalidResponseError."""
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_client.chats.create.return_value = mock_chat
-
         mock_response = MagicMock()
-        mock_response.function_calls = []
-        mock_response.text = 'invalid json'
-        mock_chat.send_message.return_value = mock_response
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": "invalid json"}]}}]
+        }
+        mock_post.return_value = mock_response
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
             provider = GeminiProvider()
             with pytest.raises(LLMInvalidResponseError, match="Failed to parse JSON response"):
                 provider.generate_structured("System", "Prompt")
 
-    @patch("llm.gemini_provider.genai.Client")
-    def test_exception_mapping(self, mock_client_cls) -> None:
+    @patch("requests.post")
+    def test_exception_mapping(self, mock_post) -> None:
         """Test SDK exceptions are mapped to the common exception hierarchy."""
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-
+        import requests
         with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
             provider = GeminiProvider()
 
             # Rate limit (429)
-            mock_client.models.generate_content.side_effect = Exception("429 ResourceExhausted")
+            mock_post.side_effect = requests.exceptions.HTTPError("429 ResourceExhausted")
             with pytest.raises(LLMRateLimitError):
                 provider.generate_text("System", "Prompt")
 
             # Auth error (403)
-            mock_client.models.generate_content.side_effect = Exception("403 Forbidden: API key invalid")
+            mock_post.side_effect = requests.exceptions.HTTPError("403 Forbidden: API key invalid")
             with pytest.raises(LLMAuthError):
                 provider.generate_text("System", "Prompt")
 
             # Transient server error (503)
-            mock_client.models.generate_content.side_effect = Exception("503 Service Unavailable")
+            mock_post.side_effect = requests.exceptions.HTTPError("503 Service Unavailable")
             with pytest.raises(LLMTransientError):
                 provider.generate_text("System", "Prompt")
 
             # Generic error
-            mock_client.models.generate_content.side_effect = Exception("Some unknown error")
+            mock_post.side_effect = Exception("Some unknown error")
             with pytest.raises(LLMProviderError):
                 provider.generate_text("System", "Prompt")
 

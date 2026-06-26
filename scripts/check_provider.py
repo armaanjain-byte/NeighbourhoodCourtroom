@@ -136,7 +136,8 @@ def main() -> None:
         
         success_rate = (success_count / num_runs) * 100
         logger.info(f"\n========================================")
-        logger.info(f"Model: {provider.default_model}")
+        model_name = getattr(provider, "default_model", provider.__class__.__name__)
+        logger.info(f"Model: {model_name}")
         logger.info(f"First-attempt Success Rate (no nudge): {success_rate:.1f}% ({success_count}/{num_runs})")
         logger.info(f"========================================\n")
         
