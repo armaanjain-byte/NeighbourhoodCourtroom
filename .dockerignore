@@ -1,0 +1,47 @@
+# ── Version control ──────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ── Virtual environments & package caches ────────────────────────────────────
+.venv
+venv
+env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ── Test / linting infrastructure ────────────────────────────────────────────
+# Tests are not needed at runtime; excluding them trims the image.
+tests/
+.pytest_cache
+.coverage
+.ruff_cache
+.pre-commit-config.yaml
+pyproject.toml
+
+# ── Secrets — NEVER bake into the image ──────────────────────────────────────
+.env
+.env.*
+.streamlit/secrets.toml
+
+# ── Local IDE / editor noise ──────────────────────────────────────────────────
+.vscode
+.idea
+*.swp
+*.swo
+
+# ── Design / documentation assets not needed at runtime ──────────────────────
+design/
+Architecture.md
+DEPLOYMENT.md
+README.md
+LICENSE
+
+# ── Local dev scripts ─────────────────────────────────────────────────────────
+scripts/
+raw_gemini_test.py
+
+# ── Agent skill files (not needed at runtime) ─────────────────────────────────
+.agents/

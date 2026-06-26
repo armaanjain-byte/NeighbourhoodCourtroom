@@ -1,7 +1,7 @@
 # Neighbourhood Courtroom ⚖️
 An AI-driven simulation engine where specialized LLM agents debate and negotiate urban planning trade-offs.
 
-**Live Public Demo:** [https://neighbourhood-courtroom.streamlit.app](https://neighbourhood-courtroom.streamlit.app) *(Deployability verified 24/7 on Streamlit Community Cloud)*
+**Live Demo:** Deployed on **Google Cloud Run** — see `DEPLOYMENT.md` for the service URL and full deployment guide. *(Containerized with Docker, built via Cloud Build, secrets managed via Google Secret Manager)*
 
 ---
 
@@ -108,5 +108,5 @@ This project explicitly demonstrates four core course concepts across its code a
 
 1. **Agent / Multi-agent system (Code & Video)**: Demonstrates a comprehensive multi-agent system featuring three specialized AI agents (`FinanceAgent`, `ClimateAgent`, `CommunityAgent` in `agents/`) with distinct data partitioning, personality archetypes, and risk tolerances. They debate and negotiate urban planning trade-offs across adaptive rounds orchestrated by `CourtroomSession` (`engine/session.py`). *(Note: This project implements a custom multi-agent system and does not use Google's ADK framework).*
 2. **Security features (Code)**: See the **Security** section above. Demonstrated via two-layer input validation/clamping in `app.py`, Pydantic validation on assignment (`models/proposal.py`), out-of-bounds recovery in `engine/state.py`, and strict environment variable API key isolation.
-3. **Deployability (Code & Video)**: See `DEPLOYMENT.md` and the submission video. Demonstrated via stable version pinning in `requirements.txt`, container-friendly static Streamlit custom components (`ui_component_dir/`), dynamic relative file path resolution, an example secrets template (`.streamlit/secrets.toml.example`), live deployment at `https://neighbourhood-courtroom.streamlit.app`, and public demo quota safeguards (`LLM_DAILY_BUDGET`).
+3. **Deployability — Google Cloud Run (Code & Video)**: See `DEPLOYMENT.md` for the full deployment guide. Demonstrated via a `Dockerfile` (`python:3.12-slim`, `$PORT`-aware entrypoint per the Cloud Run container contract), `.dockerignore` (secrets excluded, dev deps excluded), `requirements.txt`/`requirements-dev.txt` split, Google Secret Manager integration for `GEMINI_API_KEY`, `gcloud builds submit` remote build via Cloud Build (no local Docker required), and `gcloud run deploy` with `--allow-unauthenticated` and `LLM_DAILY_BUDGET` public quota safeguard. **Cloud Run was chosen over Vertex AI Agent Engine** because Agent Engine requires an ADK-shaped `Agent` object — this project deliberately implements a custom multi-agent architecture and is architecturally incompatible with Agent Engine. Cloud Run accepts any OCI container with no framework constraints, making it the correct and honest fit.
 4. **Agent skills (Code & Video)**: See the **Agent Skills** section above. Demonstrated via genuinely useful procedural knowledge encoded in `.agents/skills/<skill-name>/SKILL.md` format, seamlessly discovered and utilized by `agents-cli` and Antigravity.

@@ -1,0 +1,8 @@
+# Development / testing dependencies only.
+# The production Docker image uses requirements.txt and does NOT install these.
+# Install locally with: pip install -r requirements-dev.txt
+
+pytest>=8.0.0,<9.0.0
+pytest-cov>=4.1.0,<6.0.0
+ruff>=0.3.0,<1.0.0
+pre-commit>=3.0.0,<4.0.0

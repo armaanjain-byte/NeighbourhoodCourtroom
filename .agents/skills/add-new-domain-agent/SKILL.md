@@ -52,9 +52,13 @@ def execute_tool_call(self, name: str, args: dict[str, Any]) -> Any:
 
 ## 4. Registering the Agent in the System
 
-You must register your new agent in two core application locations:
-1. **`engine/session.py`**: Import your agent class and instantiate it inside `CourtSession.__init__` (or `default_agents`), passing `self.data_loader`.
-2. **`app.py`**: Ensure the UI and CLI wrappers recognize the new agent name in any dropdowns or session configurations.
+You must register your new agent by adding an instance of it (e.g., `TrafficAgent(data_loader)`) to the agent list constructed in `app.py` wherever `ClimateAgent`, `FinanceAgent`, and `CommunityAgent` are currently instantiated together. 
+
+Note that this agent list appears in more than one place in `app.py`:
+1. **Main Debate Flow**: Inside `stage_debating()` (around line 554), where agents are instantiated for the initial rounds.
+2. **Override / Re-negotiation Flow**: Inside `stage_override_debating()` (around line 895), where agents are instantiated for the post-override re-negotiation rounds.
+
+Both locations must have the new agent added consistently to ensure it participates in both the main debate and any subsequent human override sessions.
 
 ## 5. Writing Unit Tests
 

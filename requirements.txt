@@ -1,14 +1,11 @@
+# Runtime dependencies — installed in the production Docker image.
+# Dev/test tools (pytest, ruff, etc.) live in requirements-dev.txt.
 streamlit>=1.30.0,<2.0.0
 pydantic>=2.5.0,<3.0.0
 plotly>=5.18.0,<6.0.0
 requests>=2.31.0,<3.0.0
 python-dotenv>=1.0.0,<2.0.0
 
-# Optional providers
+# Optional failover providers (uncomment if using Groq or OpenRouter)
 # groq>=0.11.0,<1.0.0
 # openai>=1.10.0,<2.0.0
-
-# Development / Testing dependencies
-pytest>=8.0.0,<9.0.0
-pytest-cov>=4.1.0,<6.0.0
-ruff>=0.3.0,<1.0.0
