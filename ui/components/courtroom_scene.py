@@ -995,38 +995,44 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
             
             <!-- FINANCE PANEL -->
             <div id="panel-finance" class="relative flex flex-col p-6 transition-all duration-300 opacity-40 scale-98 overflow-y-auto hide-scrollbar" style="background-color: #744210; color: #fefcbf; border: 4px solid #121212; box-shadow: 6px 6px 0px 0px #121212; border-radius: 0;">
-                <div class="flex items-center justify-between border-b border-white border-opacity-20 pb-4 mb-6">
+                <div class="flex items-center justify-between border-b-2 border-[#fefcbf] pb-4 mb-6">
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-4xl">bar_chart</span>
-                        <h3 class="text-2xl font-black tracking-wider uppercase">Finance</h3>
+                        <span class="material-symbols-outlined text-4xl text-[#fefcbf]">bar_chart</span>
+                        <h3 class="text-2xl font-black tracking-wider uppercase text-[#fefcbf]">Finance</h3>
                     </div>
-                    <span class="text-xs font-bold px-3 py-1 bg-black bg-opacity-30 rounded-full text-[#fefcbf]">AGENT</span>
+                    <span class="text-xs font-bold px-3 py-1 bg-[#fefcbf] text-[#744210] border-2 border-[#121212]">AGENT</span>
                 </div>
-                <div id="content-finance" class="flex-1 flex flex-col space-y-4"></div>
+                <div id="content-finance" class="flex-1 flex flex-col space-y-4">
+                    <div class="h-full flex items-center justify-center text-sm font-bold italic text-[#fefcbf]">Awaiting statement...</div>
+                </div>
             </div>
 
             <!-- CLIMATE PANEL -->
             <div id="panel-climate" class="relative flex flex-col p-6 transition-all duration-300 opacity-40 scale-98 overflow-y-auto hide-scrollbar" style="background-color: #276749; color: #c6f6d5; border: 4px solid #121212; box-shadow: 6px 6px 0px 0px #121212; border-radius: 0;">
-                <div class="flex items-center justify-between border-b border-white border-opacity-20 pb-4 mb-6">
+                <div class="flex items-center justify-between border-b-2 border-[#c6f6d5] pb-4 mb-6">
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-4xl">eco</span>
-                        <h3 class="text-2xl font-black tracking-wider uppercase">Climate</h3>
+                        <span class="material-symbols-outlined text-4xl text-[#c6f6d5]">eco</span>
+                        <h3 class="text-2xl font-black tracking-wider uppercase text-[#c6f6d5]">Climate</h3>
                     </div>
-                    <span class="text-xs font-bold px-3 py-1 bg-black bg-opacity-30 rounded-full text-[#c6f6d5]">AGENT</span>
+                    <span class="text-xs font-bold px-3 py-1 bg-[#c6f6d5] text-[#276749] border-2 border-[#121212]">AGENT</span>
                 </div>
-                <div id="content-climate" class="flex-1 flex flex-col space-y-4"></div>
+                <div id="content-climate" class="flex-1 flex flex-col space-y-4">
+                    <div class="h-full flex items-center justify-center text-sm font-bold italic text-[#c6f6d5]">Awaiting statement...</div>
+                </div>
             </div>
 
             <!-- COMMUNITY PANEL -->
             <div id="panel-community" class="relative flex flex-col p-6 transition-all duration-300 opacity-40 scale-98 overflow-y-auto hide-scrollbar" style="background-color: #553c9a; color: #e9d8fd; border: 4px solid #121212; box-shadow: 6px 6px 0px 0px #121212; border-radius: 0;">
-                <div class="flex items-center justify-between border-b border-white border-opacity-20 pb-4 mb-6">
+                <div class="flex items-center justify-between border-b-2 border-[#e9d8fd] pb-4 mb-6">
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-4xl">other_houses</span>
-                        <h3 class="text-2xl font-black tracking-wider uppercase">Community</h3>
+                        <span class="material-symbols-outlined text-4xl text-[#e9d8fd]">other_houses</span>
+                        <h3 class="text-2xl font-black tracking-wider uppercase text-[#e9d8fd]">Community</h3>
                     </div>
-                    <span class="text-xs font-bold px-3 py-1 bg-black bg-opacity-30 rounded-full text-[#e9d8fd]">AGENT</span>
+                    <span class="text-xs font-bold px-3 py-1 bg-[#e9d8fd] text-[#553c9a] border-2 border-[#121212]">AGENT</span>
                 </div>
-                <div id="content-community" class="flex-1 flex flex-col space-y-4"></div>
+                <div id="content-community" class="flex-1 flex flex-col space-y-4">
+                    <div class="h-full flex items-center justify-center text-sm font-bold italic text-[#e9d8fd]">Awaiting statement...</div>
+                </div>
             </div>
 
         </div>
@@ -1219,7 +1225,10 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                 if (panel) {{
                     panel.className = panel.className.replace(/scale-105|ring-4|ring-white|opacity-100|concession-settle|shadow-2xl/g, '');
                     panel.classList.add('opacity-40', 'scale-98', 'shadow-lg');
-                    document.getElementById(`content-${{agent}}`).innerHTML = '';
+                    let textColor = '#fefcbf';
+                    if (agent === 'climate') textColor = '#c6f6d5';
+                    if (agent === 'community') textColor = '#e9d8fd';
+                    document.getElementById(`content-${{agent}}`).innerHTML = `<div class="h-full flex items-center justify-center text-sm font-bold italic" style="color: ${{textColor}}">Awaiting statement...</div>`;
                 }}
             }});
 
@@ -1252,21 +1261,21 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                 const container = document.getElementById(`content-${{beat.agent}}`);
                 
                 container.innerHTML = `
-                    <div id="stmt-tension" class="bg-black bg-opacity-25 p-4 rounded-xl border-l-4 border-amber-300 text-xs italic text-white mb-4 shadow-inner">
-                        <div class="font-bold text-amber-300 not-italic mb-1.5 flex items-center gap-1.5 text-[13px]">
+                    <div id="stmt-tension" class="bg-white p-4 border-2 border-[#121212] shadow-[3px_3px_0px_0px_#121212] text-xs italic text-[#121212] mb-4">
+                        <div class="font-bold not-italic mb-1.5 flex items-center gap-1.5 text-[13px] uppercase tracking-wide">
                             <span class="material-symbols-outlined text-[18px]">balance</span>
                             Internal Deliberation & Tension:
                         </div>
                         "${{c.tension || ''}}"
                     </div>
-                    <div id="stmt-position" class="hidden font-black text-xl text-white mb-4 tracking-wide leading-snug"></div>
-                    <div id="stmt-reasoning" class="hidden text-sm text-slate-100 mb-4 leading-relaxed bg-black bg-opacity-20 p-4 rounded-xl border border-white border-opacity-10 font-medium"></div>
-                    <div id="stmt-evidence" class="hidden bg-black bg-opacity-25 p-4 rounded-xl border border-white border-opacity-10">
-                        <div class="font-bold text-xs text-white uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                    <div id="stmt-position" class="hidden font-black text-xl mb-4 tracking-wide leading-snug text-current"></div>
+                    <div id="stmt-reasoning" class="hidden text-sm text-[#121212] mb-4 leading-relaxed bg-white p-4 border-2 border-[#121212] shadow-[3px_3px_0px_0px_#121212] font-medium"></div>
+                    <div id="stmt-evidence" class="hidden bg-white p-4 border-2 border-[#121212] shadow-[3px_3px_0px_0px_#121212]">
+                        <div class="font-bold text-xs text-[#121212] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-[18px]">plagiarism</span>
                             Supporting Evidence:
                         </div>
-                        <ul id="evidence-list" class="list-disc pl-5 text-xs text-slate-200 space-y-1.5 font-medium"></ul>
+                        <ul id="evidence-list" class="list-disc pl-5 text-sm text-[#121212] space-y-1.5 font-medium"></ul>
                     </div>
                 `;
 
@@ -1308,20 +1317,20 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
             else if (beat.beat_type === 'objection' || beat.beat_type === 'support') {{
                 activatePanel(beat.agent);
                 const isObj = beat.beat_type === 'objection';
-                const colorHex = isObj ? '#fc8181' : '#48bb78';
+                const colorHex = isObj ? '#742a2a' : '#276749';
                 const c = beat.content;
                 
                 const container = document.getElementById(`content-${{beat.agent}}`);
                 container.innerHTML = `
-                    <div class="bg-black bg-opacity-35 border-2 p-5 rounded-2xl shadow-2xl mb-4 text-white animate-fade-in" style="border-color: ${{colorHex}}">
-                        <div class="flex items-center gap-2 font-black text-sm mb-3" style="color: ${{colorHex}}">
+                    <div class="bg-white border-2 p-5 shadow-[4px_4px_0px_0px_#121212] mb-4 text-[#121212] animate-fade-in" style="border-color: #121212">
+                        <div class="flex items-center gap-2 font-black text-sm mb-3 uppercase tracking-wider" style="color: ${{colorHex}}">
                             <span class="material-symbols-outlined text-[22px]">${{isObj ? 'gavel' : 'handshake'}}</span>
                             ${{isObj ? 'Objection to' : 'Support for'}} ${{beat.target_agent.toUpperCase()}}
                         </div>
-                        <div class="text-xs bg-black bg-opacity-50 p-3 rounded-xl mb-4 italic border-l-4 shadow-inner" style="border-color: ${{colorHex}}">
+                        <div class="text-xs bg-[#F0F0F0] p-3 mb-4 italic border-l-4 border-[#121212]">
                             Claim: "${{c.engages_with || ''}}"
                         </div>
-                        <div class="text-sm leading-relaxed font-semibold">${{c.reason || ''}}</div>
+                        <div class="text-sm leading-relaxed font-semibold text-[#121212]">${{c.reason || ''}}</div>
                     </div>
                 `;
 
@@ -1332,22 +1341,22 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                 activatePanel(beat.target_agent);
                 
                 const c = beat.content;
-                let colorHex = '#ecc94b'; 
-                if (beat.severity === 'medium') colorHex = '#ed8936'; 
-                if (beat.severity === 'high') colorHex = '#e53e3e'; 
+                let colorHex = '#276749'; 
+                if (beat.severity === 'medium') colorHex = '#744210'; 
+                if (beat.severity === 'high') colorHex = '#742a2a'; 
 
                 drawConnectionLine(beat.agent, beat.target_agent, colorHex, `${{c.parameter}} (${{beat.severity.toUpperCase()}})`, true);
 
                 document.getElementById('status-banner').innerHTML = `
-                    <div class="bg-black bg-opacity-90 border-2 p-6 rounded-3xl shadow-2xl text-white text-center animate-bounce max-w-2xl mx-auto" style="border-color: ${{colorHex}}">
+                    <div class="bg-white border-4 border-[#121212] p-6 shadow-[8px_8px_0px_0px_#121212] text-[#121212] text-center animate-bounce max-w-2xl mx-auto">
                         <div class="flex items-center justify-center gap-2 font-black text-xl tracking-wide uppercase" style="color: ${{colorHex}}">
                             <span class="material-symbols-outlined text-[28px]">warning</span>
                             Conflict Flare: ${{c.parameter}} (${{beat.severity.toUpperCase()}} Severity)
                         </div>
                         <div class="flex items-center justify-center gap-6 mt-4 text-sm font-bold">
-                            <div class="bg-white bg-opacity-10 px-5 py-2.5 rounded-xl border border-white border-opacity-10">${{beat.agent.toUpperCase()}} proposed: ${{c.proposed_value_a}}</div>
-                            <div class="text-slate-400 font-extrabold">vs</div>
-                            <div class="bg-white bg-opacity-10 px-5 py-2.5 rounded-xl border border-white border-opacity-10">${{beat.target_agent.toUpperCase()}} proposed: ${{c.proposed_value_b}}</div>
+                            <div class="bg-[#F0F0F0] px-5 py-2.5 border-2 border-[#121212]">${{beat.agent.toUpperCase()}} proposed: ${{c.proposed_value_a}}</div>
+                            <div class="text-[#121212] font-extrabold">vs</div>
+                            <div class="bg-[#F0F0F0] px-5 py-2.5 border-2 border-[#121212]">${{beat.target_agent.toUpperCase()}} proposed: ${{c.proposed_value_b}}</div>
                         </div>
                     </div>
                 `;
@@ -1360,12 +1369,12 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                 const c = beat.content;
                 const container = document.getElementById(`content-${{beat.agent}}`);
                 container.innerHTML = `
-                    <div class="bg-indigo-950 bg-opacity-90 border-2 border-indigo-400 p-6 rounded-3xl shadow-2xl text-white animate-fade-in">
-                        <div class="flex items-center gap-2 font-black text-indigo-300 text-sm mb-3 tracking-wide uppercase">
+                    <div class="bg-white border-2 border-[#121212] p-6 shadow-[4px_4px_0px_0px_#121212] text-[#121212] animate-fade-in">
+                        <div class="flex items-center gap-2 font-black text-[#553c9a] text-sm mb-3 tracking-wide uppercase">
                             <span class="material-symbols-outlined text-[24px]">handshake</span>
                             🤝 Strategic Concession Rationale
                         </div>
-                        <div class="text-sm italic leading-relaxed bg-black bg-opacity-50 p-4 rounded-xl border border-indigo-500 border-opacity-30 font-medium">
+                        <div class="text-sm italic leading-relaxed bg-[#F0F0F0] p-4 border-l-4 border-[#553c9a] font-medium text-[#121212]">
                             "${{c.concession_rationale || ''}}"
                         </div>
                     </div>
@@ -1384,8 +1393,8 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                     desc = `Session status: ${{c.status}}`;
                     if (c.unresolved_conflicts && c.unresolved_conflicts.length > 0) {{
                         extraHtml = `
-                            <div class="mt-5 bg-red-950 bg-opacity-90 border border-red-500 p-5 rounded-2xl text-left text-red-200 text-sm shadow-inner">
-                                <div class="font-black text-red-400 uppercase mb-2 flex items-center gap-1.5 text-[15px]">
+                            <div class="mt-5 bg-[#fff0f0] border-2 border-[#742a2a] p-5 text-left text-[#121212] text-sm shadow-[4px_4px_0px_0px_#742a2a]">
+                                <div class="font-black text-[#742a2a] uppercase mb-2 flex items-center gap-1.5 text-[15px]">
                                     <span class="material-symbols-outlined text-[20px]">gavel</span>
                                     Escalated to Human Review (High Conflicts Persist):
                                 </div>
@@ -1393,7 +1402,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                                     ${{c.unresolved_conflicts.map(p => {{
                                         const attempts = (c.unresolved_attempts && c.unresolved_attempts[p]) ? c.unresolved_attempts[p] : 1;
                                         if (attempts > 1) {{
-                                            return `<li>${{p}} <span class="ml-2 px-2 py-0.5 bg-red-800 text-white rounded text-xs font-extrabold">This parameter has required human review across ${{attempts}} attempts</span></li>`;
+                                            return `<li>${{p}} <span class="ml-2 px-2 py-0.5 bg-[#742a2a] text-[#f0f0f0] rounded-none border border-[#121212] text-xs font-extrabold">This parameter has required human review across ${{attempts}} attempts</span></li>`;
                                         }} else {{
                                             return `<li>${{p}}</li>`;
                                         }}
@@ -1403,8 +1412,8 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                         `;
                     }} else {{
                         extraHtml = `
-                            <div class="mt-5 bg-emerald-950 bg-opacity-90 border border-emerald-500 p-5 rounded-2xl text-emerald-200 text-sm font-bold flex items-center justify-center gap-2 shadow-inner">
-                                <span class="material-symbols-outlined text-[22px]">check_circle</span>
+                            <div class="mt-5 bg-[#f0fff8] border-2 border-[#276749] p-5 text-[#121212] text-sm font-bold flex items-center justify-center gap-2 shadow-[4px_4px_0px_0px_#276749]">
+                                <span class="material-symbols-outlined text-[22px] text-[#276749]">check_circle</span>
                                 All conflicts successfully resolved or auto-settled by engine.
                             </div>
                         `;
@@ -1412,8 +1421,8 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
 
                     if (c.consecutive_unlocked_warnings && c.consecutive_unlocked_warnings.length > 0) {{
                         extraHtml += `
-                            <div class="mt-4 bg-amber-950 bg-opacity-90 border border-amber-500 p-5 rounded-2xl text-left text-amber-200 text-sm shadow-inner">
-                                <div class="font-black text-amber-400 uppercase mb-2 flex items-center gap-1.5 text-[15px]">
+                            <div class="mt-4 bg-[#fefcbf] border-2 border-[#744210] p-5 text-left text-[#121212] text-sm shadow-[4px_4px_0px_0px_#744210]">
+                                <div class="font-black text-[#744210] uppercase mb-2 flex items-center gap-1.5 text-[15px]">
                                     <span class="material-symbols-outlined text-[20px]">lightbulb</span>
                                     Suggested Judge Intervention:
                                 </div>
@@ -1431,9 +1440,9 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                     if (sb) {{
                         sb.className = 'absolute inset-0 z-30 flex items-center justify-center p-8 pointer-events-auto';
                         sb.innerHTML = `
-                            <div class="bg-slate-900 bg-opacity-95 border-2 border-slate-500 p-10 rounded-3xl shadow-2xl max-w-3xl w-full text-center animate-fade-in">
-                                <h2 class="text-3xl font-black tracking-wider text-white uppercase">${{title}}</h2>
-                                <p class="text-slate-300 text-lg mt-4 font-semibold">${{desc}}</p>
+                            <div class="bg-white border-4 border-[#121212] p-10 shadow-[8px_8px_0px_0px_#121212] max-w-3xl w-full text-center animate-fade-in">
+                                <h2 class="text-3xl font-black tracking-wider text-[#121212] uppercase">${{title}}</h2>
+                                <p class="text-[#4A4A4A] text-lg mt-4 font-semibold">${{desc}}</p>
                                 ${{extraHtml}}
                             </div>
                         `;
@@ -1449,9 +1458,9 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                     if (sb) {{
                         sb.className = 'absolute top-6 left-0 right-0 z-30 px-8 flex justify-center pointer-events-none min-h-[100px]';
                         sb.innerHTML = `
-                            <div class="bg-slate-900 bg-opacity-95 border-2 border-slate-500 p-8 rounded-3xl shadow-2xl max-w-2xl mx-auto text-center animate-fade-in">
-                                <h2 class="text-2xl font-black tracking-wider text-white uppercase">${{title}}</h2>
-                                <p class="text-slate-300 text-base mt-3 font-semibold">${{desc}}</p>
+                            <div class="bg-white border-4 border-[#121212] p-8 shadow-[8px_8px_0px_0px_#121212] max-w-2xl mx-auto text-center animate-fade-in">
+                                <h2 class="text-2xl font-black tracking-wider text-[#121212] uppercase">${{title}}</h2>
+                                <p class="text-[#4A4A4A] text-base mt-3 font-semibold">${{desc}}</p>
                                 ${{extraHtml}}
                             </div>
                         `;

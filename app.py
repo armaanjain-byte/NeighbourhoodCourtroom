@@ -98,6 +98,17 @@ header[data-testid="stHeader"] {
 header[data-testid="stHeader"] * {
     color: #F0F0F0 !important;
 }
+/* Fix white backgrounds on Deploy/Stop/Menu buttons clashing with dark header */
+header[data-testid="stHeader"] [data-testid="stDeployButton"],
+header[data-testid="stHeader"] [data-testid="stStopButton"],
+header[data-testid="stHeader"] [data-testid="stMainMenu"] button {
+    background-color: #121212 !important;
+}
+header[data-testid="stHeader"] [data-testid="stDeployButton"]:hover,
+header[data-testid="stHeader"] [data-testid="stStopButton"]:hover,
+header[data-testid="stHeader"] [data-testid="stMainMenu"] button:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
 
 /* Main container */
 .block-container {
@@ -120,8 +131,7 @@ header[data-testid="stHeader"] * {
     padding-left: 1rem;
 }
 .hero-sub {
-    color: #121212;
-    opacity: 0.65;
+    color: #4A4A4A;
     font-size: 1rem;
     font-weight: 500;
     margin-bottom: 2rem;
