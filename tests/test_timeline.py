@@ -263,3 +263,60 @@ def test_build_cinematic_timeline(base_proposal: Proposal) -> None:
         for original, cinematic in zip(beats, cinematic_beats):
             assert original["beat_type"] == cinematic["beat_type"]
             assert original["content"] == cinematic["content"]
+
+
+def test_multi_attempt_timeline(base_proposal: Proposal) -> None:
+    """Verify that multiple session attempts don't inflate round_number and correctly track session_attempt."""
+    op_finance = AgentOpinion(agent="finance", score=85.0, recommendation={"green_space_pct": 21.0}, tension="T", position="P", reasoning="R", confidence=0.9)
+    op_climate = AgentOpinion(agent="climate", score=88.0, recommendation={"green_space_pct": 22.0}, tension="T", position="P", reasoning="R", confidence=0.9)
+
+    # Attempt 1: Early stop
+    dr1 = DebateRound(
+        round_number=1,
+        opening_state=base_proposal,
+        agent_outputs={},
+        detected_conflicts=[Conflict(parameter="green_space_pct", agent_a="finance", agent_b="climate", proposed_value_a=21.0, proposed_value_b=22.0, disagreement_severity="high")],
+        closing_state=base_proposal,
+        engine_summary="Escalated to human.",
+        round_1_opinions={"finance": op_finance, "climate": op_climate},
+        round_2_opinions={},
+        round_3_opinions={},
+    )
+
+    # Attempt 2: Early stop
+    dr2 = DebateRound(
+        round_number=1,
+        opening_state=base_proposal,
+        agent_outputs={},
+        detected_conflicts=[],
+        closing_state=base_proposal,
+        engine_summary="Resolved.",
+        round_1_opinions={"finance": op_finance, "climate": op_climate},
+        round_2_opinions={},
+        round_3_opinions={},
+    )
+
+    session = CourtroomSession(current_proposal=base_proposal, debate_rounds=[dr1, dr2], status="COMPLETED")
+    beats = build_courtroom_timeline(session)
+
+    # Verify attempt 1 beats
+    attempt_1_beats = [b for b in beats if b.get("session_attempt") == 1 and b["beat_type"] != "final_verdict"]
+    assert len(attempt_1_beats) > 0
+    for beat in attempt_1_beats:
+        assert beat["round_number"] == 1
+        if beat["beat_type"] == "round_start":
+            assert beat["content"]["message"] == "Round 1 starting."
+
+    # Verify attempt 2 beats
+    attempt_2_beats = [b for b in beats if b.get("session_attempt") == 2 and b["beat_type"] != "final_verdict"]
+    assert len(attempt_2_beats) > 0
+    for beat in attempt_2_beats:
+        assert beat["round_number"] == 1  # Should be 1, NOT 4
+        if beat["beat_type"] == "round_start":
+            assert beat["content"]["message"] == "Attempt #2 — Round 1 of negotiation starting."
+
+    # Verify final verdict beat
+    final_verdict_beat = beats[-1]
+    assert final_verdict_beat["beat_type"] == "final_verdict"
+    assert final_verdict_beat["session_attempt"] == 2
+    assert final_verdict_beat["round_number"] == 1

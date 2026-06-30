@@ -216,12 +216,12 @@ body {{
     background: rgba(255,255,255,0.07);
     border-left: 3px solid rgba(255,255,255,0.3);
 }}
-.bubble-position .position-text {{
+.bubble .position-text {{
     font-weight: 700;
     font-size: 0.92rem;
     margin-bottom: 8px;
 }}
-.bubble-position .round-tag {{
+.bubble .round-tag {{
     display: inline-block;
     font-size: 0.65rem;
     font-weight: 700;
@@ -232,6 +232,29 @@ body {{
     background: rgba(255,255,255,0.12);
     color: rgba(255,255,255,0.7);
     margin-bottom: 6px;
+}}
+
+/* Fallback bubble */
+.bubble-fallback {{
+    background: repeating-linear-gradient(45deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1) 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 20px);
+    border: 2px dashed rgba(255,255,255,0.3);
+    padding: 0 !important;
+    overflow: hidden;
+}}
+.bubble-fallback .fallback-header {{
+    background: rgba(255,255,255,0.15);
+    color: #e2e8f0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    padding: 8px 14px;
+    border-bottom: 1px dashed rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}}
+.bubble-fallback .fallback-body {{
+    padding: 12px 14px;
 }}
 
 /* Expandable detail */
@@ -531,27 +554,38 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
         const tension = escHtml(op.tension || '');
         const hasConcession = op.concession_rationale && op.concession_rationale.trim();
         const isFallback = op.is_fallback;
-        const fallbackTag = isFallback ? `<span style="display:inline-block;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);margin-bottom:6px;margin-left:6px;">⚙️ Baseline calc</span>` : '';
 
         let positionHtml;
+        let bubbleClass = isFallback ? 'bubble-fallback' : (hasConcession ? 'bubble-concession' : 'bubble-position');
 
-        if (hasConcession) {{
+        if (isFallback) {{
             positionHtml = `
-                <div class="bubble bubble-concession">
-                    <div class="con-header">🤝 Concession · Round ${{rn}}${{fallbackTag}}</div>
+                <div class="fallback-header">⚙️ VERIFIED BASELINE CALCULATION</div>
+                <div class="fallback-body">
+                    <span class="round-tag">Round ${{rn}} (AI Reasoning Unavailable)</span>
                     <div class="position-text">${{escHtml(op.position || '')}}</div>
                     <details class="bubble-detail">
-                        <summary>Concession rationale &amp; detail</summary>
+                        <summary>Deterministic calculations</summary>
                         <div class="detail-body">
-                            <em style="color:rgba(251,211,141,0.8)">${{escHtml(op.concession_rationale)}}</em>
-                            ${{reasoning ? `<p style="margin-top:6px">${{reasoning}}</p>` : ''}}
-                            ${{evidence ? `<ul class="evidence-list">${{evidence}}</ul>` : ''}}
+                            ${{reasoning ? `<p>${{reasoning}}</p>` : ''}}
                         </div>
                     </details>
                 </div>`;
+        }} else if (hasConcession) {{
+            positionHtml = `
+                <div class="con-header">🤝 Concession · Round ${{rn}}</div>
+                <div class="position-text">${{escHtml(op.position || '')}}</div>
+                <details class="bubble-detail">
+                    <summary>Concession rationale &amp; detail</summary>
+                    <div class="detail-body">
+                        <em style="color:rgba(251,211,141,0.8)">${{escHtml(op.concession_rationale)}}</em>
+                        ${{reasoning ? `<p style="margin-top:6px">${{reasoning}}</p>` : ''}}
+                        ${{evidence ? `<ul class="evidence-list">${{evidence}}</ul>` : ''}}
+                    </div>
+                </details>`;
         }} else {{
             positionHtml = `
-                <span class="round-tag">Round ${{rn}}</span>${{fallbackTag}}
+                <span class="round-tag">Round ${{rn}}</span>
                 <div class="position-text">${{escHtml(op.position || '')}}</div>
                 <details class="bubble-detail">
                     <summary>Reasoning &amp; evidence</summary>
@@ -568,7 +602,7 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
         const container = feed(agent);
         if (!container) return;
         const div = document.createElement('div');
-        div.className = 'bubble bubble-position ' + (isNew ? 'bubble-new' : 'bubble-static');
+        div.className = 'bubble ' + bubbleClass + ' ' + (isNew ? 'bubble-new' : 'bubble-static');
         div.dataset.bubbleId = bubbleId;
         div.innerHTML = positionHtml;
         container.appendChild(div);

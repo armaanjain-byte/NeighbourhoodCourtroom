@@ -71,9 +71,23 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
         </div>
         '''
         
+    fallback_header = ""
+    card_bg = "bg-surface-container-lowest"
+    card_border = f"border {border_class}"
+    
+    if getattr(op, "is_fallback", False):
+        fallback_header = '''
+        <div class="mb-4 p-2 bg-slate-100 border border-slate-300 border-dashed rounded text-xs text-slate-700 font-bold tracking-wide uppercase flex items-center gap-2">
+            <span>⚙️</span> Verified Baseline Calculation (AI reasoning unavailable)
+        </div>
+        '''
+        card_bg = "bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.02),rgba(0,0,0,0.02)_10px,rgba(255,255,255,0.5)_10px,rgba(255,255,255,0.5)_20px)]"
+        card_border = f"border-2 border-dashed {border_class}"
+        
     html = f'''
-    <div class="bg-surface-container-lowest border {border_class} p-6 rounded-lg relative mb-6 shadow-sm" id="{card_id}">
+    <div class="{card_bg} {card_border} p-6 rounded-lg relative mb-6 shadow-sm" id="{card_id}">
         <span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{phase_label}</span>
+        {fallback_header}
         <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 italic">
             <span class="font-semibold text-slate-900 not-italic block mb-1">⚖️ Weighing counter-consideration:</span>
             "{op.tension}"

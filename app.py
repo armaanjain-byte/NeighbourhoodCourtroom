@@ -37,6 +37,7 @@ from ui.components.courtroom_scene import render_courtroom_scene, render_live_fe
 from engine.state import create_initial_proposal, MUTABLE_PARAMETERS, PARAM_LABELS
 from engine.override import apply_human_override
 from engine.session import CourtroomSession, create_session
+from engine.summary import generate_plain_language_summary
 from agents.climate_agent import ClimateAgent
 from agents.community_agent import CommunityAgent
 from agents.finance_agent import FinanceAgent
@@ -627,13 +628,43 @@ def stage_result(is_override: bool = False) -> None:
         unsafe_allow_html=True,
     )
 
-    # Check if deterministic fallback was used in any round
-    has_fallback = any(
-        any("deterministic fallback" in op.position for op in list(rnd.round_1_opinions.values()) + list(rnd.round_2_opinions.values()) + list(getattr(rnd, "round_3_opinions", {}).values()))
-        for rnd in session.debate_rounds
+    summary = generate_plain_language_summary(session)
+    st.markdown(
+        f'''
+        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+            <div style="font-size:1.15rem;font-weight:800;color:#e2e8f0;margin-bottom:0.8rem;letter-spacing:0.02em;">📝 Session Summary</div>
+            <div style="font-size:0.95rem;color:#e2e8f0;line-height:1.6;margin-bottom:0.8rem;">
+                <strong>Outcome:</strong> {summary["outcome"]}<br>
+                <strong>Key Changes:</strong> {summary["changes"]}
+            </div>
+            <ul style="margin:0;padding-left:1.2rem;font-size:0.9rem;color:#cbd5e0;line-height:1.5;">
+                <li>{summary["finance_score"]}</li>
+                <li>{summary["climate_score"]}</li>
+                <li>{summary["community_score"]}</li>
+            </ul>
+        </div>
+        ''',
+        unsafe_allow_html=True
     )
-    if has_fallback:
-        st.info("ℹ️ AI-generated reasoning was unavailable for this debate round. The simulation completed successfully using the robust deterministic fallback engine.")
+
+    # Calculate fallback metrics
+    total_statements = 0
+    fallback_statements = 0
+    for rnd in session.debate_rounds:
+        for phase in [rnd.round_1_opinions, rnd.round_2_opinions, getattr(rnd, "round_3_opinions", {})]:
+            if not phase: continue
+            for agent, op in phase.items():
+                total_statements += 1
+                if op.is_fallback:
+                    fallback_statements += 1
+                    
+    if fallback_statements > 0:
+        st.warning(
+            f"**Note:** {fallback_statements} of {total_statements} agent statements in this session used verified deterministic calculations "
+            f"instead of live AI reasoning, due to API unavailability. This does not affect the safety or correctness of the final proposal "
+            f"— see flagged statements below.",
+            icon="⚙️"
+        )
 
 
     # Helper to get scores

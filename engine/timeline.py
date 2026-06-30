@@ -51,18 +51,23 @@ def build_courtroom_timeline(session: CourtroomSession) -> list[dict[str, Any]]:
             if not op_dict:
                 continue
 
-            round_number = sub_round_num if len(session.debate_rounds) == 1 else (dr_index * 3 + sub_round_num)
+            round_number = sub_round_num
             last_round_num = round_number
             last_sub_round = sub_round_num
 
             # 1. round_start beat
+            if session_attempt == 1:
+                message = f"Round {round_number} starting."
+            else:
+                message = f"Attempt #{session_attempt} — Round {round_number} of negotiation starting."
+
             beats.append({
                 "beat_type": "round_start",
                 "round_number": round_number,
                 "session_attempt": session_attempt,
                 "negotiation_round": sub_round_num,
                 "duration_hint_seconds": 2.0,
-                "content": {"message": f"Round {round_number} starting."}
+                "content": {"message": message}
             })
 
             # 2. agent_statement beats (stable order: finance, climate, community)
