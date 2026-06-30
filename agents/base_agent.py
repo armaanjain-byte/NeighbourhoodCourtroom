@@ -277,6 +277,7 @@ class BaseAgent(abc.ABC):
             "}\n\n"
             f"RULES:\n"
             f"- proposed_changes keys must be from this list only: {mutable_params}\n"
+            f"- IMPORTANT: Propose realistic, INCREMENTAL changes (e.g., move a fraction toward your ideal, not snapping to the extreme). You MUST consider the total budget impact of all domains combined; do not push the project dramatically over budget on your own.\n"
             f"- score must be between 0.0 and 100.0\n"
             f"- verdict must be 'accept' when proposed_changes is empty, 'modify' or 'reject' otherwise\n"
             f"- The tension field (1-2 sentences) MUST state the single strongest reason someone might disagree with your domain's typical stance on this proposal — a real consideration, not a strawman — before giving your position. Then explain specifically why it doesn't change your conclusion (or, if it's strong enough that it SHOULD change your conclusion, say so).\n"

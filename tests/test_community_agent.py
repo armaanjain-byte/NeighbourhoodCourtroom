@@ -88,13 +88,13 @@ class TestCommunityAgent:
         assert output.verdict == "modify"
         
         # Expected changes:
-        # community_center_sqft max(0+2000, 10000) = 10000.0
-        # affordable_housing_pct max(0+5, 20) = 20.0
+        # community_center_sqft min(0+2000, 10000) = 2000.0
+        # affordable_housing_pct min(0+5, 20) = 5.0
         # parking_spaces max(0, 200 - 20) = 180
         # green_space_pct = 10.0 + 5.0 = 15.0
         changes = output.proposed_changes
-        assert changes["community_center_sqft"] == 10000.0
-        assert changes["affordable_housing_pct"] == 20.0
+        assert changes["community_center_sqft"] == 2000.0
+        assert changes["affordable_housing_pct"] == 5.0
         assert changes["parking_spaces"] == 180
         assert changes["green_space_pct"] == 15.0
         

@@ -185,17 +185,42 @@ class ClimateAgent(BaseAgent):
 
             # Propose improving climate outcomes
             changes = {
-                "green_space_pct": max(proposal.green_space_pct + 10.0, target_green_space),
+                "green_space_pct": min(proposal.green_space_pct + 10.0, target_green_space) if proposal.green_space_pct < target_green_space else proposal.green_space_pct,
                 "parking_spaces": int(proposal.parking_spaces * 0.7),
                 "community_center_sqft": proposal.community_center_sqft + 500.0,  # for cooling centers
             }
             reasoning = (
                 f"Proposal has poor environmental resilience (Score: {score:.1f}). "
                 f"Current green space ({proposal.green_space_pct}%) is below target ({target_green_space}%). "
-                f"Proposing to increase green space for better tree canopy ({tree_canopy_pct:.1f}%) "
+                f"Proposing to incrementally increase green space for better tree canopy "
                 f"and heat resilience, reduce parking to limit runoff, and expand community "
                 f"centers for extreme weather shelters."
             )
+
+            # BUDGET CHECK
+            from tools.cost_calculator import CostCalculator
+            calc = CostCalculator(self.data_loader)
+            try:
+                costs = calc.data_loader.get_construction_costs(proposal.city_slug)
+                city_index = costs.get("city_index", 1.0)
+                # Normalize city_index if it's on a 100-scale
+                city_index = city_index / 100.0 if city_index > 10.0 else city_index
+                local_budget = 25_000_000.0 * city_index
+                
+                test_proposal = proposal.model_copy(update=changes)
+                new_cost = calc.calculate_estimated_cost(test_proposal)
+                
+                if new_cost > local_budget * 1.05:
+                    # Scale back changes by 50%
+                    scaled_changes = {}
+                    for k, v in changes.items():
+                        orig_val = getattr(proposal, k)
+                        scaled_val = orig_val + (v - orig_val) * 0.5
+                        scaled_changes[k] = int(scaled_val) if isinstance(orig_val, int) else scaled_val
+                    changes = scaled_changes
+                    reasoning += f" However, to respect the local budget limit, these improvements have been scaled back by 50% to avoid dramatic cost overruns."
+            except Exception:
+                pass
         else:
             verdict = "accept"
             changes = {}

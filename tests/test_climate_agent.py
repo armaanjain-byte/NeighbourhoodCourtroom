@@ -75,11 +75,11 @@ class TestClimateAgent:
         assert output.verdict == "modify"
         
         # Expected changes:
-        # green_space_pct max(10+10, 35) = 35.0
+        # green_space_pct min(10+10, 35) = 20.0
         # parking_spaces = 300 * 0.7 = 210
         # community_center_sqft = 2000 + 500 = 2500
         changes = output.proposed_changes
-        assert changes["green_space_pct"] == 35.0
+        assert changes["green_space_pct"] == 20.0
         assert changes["parking_spaces"] == 210
         assert changes["community_center_sqft"] == 2500.0
         
@@ -103,7 +103,7 @@ class TestClimateAgent:
         proposal = create_initial_proposal("phoenix_az", green_space_pct=5.0, parking_spaces=50)
         output = agent.evaluate(proposal, {})
         assert output.verdict == "modify"
-        assert output.proposed_changes["green_space_pct"] == 35.0
+        assert output.proposed_changes["green_space_pct"] == 15.0
 
     def test_high_green_space(self) -> None:
         agent = ClimateAgent(MockDataLoader())

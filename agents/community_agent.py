@@ -192,17 +192,42 @@ class CommunityAgent(BaseAgent):
             verdict = "modify"
 
             changes = {
-                "community_center_sqft": max(proposal.community_center_sqft + 2000.0, target_community_sqft),
-                "affordable_housing_pct": max(proposal.affordable_housing_pct + 5.0, target_affordable),
+                "community_center_sqft": min(proposal.community_center_sqft + 2000.0, target_community_sqft) if proposal.community_center_sqft < target_community_sqft else proposal.community_center_sqft,
+                "affordable_housing_pct": min(proposal.affordable_housing_pct + 5.0, target_affordable) if proposal.affordable_housing_pct < target_affordable else proposal.affordable_housing_pct,
                 "parking_spaces": max(0, proposal.parking_spaces - 20),
                 "green_space_pct": proposal.green_space_pct + 5.0,
             }
             reasoning = (
                 f"Proposal lacks adequate community amenities and accessibility (Score: {score:.1f}). "
-                f"Proposing to increase community center space to {changes['community_center_sqft']} sqft, "
+                f"Proposing to incrementally increase community center space to {changes['community_center_sqft']} sqft, "
                 f"boost affordable housing to {changes['affordable_housing_pct']}%, "
                 f"and slightly reduce parking to improve the effective walkability score."
             )
+
+            # BUDGET CHECK
+            from tools.cost_calculator import CostCalculator
+            calc = CostCalculator(self.data_loader)
+            try:
+                costs = calc.data_loader.get_construction_costs(proposal.city_slug)
+                city_index = costs.get("city_index", 1.0)
+                # Normalize city_index if it's on a 100-scale
+                city_index = city_index / 100.0 if city_index > 10.0 else city_index
+                local_budget = 25_000_000.0 * city_index
+                
+                test_proposal = proposal.model_copy(update=changes)
+                new_cost = calc.calculate_estimated_cost(test_proposal)
+                
+                if new_cost > local_budget * 1.05:
+                    # Scale back changes by 50%
+                    scaled_changes = {}
+                    for k, v in changes.items():
+                        orig_val = getattr(proposal, k)
+                        scaled_val = orig_val + (v - orig_val) * 0.5
+                        scaled_changes[k] = int(scaled_val) if isinstance(orig_val, int) else scaled_val
+                    changes = scaled_changes
+                    reasoning += f" However, to respect the local budget limit, these improvements have been scaled back by 50% to avoid dramatic cost overruns."
+            except Exception:
+                pass
         else:
             verdict = "accept"
             changes = {}
