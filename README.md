@@ -1,6 +1,6 @@
 # Neighbourhood Courtroom ⚖️
 An AI-driven simulation engine where specialized LLM agents debate and negotiate urban planning trade-offs.
-
+Google cLoud is being setup
 **Live Demo:** Deployed on **Google Cloud Run** — see `DEPLOYMENT.md` for the service URL and full deployment guide. *(Containerized with Docker, built via Cloud Build, secrets managed via Google Secret Manager)*
 
 ---
