@@ -9,6 +9,7 @@ Covers:
 """
 
 import pytest
+from typing import Any
 
 from models.proposal import Proposal
 from engine.state import create_initial_proposal
