@@ -89,6 +89,16 @@ html, body, [class*="css"] {
     min-height: 100vh;
 }
 
+/* ── Streamlit Header Chrome ────────────────────────────────────────────── */
+header[data-testid="stHeader"] {
+    background-color: #121212 !important;
+    border-bottom: 4px solid #121212 !important;
+}
+/* Force header icons (like "Deploy" or menu) to be light */
+header[data-testid="stHeader"] * {
+    color: #F0F0F0 !important;
+}
+
 /* Main container */
 .block-container {
     padding-top: 2rem;

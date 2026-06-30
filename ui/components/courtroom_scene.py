@@ -87,9 +87,7 @@ def build_live_feed_html(events: list) -> str:
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{
     font-family: 'Outfit', sans-serif;
-    background-color: #F0F0F0;
-    background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
-    background-size: 22px 22px;
+    background: transparent;
     min-height: 100vh;
     color: #121212;
 }}
@@ -297,7 +295,7 @@ details.bubble-detail summary {{
     font-size: 0.68rem;
     font-weight: 700;
     color: #121212;
-    opacity: 0.55;
+    opacity: 0.85;
     cursor: pointer;
     user-select: none;
     list-style: none;
@@ -312,7 +310,7 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     margin-top: 6px;
     font-size: 0.78rem;
     color: #121212;
-    opacity: 0.7;
+    opacity: 0.85;
     line-height: 1.5;
 }}
 .evidence-list {{
@@ -320,7 +318,7 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     padding-left: 14px;
     font-size: 0.75rem;
     color: #121212;
-    opacity: 0.6;
+    opacity: 0.85;
 }}
 .evidence-list li {{ margin-bottom: 2px; }}
 
@@ -343,7 +341,7 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
 .bubble-objection .obj-claim {{
     font-size: 0.74rem;
     color: #742a2a;
-    opacity: 0.8;
+    opacity: 0.85;
     font-style: italic;
     margin-bottom: 5px;
     padding: 4px 8px;
@@ -396,7 +394,7 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     font-size: 0.72rem;
     font-weight: 700;
     color: #121212;
-    opacity: 0.45;
+    opacity: 0.85;
     padding: 6px 10px;
     font-style: italic;
     text-transform: uppercase;
@@ -470,7 +468,7 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     font-size: 0.65rem;
     font-style: italic;
     color: #121212;
-    opacity: 0.35;
+    opacity: 0.85;
     padding: 4px 10px;
     display: none;
     text-transform: uppercase;
@@ -731,7 +729,7 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
                 const sevClass = 'banner-conflict-' + sev;
                 const sevBadge = `<span class="sev-badge ${{sev}}">${{sev.toUpperCase()}}</span>`;
                 const icon = sev === 'high' ? '⚡' : sev === 'medium' ? '⚠️' : '·';
-                addSystem(`<div class="system-banner ${{sevClass}}" data-bid="${{bannerId}}">${{icon}} Round ${{rn}} conflict: <strong>${{escHtml(c.parameter)}}</strong>&nbsp;${{sevBadge}}&nbsp;<span style="opacity:0.7">${{escHtml(c.agent_a)}} ${{c.proposed_value_a}} vs ${{escHtml(c.agent_b)}} ${{c.proposed_value_b}}</span></div>`);
+                addSystem(`<div class="system-banner ${{sevClass}}" data-bid="${{bannerId}}">${{icon}} Round ${{rn}} conflict: <strong>${{escHtml(c.parameter)}}</strong>&nbsp;${{sevBadge}}&nbsp;<span style="opacity:0.9">${{escHtml(c.agent_a)}} ${{c.proposed_value_a}} vs ${{escHtml(c.agent_b)}} ${{c.proposed_value_b}}</span></div>`);
                 newlyRendered.add(bannerId);
             }}
         }});
@@ -921,10 +919,9 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
     <style>
         body {{
             margin: 0;
+            padding: 2rem;
             font-family: 'Outfit', sans-serif;
-            background-color: #F0F0F0;
-            background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
-            background-size: 22px 22px;
+            background: transparent;
         }}
         .material-symbols-outlined {{
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
