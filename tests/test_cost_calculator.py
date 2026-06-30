@@ -27,7 +27,7 @@ class MockDataLoader:
             raise CityNotFoundError(f"Missing data for {city_name}")
         
         return {
-            "city_index": 1.2,
+            "city_index": 92.0,  # Ensure it scales properly (0.92 multiplier)
             "base_costs": {
                 "housing_unit": 100000.0,
                 # omitting parking and green_space to test default fallbacks
@@ -62,26 +62,26 @@ class TestCostCalculator:
         breakdown = calculator.calculate_cost_breakdown(base_proposal)
         
         # Test calculations:
-        # Housing: 100 units * 100,000 (from mock) * 1.2 (index) = 12,000,000
-        # Parking: 200 spaces * 25,000 (default) * 1.2 (index) = 6,000,000
-        # Green Space: 20.0 * 500,000 (default) * 1.2 (index) = 12,000,000
-        # Community: 5000 * 350 (default) * 1.2 = 2,100,000
-        # Subtotal: 12M + 6M + 12M + 2.1M = 32,100,000
-        # Soft costs (1.2): 32,100,000 * 0.2 = 6,420,000
-        # Contingency (1.1): (32.1M + 6.42M) * 0.1 = 38,520,000 * 0.1 = 3,852,000
-        # Total: 38,520,000 + 3,852,000 = 42,372,000
+        # Housing: 100 units * 100,000 (from mock) * 0.92 (index) = 9,200,000
+        # Parking: 200 spaces * 25,000 (default) * 0.92 (index) = 4,600,000
+        # Green Space: 20.0 * 500,000 (default) * 0.92 (index) = 9,200,000
+        # Community: 5000 * 350 (default) * 0.92 = 1,610,000
+        # Subtotal: 9.2M + 4.6M + 9.2M + 1.61M = 24,610,000
+        # Soft costs (1.2): 24,610,000 * 0.2 = 4,922,000
+        # Contingency (1.1): (24.61M + 4.922M) * 0.1 = 29,532,000 * 0.1 = 2,953,200
+        # Total: 29,532,000 + 2,953,200 = 32,485,200
         
-        assert breakdown["housing_cost"] == pytest.approx(12_000_000.0)
-        assert breakdown["parking_cost"] == pytest.approx(6_000_000.0)
-        assert breakdown["green_space_cost"] == pytest.approx(12_000_000.0)
-        assert breakdown["community_center_cost"] == pytest.approx(2_100_000.0)
-        assert breakdown["subtotal_hard_costs"] == pytest.approx(32_100_000.0)
-        assert breakdown["soft_costs"] == pytest.approx(6_420_000.0)
-        assert breakdown["contingency_costs"] == pytest.approx(3_852_000.0)
-        assert breakdown["total_estimated_cost"] == pytest.approx(42_372_000.0)
+        assert breakdown["housing_cost"] == pytest.approx(9_200_000.0)
+        assert breakdown["parking_cost"] == pytest.approx(4_600_000.0)
+        assert breakdown["green_space_cost"] == pytest.approx(9_200_000.0)
+        assert breakdown["community_center_cost"] == pytest.approx(1_610_000.0)
+        assert breakdown["subtotal_hard_costs"] == pytest.approx(24_610_000.0)
+        assert breakdown["soft_costs"] == pytest.approx(4_922_000.0)
+        assert breakdown["contingency_costs"] == pytest.approx(2_953_200.0)
+        assert breakdown["total_estimated_cost"] == pytest.approx(32_485_200.0)
         
         # calculate_estimated_cost matches the breakdown total
-        assert calculator.calculate_estimated_cost(base_proposal) == pytest.approx(42_372_000.0)
+        assert calculator.calculate_estimated_cost(base_proposal) == pytest.approx(32_485_200.0)
 
     def test_increased_housing(self, calculator: CostCalculator, base_proposal: Proposal) -> None:
         increased_housing = base_proposal.model_copy(update={"housing_units": 150})

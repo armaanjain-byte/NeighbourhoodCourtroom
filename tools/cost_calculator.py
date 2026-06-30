@@ -54,7 +54,10 @@ class CostCalculator:
                 "contingency_multiplier": 1.1,
             }
 
-        city_index = cost_data.get("city_index", 1.0)
+        raw_index = cost_data.get("city_index", 1.0)
+        # Normalize index (e.g. 92.0 -> 0.92) if it's on a 100-scale
+        city_index = raw_index / 100.0 if raw_index > 10.0 else raw_index
+        
         base_costs = cost_data.get("base_costs", {})
         soft_mult = cost_data.get("soft_cost_multiplier", 1.1)
         cont_mult = cost_data.get("contingency_multiplier", 1.1)
