@@ -110,9 +110,8 @@ header[data-testid="stHeader"] [data-testid="stMainMenu"] button:hover {
     background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Main container */
 .block-container {
-    padding-top: 2rem;
+    padding-top: 6rem !important;
     max-width: 1100px;
 }
 
