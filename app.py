@@ -84,8 +84,8 @@ html, body, [class*="css"] {
 /* ── Bauhaus canvas ──────────────────────────────────────────────────────── */
 .stApp {
     background-color: #F0F0F0;
-    background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
-    background-size: 22px 22px;
+    background-image: radial-gradient(rgba(18, 18, 18, 0.15) 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
     min-height: 100vh;
 }
 
@@ -135,6 +135,13 @@ header[data-testid="stHeader"] [data-testid="stMainMenu"] button:hover {
     font-size: 1rem;
     font-weight: 500;
     margin-bottom: 2rem;
+    padding-left: 1.5rem;
+}
+.legend-text {
+    color: #4A4A4A;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
     padding-left: 1.5rem;
 }
 
@@ -724,12 +731,15 @@ def stage_debating() -> None:
     events: list = st.session_state.get("live_events") or []
 
     # Brief contextual hint for first-time viewers
-    st.caption(
-        "🟡 **Amber dot** = that agent is currently thinking (LLM call in progress). "
-        "🟢 **Green dot** = that agent has spoken this round. "
+    st.markdown(
+        '<div class="legend-text">'
+        '🟡 <strong>Amber dot</strong> = that agent is currently thinking (LLM call in progress). '
+        '🟢 <strong>Green dot</strong> = that agent has spoken this round. '
         "Each bubble = one agent's stated position. "
-        "Red bubbles = objections directed at another agent. "
-        "Gold bubbles = a concession (agent moving toward compromise)."
+        'Red bubbles = objections directed at another agent. '
+        'Gold bubbles = a concession (agent moving toward compromise).'
+        '</div>',
+        unsafe_allow_html=True
     )
 
     # Render the live feed with whatever events we have so far

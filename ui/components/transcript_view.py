@@ -188,8 +188,8 @@ def build_transcript_html(session: CourtroomSession) -> str:
             body {{
                 font-family: 'Outfit', sans-serif;
                 background-color: #F0F0F0;
-                background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
-                background-size: 22px 22px;
+                background-image: radial-gradient(rgba(18, 18, 18, 0.15) 1.5px, transparent 1.5px);
+                background-size: 24px 24px;
                 margin: 0; padding: 0;
                 color: #121212;
             }}
