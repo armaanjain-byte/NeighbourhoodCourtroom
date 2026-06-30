@@ -603,23 +603,24 @@ def stage_input() -> None:
         with st.container():
             st.markdown("""
 <div style="
-    background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12));
-    border: 1px solid rgba(139,92,246,0.4);
-    border-radius: 16px;
-    padding: 1.2rem 1.5rem 1rem;
-    margin-bottom: 1.2rem;
+    background: #ffffff;
+    border: 4px solid #121212;
+    border-radius: 0;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 6px 6px 0px 0px #121212;
 ">
-<div style="font-size:1.05rem;font-weight:700;color:#c4b5fd;margin-bottom:0.5rem;">👋 New here? Here's what this is</div>
-<div style="color:#e2e8f0;font-size:0.88rem;line-height:1.65;">
+<div style="font-family:Outfit,sans-serif;font-size:1.1rem;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#121212;margin-bottom:0.75rem;">👋 New here? Here's what this is</div>
+<div style="font-family:Outfit,sans-serif;color:#121212;font-size:0.88rem;line-height:1.65;font-weight:500;">
 This app simulates a <strong>city council–style review</strong> of a real estate development proposal.
 <br><br>
 🏗️ <strong>You play the role of a city planner</strong> — pick a city, propose initial numbers (green space, housing units, budget, etc.), and submit.
 <br><br>
 🤖 <strong>Three AI agents then debate your proposal</strong>, each representing a different stakeholder perspective:
 <ul style="margin:0.4rem 0 0.4rem 1.2rem;padding:0;">
-  <li><span style="color:#fbd38d">💰 Finance</span> — focuses on cost feasibility and return on investment</li>
-  <li><span style="color:#9ae6b4">🌿 Climate</span> — focuses on environmental impact and green infrastructure</li>
-  <li><span style="color:#d6bcfa">🏘️ Community</span> — focuses on resident quality of life and social equity</li>
+  <li><span style="color:#744210;font-weight:900;">💰 Finance</span> — focuses on cost feasibility and return on investment</li>
+  <li><span style="color:#276749;font-weight:900;">🌿 Climate</span> — focuses on environmental impact and green infrastructure</li>
+  <li><span style="color:#553c9a;font-weight:900;">🏘️ Community</span> — focuses on resident quality of life and social equity</li>
 </ul>
 Agents negotiate across up to three rounds, proposing changes and responding to each other's objections. Where they disagree sharply on a parameter, you get to make the final ruling as the judge.
 <br><br>
@@ -806,13 +807,13 @@ def stage_result(is_override: bool = False) -> None:
     summary = generate_plain_language_summary(session)
     st.markdown(
         f'''
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-            <div style="font-size:1.15rem;font-weight:800;color:#e2e8f0;margin-bottom:0.8rem;letter-spacing:0.02em;">📝 Session Summary</div>
-            <div style="font-size:0.95rem;color:#e2e8f0;line-height:1.6;margin-bottom:0.8rem;">
+        <div style="background:#ffffff;border:4px solid #121212;border-radius:0;padding:1.5rem;margin-bottom:1.5rem;box-shadow:6px 6px 0px 0px #121212;">
+            <div style="font-family:Outfit,sans-serif;font-size:1.1rem;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#121212;margin-bottom:0.8rem;">📝 Session Summary</div>
+            <div style="font-family:Outfit,sans-serif;font-size:0.95rem;color:#121212;line-height:1.6;margin-bottom:0.8rem;font-weight:500;">
                 <strong>Outcome:</strong> {summary["outcome"]}<br>
                 <strong>Key Changes:</strong> {summary["changes"]}
             </div>
-            <ul style="margin:0;padding-left:1.2rem;font-size:0.9rem;color:#cbd5e0;line-height:1.5;">
+            <ul style="margin:0;padding-left:1.2rem;font-size:0.9rem;color:#121212;line-height:1.5;font-weight:500;">
                 <li>{summary["finance_score"]}</li>
                 <li>{summary["climate_score"]}</li>
                 <li>{summary["community_score"]}</li>
@@ -963,19 +964,19 @@ def stage_result(is_override: bool = False) -> None:
         # Conflict legend
         st.markdown("""
 <div style="
-    background:rgba(252,129,129,0.07);border:1px solid rgba(252,129,129,0.25);
-    border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.8rem;color:#e2e8f0;
-    line-height:1.6;
+    background:#ffffff;border:4px solid #121212;
+    border-radius:0;padding:1rem 1.5rem;margin-bottom:1rem;font-size:0.85rem;color:#121212;
+    line-height:1.6;font-family:Outfit,sans-serif;box-shadow:6px 6px 0px 0px #121212;font-weight:500;
 ">
-<strong style="color:#fc8181;">⚡ What is a conflict?</strong> &nbsp;A conflict occurs when two agents propose
+<strong style="color:#742a2a;font-weight:900;">⚡ What is a conflict?</strong> &nbsp;A conflict occurs when two agents propose
 <em>significantly different</em> values for the same parameter (e.g. Finance wants 5% green space, Climate wants 40%).
 The coloured dots on the bar below show each agent's proposed value; the red bar spans the disagreement range.
-<br>
-<strong>Severity:</strong>&nbsp;
-<span style="background:#742a2a;color:#feb2b2;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;">HIGH</span> → escalated to your ruling &nbsp;|
-<span style="background:#744210;color:#fefcbf;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;">MODERATE</span> → resolved by weighted average &nbsp;|
-<span style="background:#276749;color:#c6f6d5;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;">LOW</span> → accepted directly.
-<br>
+<br><br>
+<strong style="font-weight:900;text-transform:uppercase;letter-spacing:0.1em;font-size:0.75rem;">Severity:</strong>&nbsp;
+<span style="background:#742a2a;color:#feb2b2;padding:1px 6px;border:2px solid #121212;border-radius:0;font-size:0.72rem;font-weight:900;">HIGH</span> → escalated to your ruling &nbsp;|
+<span style="background:#744210;color:#fefcbf;padding:1px 6px;border:2px solid #121212;border-radius:0;font-size:0.72rem;font-weight:900;">MODERATE</span> → resolved by weighted average &nbsp;|
+<span style="background:#276749;color:#c6f6d5;padding:1px 6px;border:2px solid #121212;border-radius:0;font-size:0.72rem;font-weight:900;">LOW</span> → accepted directly.
+<br><br>
 <strong>Weighted average</strong> means the engine splits the difference, giving more weight to the agent with higher confidence. The italic line at the bottom of each card shows the resolved value.
 </div>
 """, unsafe_allow_html=True)

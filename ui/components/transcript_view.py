@@ -3,7 +3,7 @@ from html import escape
 from engine.session import CourtroomSession
 from models.agent_opinion import AgentOpinion
 
-# â”€â”€ Agent identity colours (exact hex, never approximate) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Agent identity colours (exact hex, never approximate) ──────────────────
 # Finance amber:   bg #744210  /  text #fefcbf
 # Climate green:   bg #276749  /  text #c6f6d5
 # Community violet: bg #553c9a /  text #e9d8fd
@@ -23,9 +23,9 @@ def get_agent_border_class(agent_name: str) -> str:
     return "border-[#553c9a]"
 
 def get_agent_emoji(agent_name: str) -> str:
-    if agent_name == "finance": return "ðŸ’°"
-    if agent_name == "climate": return "ðŸŒ¿"
-    return "ðŸ˜ï¸"
+    if agent_name == "finance": return "💰"
+    if agent_name == "climate": return "🌿"
+    return "🏘️"
 
 def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: AgentOpinion) -> str:
     accent = AGENT_ACCENT.get(agent_name, "#121212")
@@ -46,7 +46,7 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
         callouts += f'''
         <div style="margin-bottom:1rem;padding:0.5rem 0.75rem;background:#fff0f0;border-left:4px solid #742a2a;border:2px solid #121212;font-size:0.82rem;">
             <div style="display:flex;align-items:center;gap:6px;font-weight:900;font-family:Outfit,sans-serif;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#742a2a;margin-bottom:3px;">
-            âš¡ Responding to {escape(obj.target_agent.title())}\'s claim:
+            ⚡ Responding to {escape(obj.target_agent.title())}'s claim that:
             "{escape(obj.engages_with)}" {warning_badge}
             </div>
             <div style="font-size:0.82rem;color:#121212;">{escape(obj.reason)}</div>
@@ -55,14 +55,14 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
     for sup in op.supports:
         callouts += f'''
         <div style="margin-bottom:0.75rem;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#c6f6d5;color:#276749;border:2px solid #276749;font-size:0.78rem;font-weight:700;font-family:Outfit,sans-serif;">
-            âœ“ Support â†’ {sup.target_agent.title()}: {sup.reason}
+            ✓ Support → {sup.target_agent.title()}: {sup.reason}
         </div><br>
         '''
 
     evidence_items = ""
     for ev in op.evidence:
         if ev in op.grounding_warnings:
-            evidence_items += f'<li>{ev} <span style="display:inline;padding:1px 5px;background:#fefcbf;color:#744210;border:1px solid #744210;font-size:10px;font-weight:900;font-family:Outfit,sans-serif;text-transform:uppercase;">âš  unverified</span></li>'
+            evidence_items += f'<li>{ev} <span style="display:inline;padding:1px 5px;background:#fefcbf;color:#744210;border:1px solid #744210;font-size:10px;font-weight:900;font-family:Outfit,sans-serif;text-transform:uppercase;">⚠️ unverified</span></li>'
         else:
             evidence_items += f'<li>{ev}</li>'
     if not evidence_items:
@@ -73,7 +73,7 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
         concession_html = f'''
         <div style="margin-bottom:1rem;padding:0.75rem;background:#e9d8fd;border:2px solid #553c9a;font-size:0.8rem;color:#121212;">
             <div style="font-weight:900;font-family:Outfit,sans-serif;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:#553c9a;margin-bottom:4px;">
-                ðŸ¤ Strategic Concession Rationale:
+                🤝 Strategic Concession Rationale:
             </div>
             <div style="font-style:italic;line-height:1.5;">"{escape(op.concession_rationale)}"</div>
         </div>
@@ -86,7 +86,7 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
     if getattr(op, "is_fallback", False):
         fallback_header = f'''
         <div style="margin-bottom:1rem;padding:6px 10px;background:#E0E0E0;border:2px dashed #121212;font-size:0.68rem;font-weight:900;font-family:Outfit,sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#121212;display:flex;align-items:center;gap:6px;">
-            âš™ Verified Baseline Calculation (AI reasoning unavailable)
+            ⚙️ Verified Baseline Calculation (AI reasoning unavailable)
         </div>
         '''
         card_bg = "#F0F0F0"
@@ -94,12 +94,12 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
 
     html = f'''
     <div style="background:{card_bg};{card_border_style};padding:1.25rem;position:relative;margin-bottom:1.5rem;" id="{card_id}">
-        <!-- Phase label â€” Bauhaus square tag -->
+        <!-- Phase label — Bauhaus square tag -->
         <span style="position:absolute;top:-14px;left:12px;background:#121212;color:#F0F0F0;font-family:Outfit,sans-serif;font-size:0.6rem;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;padding:2px 8px;border:2px solid #121212;">{phase_label}</span>
         {fallback_header}
         <!-- Tension block -->
         <div style="margin-bottom:1rem;padding:0.5rem 0.75rem;background:{light_bg};border-left:4px solid {accent};font-size:0.78rem;color:#121212;font-style:italic;">
-            <div style="font-weight:900;font-family:Outfit,sans-serif;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:{accent};margin-bottom:3px;">âš– Weighing counter-consideration:</div>
+            <div style="font-weight:900;font-family:Outfit,sans-serif;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:{accent};margin-bottom:3px;">⚖ Weighing counter-consideration:</div>
             "{op.tension}"
         </div>
         <p style="font-weight:900;font-family:Outfit,sans-serif;font-size:0.95rem;margin-bottom:1rem;color:#121212;line-height:1.4;">{op.position}</p>
@@ -107,7 +107,7 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
         {callouts}
         <details style="margin-top:0.5rem;">
             <summary style="cursor:pointer;font-family:Outfit,sans-serif;font-size:0.68rem;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:{accent};display:flex;align-items:center;justify-content:between;list-style:none;">
-                â–¶ Evidence
+                ▶ Evidence
             </summary>
             <ul style="margin-top:0.5rem;padding-left:1.2rem;font-size:0.8rem;color:#121212;line-height:1.6;list-style:disc;">
                 {evidence_items}
