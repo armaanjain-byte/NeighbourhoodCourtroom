@@ -12,16 +12,18 @@ import pytest
 
 from models.proposal import Proposal
 from engine.state import create_initial_proposal
+from tools.data_loader import DataLoader
 from agents.climate_agent import ClimateAgent
 
 
 # ── Mocks ───────────────────────────────────────────────────────────────────
 
-class MockDataLoader:
+class MockDataLoader(DataLoader):
     def __init__(self, should_fail: bool = False):
         self.should_fail = should_fail
+        self._cache = {}
 
-    def get_climate(self, city_name: str) -> dict[str, float]:
+    def get_climate(self, city_name: str) -> dict[str, Any]:
         if self.should_fail:
             raise RuntimeError("Climate data corrupted.")
         return {"target_green_space_pct": 35.0}

@@ -13,16 +13,17 @@ import pytest
 from models.proposal import Proposal
 from engine.state import create_initial_proposal
 from tools.cost_calculator import CostCalculator
-from tools.data_loader import CityNotFoundError
+from tools.data_loader import DataLoader, CityNotFoundError
 
 
 # ── Mocks ───────────────────────────────────────────────────────────────────
 
-class MockDataLoader:
+class MockDataLoader(DataLoader):
     def __init__(self, should_fail: bool = False):
         self.should_fail = should_fail
+        self._cache = {}
 
-    def get_construction_costs(self, city_name: str) -> dict[str, float]:
+    def get_construction_costs(self, city_name: str) -> dict[str, Any]:
         if self.should_fail:
             raise CityNotFoundError(f"Missing data for {city_name}")
         

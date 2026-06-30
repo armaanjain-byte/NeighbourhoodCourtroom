@@ -12,17 +12,19 @@ import pytest
 
 from models.proposal import Proposal
 from engine.state import create_initial_proposal
+from tools.data_loader import DataLoader
 from agents.community_agent import CommunityAgent
 
 
 # ── Mocks ───────────────────────────────────────────────────────────────────
 
-class MockDataLoader:
+class MockDataLoader(DataLoader):
     def __init__(self, should_fail: bool = False, base_walkability: float = 50.0):
         self.should_fail = should_fail
         self.base_walkability = base_walkability
+        self._cache = {}
 
-    def get_demographics(self, city_name: str) -> dict[str, float]:
+    def get_demographics(self, city_name: str) -> dict[str, Any]:
         if self.should_fail:
             raise RuntimeError("Demographics data corrupted.")
         return {
