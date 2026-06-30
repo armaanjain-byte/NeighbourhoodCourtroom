@@ -26,7 +26,7 @@ def get_pct(param: str, value: float) -> float:
     if not bounds:
         return 50.0
     min_val, max_val = bounds
-    pct = ((float(value) - min_val) / (max_val - min_val)) * 100
+    pct = ((value - min_val) / (max_val - min_val)) * 100
     return max(0.0, min(100.0, pct))
 
 def build_conflict_meters_html(session: CourtroomSession) -> str:
