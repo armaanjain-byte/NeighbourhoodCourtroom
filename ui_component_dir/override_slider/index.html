@@ -2,34 +2,61 @@
 <html class="light" lang="en">
 <head>
 <meta charset="utf-8"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 <style>
-    body { font-family: 'Public Sans', sans-serif; background-color: #f9f9f9; margin: 0; padding: 12px; }
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Outfit', sans-serif;
+        background-color: #F0F0F0;
+        color: #121212;
+        margin: 0;
+        padding: 12px;
+    }
+    /* ── Bauhaus range slider ── */
     input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; }
-    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #e2e2e2; border-radius: 2px; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #111d23; cursor: pointer; margin-top: -8px; border: 2px solid #ffffff; box-shadow: 0 0 0 1px #111d23; }
+    input[type=range]::-webkit-slider-runnable-track {
+        width: 100%; height: 8px;
+        background: #E0E0E0;
+        border-radius: 0;
+        border: 2px solid #121212;
+    }
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none;
+        height: 24px; width: 24px;
+        border-radius: 0;
+        background: #553c9a;
+        cursor: pointer;
+        margin-top: -10px;
+        border: 3px solid #121212;
+        box-shadow: 3px 3px 0px 0px #121212;
+    }
 </style>
 </head>
 <body id="root-body">
-<div class="bg-white p-6 rounded-xl border border-gray-200 space-y-6 shadow-sm">
+
+<div style="background: #ffffff; padding: 1.5rem; border: 4px solid #121212; box-shadow: 6px 6px 0px 0px #121212; border-radius: 0; display: flex; flex-direction: column; gap: 1.5rem;">
     <div>
-        <label id="lbl-param" class="font-semibold text-[14px] text-gray-900 mb-2 block">Parameter</label>
-        <div class="relative pt-6 pb-2" id="slider-container">
+        <label id="lbl-param" style="display:block; font-family:Outfit,sans-serif; font-weight:900; font-size:0.78rem; letter-spacing:0.12em; text-transform:uppercase; color:#121212; margin-bottom:0.75rem; padding-bottom:0.4rem; border-bottom:3px solid #121212;">Parameter</label>
+        <div style="position:relative; padding-top:1.5rem; padding-bottom:0.5rem;" id="slider-container">
             <div id="ticks-container"></div>
             <input class="cursor-pointer" id="inp-slider" type="range" min="0" max="100" value="50"/>
-            <div class="flex justify-between mt-2 text-xs text-gray-500 font-bold">
-                <span id="lbl-min">0</span>
-                <span id="lbl-max">100</span>
+            <div style="display:flex; justify-content:space-between; margin-top:0.5rem;">
+                <span id="lbl-min" style="font-family:Outfit,sans-serif; font-weight:900; font-size:0.7rem; color:#121212;">0</span>
+                <span id="lbl-max" style="font-family:Outfit,sans-serif; font-weight:900; font-size:0.7rem; color:#121212;">100</span>
             </div>
         </div>
-        <div class="bg-[#263238] p-3 rounded mt-4">
-            <p id="lbl-preview" class="font-semibold text-[14px] text-[#8d9aa1] text-center">
+        <!-- Preview panel — Finance amber (primary-red Bauhaus role = "current position") -->
+        <div style="background:#744210; padding:0.75rem 1rem; margin-top:1rem; border:3px solid #121212; box-shadow:3px 3px 0px 0px #121212;">
+            <p id="lbl-preview" style="font-family:Outfit,sans-serif; font-weight:900; font-size:0.82rem; color:#fefcbf; text-align:center; letter-spacing:0.06em; text-transform:uppercase;">
                 Siding with ...
             </p>
         </div>
     </div>
-    <button id="btn-confirm" class="w-full bg-[#111d23] hover:bg-[#263238] text-white py-4 rounded font-semibold text-[14px] uppercase tracking-widest transition-colors">
+    <button id="btn-confirm" style="width:100%; background:#553c9a; color:#e9d8fd; border:4px solid #121212; border-radius:0; padding:1rem; font-family:Outfit,sans-serif; font-weight:900; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.1em; box-shadow:5px 5px 0px 0px #121212; cursor:pointer; transition:transform 0.1s ease-out,box-shadow 0.1s ease-out;"
+        onmouseover="this.style.transform='translate(-2px,-2px)'; this.style.boxShadow='7px 7px 0px 0px #121212';"
+        onmouseout="this.style.transform=''; this.style.boxShadow='5px 5px 0px 0px #121212';"
+        onmousedown="this.style.transform='translate(4px,4px)'; this.style.boxShadow='none';"
+        onmouseup="this.style.transform='translate(-2px,-2px)'; this.style.boxShadow='7px 7px 0px 0px #121212';">
         Confirm Final Ruling
     </button>
 </div>
@@ -70,11 +97,23 @@
                 currentArgs.agent_ticks.forEach(tick => {
                     const div = document.createElement('div');
                     div.className = 'absolute top-0 flex flex-col items-center';
-                    div.style.left = `calc(${tick.pct}% - 15px)`;
-                    div.style.width = '30px';
+                    div.style.position = 'absolute';
+                    div.style.top = '0';
+                    div.style.display = 'flex';
+                    div.style.flexDirection = 'column';
+                    div.style.alignItems = 'center';
+                    div.style.left = `calc(${tick.pct}% - 16px)`;
+                    div.style.width = '32px';
+
+                    // Use agent identity colors for tick marks
+                    let tickColor = '#121212';
+                    if (tick.name === 'FIN') tickColor = '#744210';
+                    else if (tick.name === 'CLI') tickColor = '#276749';
+                    else if (tick.name === 'COM') tickColor = '#553c9a';
+
                     div.innerHTML = `
-                        <span class="font-medium text-[10px] text-gray-500">${tick.name}</span>
-                        <div class="w-px h-2 bg-gray-400 mt-1"></div>
+                        <span style="font-family:Outfit,sans-serif;font-weight:900;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:${tickColor};">${tick.name}</span>
+                        <div style="width:2px;height:8px;background:${tickColor};margin-top:2px;border:1px solid #121212;"></div>
                     `;
                     ticksContainer.appendChild(div);
                 });
@@ -108,14 +147,19 @@
         
         const preview = document.getElementById('lbl-preview');
         if(closestAgent) {
-            let color = "white";
-            if(closestAgent.name === "FIN") color = "#fbbf24";
-            else if(closestAgent.name === "CLI") color = "#4ade80";
-            else if(closestAgent.name === "COM") color = "#c084fc";
+            // Agent identity text colors on Finance amber background
+            let agentColor = "#fefcbf"; // default Finance amber text
+            let agentBg = "#744210";
+            if(closestAgent.name === "FIN") { agentColor = "#fefcbf"; agentBg = "#744210"; }
+            else if(closestAgent.name === "CLI") { agentColor = "#c6f6d5"; agentBg = "#276749"; }
+            else if(closestAgent.name === "COM") { agentColor = "#e9d8fd"; agentBg = "#553c9a"; }
             
-            preview.innerHTML = `Set to <span style="color:${color}">${val}</span> — Closest to <span class="font-bold text-white">${closestAgent.full_name} (${closestAgent.value})</span>`;
+            // Update preview panel background to closest agent color
+            preview.parentElement.style.background = agentBg;
+            preview.innerHTML = `<span style="color:rgba(255,255,255,0.65);">SET TO</span> <span style="color:${agentColor};font-size:1.1rem;">${val}</span> — <span style="font-weight:900;color:${agentColor};">${closestAgent.full_name} (${closestAgent.value})</span>`;
         } else {
-            preview.innerHTML = `Set to <span class="text-white">${val}</span>`;
+            preview.parentElement.style.background = '#744210';
+            preview.innerHTML = `<span style="color:#fefcbf;">SET TO ${val}</span>`;
         }
     }
 

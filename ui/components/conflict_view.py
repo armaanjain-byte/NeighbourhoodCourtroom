@@ -43,9 +43,9 @@ def build_conflict_meters_html(session: CourtroomSession) -> str:
     last_round = session.debate_rounds[-1]
     
     agent_colors = {
-        "finance": ("bg-amber-500", "Finance"),
-        "climate": ("bg-emerald-500", "Climate"),
-        "community": ("bg-purple-500", "Community")
+        "finance":   ("#744210", "Finance"),
+        "climate":   ("#276749", "Climate"),
+        "community": ("#553c9a", "Community")
     }
 
     items_html = ""
@@ -75,70 +75,76 @@ def build_conflict_meters_html(session: CourtroomSession) -> str:
         legend_html = ""
         for agent_name, val in positions.items():
             pct = get_pct(param, val)
-            color_class, label = agent_colors[agent_name]
-            markers_html += f'<div class="tension-marker {color_class}" style="left: {pct}%;" title="{label}: {_fmt_value(param, val)}"></div>\n'
+            hex_color, label = agent_colors[agent_name]
+            markers_html += f'<div class="tension-marker" style="left: {pct}%; background: {hex_color};" title="{label}: {_fmt_value(param, val)}"></div>\n'
             
             legend_html += f'''
-            <div class="flex items-center gap-1.5">
-                <div class="w-2 h-2 rounded-full {color_class}"></div>
-                <span class="font-label-sm text-[12px] text-gray-600">{label}: {_fmt_value(param, val)}</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <div style="width:10px;height:10px;background:{hex_color};border:2px solid #121212;"></div>
+                <span style="font-family:Outfit,sans-serif;font-size:12px;font-weight:700;color:#121212;">{label}: {_fmt_value(param, val)}</span>
             </div>
             '''
             
+        sev_bg = "#744210" if is_high else "#276749"
+        sev_fg = "#fefcbf" if is_high else "#c6f6d5"
+        sev_label = "HIGH SEVERITY" if is_high else "MODERATE"
+        
         final_val = getattr(session.current_proposal, param)
         
         items_html += f'''
-        <div class="bg-white border border-gray-200 p-6 rounded-lg mb-4 shadow-sm">
-            <div class="flex justify-between items-center mb-4">
-                <span class="font-bold text-[16px] text-gray-900">{PARAM_LABELS.get(param, param)}</span>
-                <span class="font-bold text-[10px] uppercase {sev_class} px-2 py-0.5 rounded">{sev_label}</span>
+        <div style="background:#ffffff;border:4px solid #121212;padding:1.5rem;margin-bottom:1.25rem;box-shadow:6px 6px 0px 0px #121212;position:relative;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:2px solid #121212;">
+                <span style="font-family:Outfit,sans-serif;font-weight:900;font-size:1rem;color:#121212;">{PARAM_LABELS.get(param, param)}</span>
+                <span style="font-family:Outfit,sans-serif;font-weight:900;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;background:{sev_bg};color:{sev_fg};padding:3px 10px;border:2px solid #121212;border-radius:0;">{sev_label}</span>
             </div>
             
-            <div class="relative h-8 w-full flex items-center mb-2">
-                <div class="absolute w-full h-1 bg-gray-200 rounded"></div>
+            <div style="position:relative;height:2rem;width:100%;display:flex;align-items:center;margin-bottom:0.5rem;">
+                <div style="position:absolute;width:100%;height:8px;background:#E0E0E0;border:2px solid #121212;"></div>
                 <div class="severity-bar" style="left: {min_pct}%; width: {bar_width}%;"></div>
                 {markers_html}
             </div>
             
-            <div class="flex flex-wrap gap-4 mt-2 mb-4">
+            <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-top:0.5rem;margin-bottom:1rem;">
                 {legend_html}
             </div>
             
-            <p class="text-[12px] text-gray-500 italic mt-2 border-t border-gray-100 pt-3">
-                Engine resolved to <span class="font-bold text-gray-900">{_fmt_value(param, final_val)}</span> via weighted average
+            <p style="font-family:Outfit,sans-serif;font-size:0.78rem;color:#121212;opacity:0.6;margin-top:0.5rem;padding-top:0.75rem;border-top:2px solid #E0E0E0;">
+                Engine resolved to <span style="font-weight:900;color:#121212;opacity:1;">{_fmt_value(param, final_val)}</span> via weighted average
             </p>
         </div>
         '''
 
     html = f'''
     <!DOCTYPE html>
-    <html class="light" lang="en">
+    <html lang="en">
     <head>
         <meta charset="utf-8"/>
-        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet"/>
         <style>
+            * {{ box-sizing: border-box; }}
+            body {{ font-family: 'Outfit', sans-serif; background: transparent; margin: 0; padding: 8px; color: #121212; }}
             .severity-bar {{
-                height: 4px;
-                border-radius: 2px;
-                background-color: #ef4444; /* red-500 */
+                height: 8px;
+                background-color: #742a2a;
                 position: absolute;
                 top: 50%;
                 transform: translateY(-50%);
+                border-radius: 0;
+                border: 0;
             }}
             .tension-marker {{
                 width: 14px;
                 height: 14px;
-                border-radius: 50%;
+                border-radius: 0;
                 position: absolute;
                 top: 50%;
                 transform: translate(-50%, -50%);
-                border: 2px solid white;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                border: 2px solid #121212;
+                box-shadow: 2px 2px 0px 0px #121212;
             }}
-            body {{ font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; background: transparent; margin: 0; padding: 0; }}
         </style>
     </head>
-    <body class="p-2">
+    <body>
         {items_html}
     </body>
     </html>

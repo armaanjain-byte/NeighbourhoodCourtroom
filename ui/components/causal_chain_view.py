@@ -15,11 +15,11 @@ def build_causal_chain_html(old_proposal, new_proposal, locked_param: str, locke
     param_label = PARAM_LABELS.get(locked_param, locked_param)
     
     steps_html = f'''
-        <div class="relative">
-            <div class="absolute -left-6 w-3 h-3 rounded-full bg-[#111d23] ring-4 ring-white"></div>
-            <div class="flex flex-col">
-                <span class="font-semibold text-[12px] text-gray-500 uppercase">Step 1</span>
-                <span class="text-[16px] text-gray-900">Human locked <span class="font-bold">{param_label}</span> at <span class="font-bold">{locked_str}</span></span>
+        <div style="position:relative;padding-left:1.5rem;">
+            <div style="position:absolute;left:0;top:6px;width:14px;height:14px;background:#121212;border:3px solid #121212;"></div>
+            <div style="display:flex;flex-direction:column;">
+                <span style="font-family:Outfit,sans-serif;font-weight:900;font-size:0.62rem;color:#553c9a;text-transform:uppercase;letter-spacing:0.12em;">Step 1</span>
+                <span style="font-family:Outfit,sans-serif;font-size:0.95rem;color:#121212;font-weight:700;">Human locked <strong>{param_label}</strong> at <strong>{locked_str}</strong></span>
             </div>
         </div>
     '''
@@ -53,32 +53,32 @@ def build_causal_chain_html(old_proposal, new_proposal, locked_param: str, locke
         last_r = session.debate_rounds[-1]
         for op_dict in [getattr(last_r, "round_3_opinions", {}), getattr(last_r, "round_2_opinions", {})]:
             if not fin_concession and op_dict and "finance" in op_dict and op_dict["finance"].concession_rationale:
-                fin_concession = f'<div class="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-950 shadow-sm"><div class="font-bold text-indigo-900 mb-1">🤝 Strategic Concession Rationale:</div><div class="italic">"{escape(op_dict["finance"].concession_rationale)}"</div></div>'
+                fin_concession = f'<div style="margin-top:0.5rem;padding:0.75rem;background:#fefcbf;border:2px solid #744210;font-size:0.78rem;color:#121212;"><div style="font-family:Outfit,sans-serif;font-weight:900;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:#744210;margin-bottom:4px;">🤝 Concession Rationale:</div><div style="font-style:italic;">\"{ escape(op_dict["finance"].concession_rationale) }\"</div></div>'
             if not com_concession and op_dict and "community" in op_dict and op_dict["community"].concession_rationale:
-                com_concession = f'<div class="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-950 shadow-sm"><div class="font-bold text-indigo-900 mb-1">🤝 Strategic Concession Rationale:</div><div class="italic">"{escape(op_dict["community"].concession_rationale)}"</div></div>'
+                com_concession = f'<div style="margin-top:0.5rem;padding:0.75rem;background:#e9d8fd;border:2px solid #553c9a;font-size:0.78rem;color:#121212;"><div style="font-family:Outfit,sans-serif;font-weight:900;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:#553c9a;margin-bottom:4px;">🤝 Concession Rationale:</div><div style="font-style:italic;">\"{ escape(op_dict["community"].concession_rationale) }\"</div></div>'
     
     steps_html += f'''
-        <div class="relative">
-            <div class="absolute -left-6 w-3 h-3 rounded-full bg-amber-500 ring-4 ring-white"></div>
-            <div class="flex flex-col">
-                <span class="font-semibold text-[12px] text-gray-500 uppercase">Step 2</span>
-                <span class="text-[16px] text-gray-600"><span class="font-bold">Finance</span> responded: {fin_text}</span>
+        <div style="position:relative;padding-left:1.5rem;">
+            <div style="position:absolute;left:0;top:6px;width:14px;height:14px;background:#744210;border:3px solid #121212;"></div>
+            <div style="display:flex;flex-direction:column;">
+                <span style="font-family:Outfit,sans-serif;font-weight:900;font-size:0.62rem;color:#744210;text-transform:uppercase;letter-spacing:0.12em;">Step 2</span>
+                <span style="font-family:Outfit,sans-serif;font-size:0.95rem;color:#121212;"><strong>Finance</strong> responded: {fin_text}</span>
                 {fin_concession}
             </div>
         </div>
-        <div class="relative">
-            <div class="absolute -left-6 w-3 h-3 rounded-full bg-purple-500 ring-4 ring-white"></div>
-            <div class="flex flex-col">
-                <span class="font-semibold text-[12px] text-gray-500 uppercase">Step 3</span>
-                <span class="text-[16px] text-gray-600"><span class="font-bold">Community</span> responded: {com_text}</span>
+        <div style="position:relative;padding-left:1.5rem;">
+            <div style="position:absolute;left:0;top:6px;width:14px;height:14px;background:#553c9a;border:3px solid #121212;"></div>
+            <div style="display:flex;flex-direction:column;">
+                <span style="font-family:Outfit,sans-serif;font-weight:900;font-size:0.62rem;color:#553c9a;text-transform:uppercase;letter-spacing:0.12em;">Step 3</span>
+                <span style="font-family:Outfit,sans-serif;font-size:0.95rem;color:#121212;"><strong>Community</strong> responded: {com_text}</span>
                 {com_concession}
             </div>
         </div>
-        <div class="relative">
-            <div class="absolute -left-6 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white"></div>
-            <div class="flex flex-col">
-                <span class="font-semibold text-[12px] text-gray-500 uppercase">Step 4</span>
-                <span class="text-[16px] text-gray-900 font-bold">Engine settled: Balanced equilibrium achieved</span>
+        <div style="position:relative;padding-left:1.5rem;">
+            <div style="position:absolute;left:0;top:6px;width:14px;height:14px;background:#276749;border:3px solid #121212;"></div>
+            <div style="display:flex;flex-direction:column;">
+                <span style="font-family:Outfit,sans-serif;font-weight:900;font-size:0.62rem;color:#276749;text-transform:uppercase;letter-spacing:0.12em;">Step 4</span>
+                <span style="font-family:Outfit,sans-serif;font-size:0.95rem;color:#121212;font-weight:900;">Engine settled: Balanced equilibrium achieved</span>
             </div>
         </div>
     '''
@@ -89,16 +89,17 @@ def build_causal_chain_html(old_proposal, new_proposal, locked_param: str, locke
     <html lang="en">
     <head>
         <meta charset="utf-8"/>
-        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet"/>
         <style>
-            body {{ font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: transparent; margin: 0; padding: 24px; }}
+            * {{ box-sizing: border-box; }}
+            body {{ font-family: 'Outfit', sans-serif; background: transparent; margin: 0; padding: 24px; color: #121212; }}
         </style>
     </head>
     <body>
-        <div class="bg-white border border-gray-200 p-6 rounded-xl shadow-sm space-y-4">
-            <h3 class="font-bold text-[14px] text-gray-900 uppercase tracking-wider">Causal Impact Chain</h3>
-            <div class="relative pl-8 space-y-6 mt-4">
-                <div class="absolute left-3.5 top-2 bottom-2 w-0.5 bg-gray-200"></div>
+        <div style="background:#ffffff;border:4px solid #121212;padding:1.5rem;box-shadow:8px 8px 0px 0px #121212;border-radius:0;">
+            <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:0.72rem;color:#121212;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:1.25rem;padding-bottom:0.5rem;border-bottom:3px solid #121212;">Causal Impact Chain</h3>
+            <div style="position:relative;padding-left:2rem;display:flex;flex-direction:column;gap:1.5rem;margin-top:1rem;">
+                <div style="position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:#121212;"></div>
                 {steps_html}
             </div>
         </div>

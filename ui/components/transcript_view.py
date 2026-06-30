@@ -3,104 +3,113 @@ from html import escape
 from engine.session import CourtroomSession
 from models.agent_opinion import AgentOpinion
 
+# â”€â”€ Agent identity colours (exact hex, never approximate) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Finance amber:   bg #744210  /  text #fefcbf
+# Climate green:   bg #276749  /  text #c6f6d5
+# Community violet: bg #553c9a /  text #e9d8fd
+AGENT_BG = {"finance": "#fefcbf", "climate": "#c6f6d5", "community": "#e9d8fd"}
+AGENT_ACCENT = {"finance": "#744210", "climate": "#276749", "community": "#553c9a"}
+AGENT_LIGHT_BG = {"finance": "#fffde7", "climate": "#f0fff8", "community": "#f5f0ff"}
+
 def get_agent_color_class(agent_name: str) -> str:
-    if agent_name == "finance": return "bg-[#FFF9E5]"
-    if agent_name == "climate": return "bg-[#E8F5E9]"
-    return "bg-[#F3E5F5]"
+    # Used by courtroom_scene.py for the transcript fallback columns
+    if agent_name == "finance": return "bg-[#fffde7]"
+    if agent_name == "climate": return "bg-[#f0fff8]"
+    return "bg-[#f5f0ff]"
 
 def get_agent_border_class(agent_name: str) -> str:
-    if agent_name == "finance": return "border-[#E6DFC9]"
-    if agent_name == "climate": return "border-[#D1E1D2]"
-    return "border-[#DCCEDD]"
+    if agent_name == "finance": return "border-[#744210]"
+    if agent_name == "climate": return "border-[#276749]"
+    return "border-[#553c9a]"
 
 def get_agent_emoji(agent_name: str) -> str:
-    if agent_name == "finance": return "💰"
-    if agent_name == "climate": return "🌿"
-    return "🏘️"
+    if agent_name == "finance": return "ðŸ’°"
+    if agent_name == "climate": return "ðŸŒ¿"
+    return "ðŸ˜ï¸"
 
 def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: AgentOpinion) -> str:
-    border_class = get_agent_border_class(agent_name)
+    accent = AGENT_ACCENT.get(agent_name, "#121212")
+    light_bg = AGENT_LIGHT_BG.get(agent_name, "#ffffff")
+    fg = AGENT_BG.get(agent_name, "#F0F0F0")
     card_id = f"{agent_name}-p{phase_idx}"
-    
+
     callouts = ""
     for obj in op.objections:
         warning_label = f"{obj.target_agent}:{obj.engages_with}"
         warning_badge = ""
         if warning_label in op.engagement_warnings:
             warning_badge = (
-                '<span class="inline-flex items-center gap-1 px-2 py-0.5 ml-1 '
-                'bg-amber-100 text-amber-800 rounded text-[11px] font-bold '
-                'border border-amber-300">weak engagement</span>'
+                '<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin-left:4px;'
+                f'background:#fefcbf;color:#744210;border:1px solid #744210;font-size:10px;font-weight:900;'
+                'font-family:Outfit,sans-serif;text-transform:uppercase;letter-spacing:0.06em;">weak engagement</span>'
             )
         callouts += f'''
-        <div class="mb-4 px-3 py-2 bg-red-100 text-error rounded border border-red-200 text-label-sm">
-            <div class="flex items-center gap-2 font-semibold">
-            <span class="material-symbols-outlined text-[16px]">warning</span>
-            Responding to {escape(obj.target_agent.title())}'s claim that
+        <div style="margin-bottom:1rem;padding:0.5rem 0.75rem;background:#fff0f0;border-left:4px solid #742a2a;border:2px solid #121212;font-size:0.82rem;">
+            <div style="display:flex;align-items:center;gap:6px;font-weight:900;font-family:Outfit,sans-serif;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#742a2a;margin-bottom:3px;">
+            âš¡ Responding to {escape(obj.target_agent.title())}\'s claim:
             "{escape(obj.engages_with)}" {warning_badge}
             </div>
-            <div class="mt-1">{escape(obj.reason)}</div>
-        </div><br>
+            <div style="font-size:0.82rem;color:#121212;">{escape(obj.reason)}</div>
+        </div>
         '''
     for sup in op.supports:
         callouts += f'''
-        <div class="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-[#2E7D32] rounded-full text-label-sm border border-green-200">
-            <span class="material-symbols-outlined text-[16px]">check_circle</span>
-            Support for {sup.target_agent.title()}: {sup.reason}
+        <div style="margin-bottom:0.75rem;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#c6f6d5;color:#276749;border:2px solid #276749;font-size:0.78rem;font-weight:700;font-family:Outfit,sans-serif;">
+            âœ“ Support â†’ {sup.target_agent.title()}: {sup.reason}
         </div><br>
         '''
-        
+
     evidence_items = ""
     for ev in op.evidence:
         if ev in op.grounding_warnings:
-            evidence_items += f'<li>{ev} <span class="inline-flex items-center gap-1 px-2 py-0.5 ml-1 bg-amber-100 text-amber-800 rounded text-[11px] font-bold border border-amber-300">⚠️ unverified claim</span></li>'
+            evidence_items += f'<li>{ev} <span style="display:inline;padding:1px 5px;background:#fefcbf;color:#744210;border:1px solid #744210;font-size:10px;font-weight:900;font-family:Outfit,sans-serif;text-transform:uppercase;">âš  unverified</span></li>'
         else:
             evidence_items += f'<li>{ev}</li>'
     if not evidence_items:
         evidence_items = "<li>No specific evidence provided.</li>"
-        
+
     concession_html = ""
     if op.concession_rationale and op.own_previous_position is not None and op.own_previous_position != op.recommendation:
         concession_html = f'''
-        <div class="mb-4 p-3.5 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-950 shadow-sm">
-            <div class="flex items-center gap-1.5 font-bold text-indigo-900 mb-1 text-[13px]">
-                <span class="material-symbols-outlined text-[18px]">handshake</span>
-                🤝 Strategic Concession Rationale:
+        <div style="margin-bottom:1rem;padding:0.75rem;background:#e9d8fd;border:2px solid #553c9a;font-size:0.8rem;color:#121212;">
+            <div style="font-weight:900;font-family:Outfit,sans-serif;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:#553c9a;margin-bottom:4px;">
+                ðŸ¤ Strategic Concession Rationale:
             </div>
-            <div class="italic leading-relaxed">"{escape(op.concession_rationale)}"</div>
+            <div style="font-style:italic;line-height:1.5;">"{escape(op.concession_rationale)}"</div>
         </div>
         '''
-        
+
     fallback_header = ""
-    card_bg = "bg-surface-container-lowest"
-    card_border = f"border {border_class}"
-    
+    card_bg = "#ffffff"
+    card_border_style = f"border: 4px solid #121212; border-top: 6px solid {accent}; box-shadow: 6px 6px 0px 0px #121212;"
+
     if getattr(op, "is_fallback", False):
-        fallback_header = '''
-        <div class="mb-4 p-2 bg-slate-100 border border-slate-300 border-dashed rounded text-xs text-slate-700 font-bold tracking-wide uppercase flex items-center gap-2">
-            <span>⚙️</span> Verified Baseline Calculation (AI reasoning unavailable)
+        fallback_header = f'''
+        <div style="margin-bottom:1rem;padding:6px 10px;background:#E0E0E0;border:2px dashed #121212;font-size:0.68rem;font-weight:900;font-family:Outfit,sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#121212;display:flex;align-items:center;gap:6px;">
+            âš™ Verified Baseline Calculation (AI reasoning unavailable)
         </div>
         '''
-        card_bg = "bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.02),rgba(0,0,0,0.02)_10px,rgba(255,255,255,0.5)_10px,rgba(255,255,255,0.5)_20px)]"
-        card_border = f"border-2 border-dashed {border_class}"
-        
+        card_bg = "#F0F0F0"
+        card_border_style = f"border: 4px dashed #121212; border-top: 6px solid {accent}; box-shadow: 4px 4px 0px 0px #121212;"
+
     html = f'''
-    <div class="{card_bg} {card_border} p-6 rounded-lg relative mb-6 shadow-sm" id="{card_id}">
-        <span class="absolute -top-3 left-4 bg-primary text-on-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{phase_label}</span>
+    <div style="background:{card_bg};{card_border_style};padding:1.25rem;position:relative;margin-bottom:1.5rem;" id="{card_id}">
+        <!-- Phase label â€” Bauhaus square tag -->
+        <span style="position:absolute;top:-14px;left:12px;background:#121212;color:#F0F0F0;font-family:Outfit,sans-serif;font-size:0.6rem;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;padding:2px 8px;border:2px solid #121212;">{phase_label}</span>
         {fallback_header}
-        <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 italic">
-            <span class="font-semibold text-slate-900 not-italic block mb-1">⚖️ Weighing counter-consideration:</span>
+        <!-- Tension block -->
+        <div style="margin-bottom:1rem;padding:0.5rem 0.75rem;background:{light_bg};border-left:4px solid {accent};font-size:0.78rem;color:#121212;font-style:italic;">
+            <div style="font-weight:900;font-family:Outfit,sans-serif;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:{accent};margin-bottom:3px;">âš– Weighing counter-consideration:</div>
             "{op.tension}"
         </div>
-        <p class="font-bold text-body-lg mb-4">{op.position}</p>
+        <p style="font-weight:900;font-family:Outfit,sans-serif;font-size:0.95rem;margin-bottom:1rem;color:#121212;line-height:1.4;">{op.position}</p>
         {concession_html}
         {callouts}
-        <details class="group">
-            <summary class="flex items-center justify-between cursor-pointer text-primary font-label-md">
-                <span>Evidence</span>
-                <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+        <details style="margin-top:0.5rem;">
+            <summary style="cursor:pointer;font-family:Outfit,sans-serif;font-size:0.68rem;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:{accent};display:flex;align-items:center;justify-content:between;list-style:none;">
+                â–¶ Evidence
             </summary>
-            <ul class="mt-3 space-y-2 text-body-md text-on-surface-variant list-disc pl-5">
+            <ul style="margin-top:0.5rem;padding-left:1.2rem;font-size:0.8rem;color:#121212;line-height:1.6;list-style:disc;">
                 {evidence_items}
             </ul>
         </details>
@@ -125,24 +134,28 @@ def build_transcript_html(session: CourtroomSession) -> str:
 
     agents = ["finance", "climate", "community"]
     columns_html = ""
-    
+
     for agent_name in agents:
-        bg_class = get_agent_color_class(agent_name)
+        accent = AGENT_ACCENT.get(agent_name, "#121212")
+        light_bg = AGENT_LIGHT_BG.get(agent_name, "#ffffff")
+        fg = AGENT_BG.get(agent_name, "#F0F0F0")
         emoji = get_agent_emoji(agent_name)
-        
+
         cards_html = ""
         for phase_idx, (phase_label, opinions) in enumerate(phases):
             op = opinions.get(agent_name)
             if op:
                 cards_html += build_card_html(agent_name, phase_idx, phase_label, op)
-        
+
         col = f'''
-        <div class="flex-1 border-r border-outline-variant {bg_class} p-6" id="col-{agent_name}">
-            <div class="flex items-center gap-3 mb-8">
-                <span class="text-2xl">{emoji}</span>
-                <h3 class="font-headline-md text-headline-md text-primary capitalize">{agent_name}</h3>
+        <div style="flex:1;border-right:4px solid #121212;background:{light_bg};padding:1.5rem;" id="col-{agent_name}">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:2rem;padding-bottom:0.75rem;border-bottom:4px solid #121212;">
+                <span style="font-size:1.5rem;">{emoji}</span>
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:1rem;text-transform:uppercase;letter-spacing:0.12em;color:{accent};">{agent_name}</h3>
+                <!-- Geometric corner accent -->
+                <div style="width:12px;height:12px;background:{accent};margin-left:auto;flex-shrink:0;"></div>
             </div>
-            <div class="space-y-6">
+            <div style="display:flex;flex-direction:column;gap:0;">
                 {cards_html}
             </div>
         </div>
@@ -166,58 +179,40 @@ def build_transcript_html(session: CourtroomSession) -> str:
 
     html = f"""
     <!DOCTYPE html>
-    <html class="light" lang="en">
+    <html lang="en">
     <head>
         <meta charset="utf-8"/>
-        <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-        <script>
-            tailwind.config = {{
-              darkMode: "class",
-              theme: {{
-                extend: {{
-                  colors: {{
-                    "primary": "#111d23",
-                    "on-primary": "#ffffff",
-                    "error": "#ba1a1a",
-                    "outline-variant": "#c3c7ca",
-                    "surface-container-lowest": "#ffffff",
-                    "on-surface-variant": "#43474a",
-                    "background": "#f9f9f9"
-                  }},
-                  fontFamily: {{
-                    "body-md": ["Public Sans"],
-                    "label-md": ["Public Sans"],
-                    "headline-md": ["Public Sans"],
-                    "body-lg": ["Public Sans"]
-                  }}
-                }}
-              }}
-            }}
-        </script>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet"/>
         <style>
-            .material-symbols-outlined {{
-                font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            * {{ box-sizing: border-box; }}
+            body {{
+                font-family: 'Outfit', sans-serif;
+                background-color: #F0F0F0;
+                background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
+                background-size: 22px 22px;
+                margin: 0; padding: 0;
+                color: #121212;
             }}
             .conflict-line {{
                 position: absolute;
-                height: 2px;
-                background-color: #ba1a1a;
-                opacity: 0.5;
+                height: 3px;
+                background-color: #742a2a;
+                opacity: 0.7;
                 z-index: 10;
                 pointer-events: none;
             }}
             .conflict-label {{
                 position: absolute;
-                background: white;
-                color: #ba1a1a;
-                border: 1px solid #ba1a1a;
-                padding: 2px 6px;
-                border-radius: 4px;
+                background: #121212;
+                color: #fefcbf;
+                border: 2px solid #744210;
+                padding: 2px 8px;
+                border-radius: 0;
                 font-size: 10px;
-                font-family: 'Public Sans', sans-serif;
-                font-weight: bold;
+                font-family: 'Outfit', sans-serif;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
                 z-index: 11;
                 transform: translate(-50%, -50%);
             }}
@@ -225,13 +220,14 @@ def build_transcript_html(session: CourtroomSession) -> str:
             .hide-scrollbar {{ -ms-overflow-style: none; scrollbar-width: none; }}
             details > summary {{ list-style: none; }}
             details > summary::-webkit-details-marker {{ display: none; }}
+            details[open] > summary::first-letter {{ }}
         </style>
     </head>
-    <body class="bg-background font-body-md text-[#1a1c1c]">
-        <main class="flex h-full overflow-hidden">
-            <section class="flex-1 overflow-x-auto hide-scrollbar relative">
-                <div class="absolute inset-0 pointer-events-none" id="conflict-lines-container"></div>
-                <div class="flex h-full min-w-[900px]">
+    <body>
+        <main style="display:flex;height:100%;overflow:hidden;">
+            <section style="flex:1;overflow-x:auto;position:relative;" class="hide-scrollbar">
+                <div style="position:absolute;inset:0;pointer-events:none;" id="conflict-lines-container"></div>
+                <div style="display:flex;height:100%;min-width:900px;border:4px solid #121212;box-shadow:8px 8px 0px 0px #121212;">
                     {columns_html}
                 </div>
             </section>
@@ -239,14 +235,14 @@ def build_transcript_html(session: CourtroomSession) -> str:
         <script>
             function drawConflictLines() {{
                 const container = document.getElementById('conflict-lines-container');
-                container.innerHTML = ''; 
+                container.innerHTML = '';
 
                 const conflicts = {conflicts_json};
 
                 conflicts.forEach(pair => {{
                     const el1 = document.getElementById(pair.from);
                     const el2 = document.getElementById(pair.to);
-                    
+
                     if (el1 && el2) {{
                         const rect1 = el1.getBoundingClientRect();
                         const rect2 = el2.getBoundingClientRect();
@@ -254,19 +250,16 @@ def build_transcript_html(session: CourtroomSession) -> str:
 
                         const line = document.createElement('div');
                         line.className = 'conflict-line';
-                        
-                        // From the right edge of left column, or left edge of right column
+
                         const x1 = rect1.right - canvasRect.left;
                         const x2 = rect2.left - canvasRect.left;
-                        
-                        // We want the line to connect the centers vertically
+
                         const y1 = rect1.top + (rect1.height / 2) - canvasRect.top;
                         const y2 = rect2.top + (rect2.height / 2) - canvasRect.top;
 
                         const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
                         const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
 
-                        // Start at x1,y1 (which is the right edge of the left element)
                         line.style.width = `${{length}}px`;
                         line.style.left = `${{x1}}px`;
                         line.style.top = `${{y1}}px`;
@@ -274,8 +267,7 @@ def build_transcript_html(session: CourtroomSession) -> str:
                         line.style.transformOrigin = '0 0';
 
                         container.appendChild(line);
-                        
-                        // Add parameter label in the middle
+
                         const label = document.createElement('div');
                         label.className = 'conflict-label';
                         label.innerText = pair.param;
@@ -294,11 +286,11 @@ def build_transcript_html(session: CourtroomSession) -> str:
                     setTimeout(drawConflictLines, 150);
                 }});
             }});
-            
-            // Re-draw periodically to handle dynamic parent height in Streamlit
+
             setInterval(drawConflictLines, 1000);
         </script>
     </body>
     </html>
     """
     return html
+

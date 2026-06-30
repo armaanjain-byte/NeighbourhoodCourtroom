@@ -82,14 +82,16 @@ def build_live_feed_html(events: list) -> str:
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Live Courtroom Feed</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    font-family: 'Outfit', sans-serif;
+    background-color: #F0F0F0;
+    background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
+    background-size: 22px 22px;
     min-height: 100vh;
-    color: #e2e8f0;
+    color: #121212;
 }}
 
 /* ── Layout ── */
@@ -97,26 +99,27 @@ body {{
     display: flex;
     flex-direction: column;
     gap: 0;
-    padding: 12px;
+    padding: 16px;
     min-height: 880px;
 }}
 .agent-columns {{
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 12px;
+    gap: 16px;
 }}
 .system-strip {{
-    padding: 4px 0;
+    padding: 8px 0;
 }}
 
 /* ── Agent column ── */
 .agent-col {{
     display: flex;
     flex-direction: column;
-    border-radius: 16px;
+    border-radius: 0;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
+    border: 4px solid #121212;
+    background: #ffffff;
+    box-shadow: 6px 6px 0px 0px #121212;
     min-height: 200px;
 }}
 .agent-header {{
@@ -124,63 +127,77 @@ body {{
     align-items: center;
     gap: 10px;
     padding: 14px 16px 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 3px solid #121212;
     position: relative;
 }}
-.agent-icon {{ font-size: 1.6rem; }}
+.agent-icon {{ font-size: 1.4rem; }}
 .agent-label {{
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0.12em;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
 }}
 .presence-dot {{
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #4a5568;
+    background: #e0e0e0;
+    border: 2px solid #121212;
     margin-left: auto;
     transition: background 0.3s;
     flex-shrink: 0;
 }}
 .presence-dot.thinking {{
-    background: #f6ad55;
+    background: #744210;
     animation: presence-pulse 1.0s ease-in-out infinite;
 }}
 .presence-dot.spoke {{
-    background: #68d391;
+    background: #276749;
     animation: none;
 }}
 
 @keyframes presence-pulse {{
-    0%,100% {{ box-shadow: 0 0 0 0 rgba(246,173,85,0.7); }}
-    50% {{ box-shadow: 0 0 0 6px rgba(246,173,85,0); }}
+    0%,100% {{ box-shadow: 0 0 0 0 rgba(116,66,16,0.7); }}
+    50% {{ box-shadow: 0 0 0 6px rgba(116,66,16,0); }}
 }}
+
+/* Column-specific header tints — identity colors */
+.col-finance  {{ border-top: 6px solid #744210; }}
+.col-climate  {{ border-top: 6px solid #276749; }}
+.col-community{{ border-top: 6px solid #553c9a; }}
+.col-finance   .agent-header {{ background: #fefcbf; }}
+.col-climate   .agent-header {{ background: #c6f6d5; }}
+.col-community .agent-header {{ background: #e9d8fd; }}
+.col-finance   .agent-label  {{ color: #744210; }}
+.col-climate   .agent-label  {{ color: #276749; }}
+.col-community .agent-label  {{ color: #553c9a; }}
 
 .agent-feed {{
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     padding: 12px;
     overflow-y: auto;
+    background: #ffffff;
 }}
 
 /* ── Column flash overlay ── */
 .col-flash {{
     position: absolute;
     inset: 0;
-    border-radius: 16px;
+    border-radius: 0;
     pointer-events: none;
     opacity: 0;
     z-index: 10;
 }}
 .col-flash.flash-red {{
-    background: rgba(252,129,129,0.35);
+    background: rgba(116,42,42,0.18);
     animation: col-flash-anim 0.7s ease-out forwards;
 }}
 .col-flash.flash-green {{
-    background: rgba(72,187,120,0.3);
+    background: rgba(39,103,73,0.18);
     animation: col-flash-anim 0.7s ease-out forwards;
 }}
 @keyframes col-flash-anim {{
@@ -188,18 +205,25 @@ body {{
     100% {{ opacity: 0; }}
 }}
 
-/* ── Chat bubbles ── */
+/* ── Chat bubbles — Bauhaus geometric ── */
 .bubble {{
-    border-radius: 14px;
+    border-radius: 0;
     padding: 12px 14px;
     font-size: 0.84rem;
     line-height: 1.55;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 2px solid #121212;
+    box-shadow: 3px 3px 0px 0px #121212;
     position: relative;
     word-break: break-word;
+    background: #ffffff;
+    color: #121212;
+    transition: transform 0.1s ease-out;
+}}
+.bubble:hover {{
+    transform: translate(-1px, -1px);
 }}
 .bubble.bubble-new {{
-    animation: bubble-popin 0.32s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    animation: bubble-popin 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards;
 }}
 .bubble.bubble-static {{
     animation: none;
@@ -207,51 +231,58 @@ body {{
     transform: none;
 }}
 @keyframes bubble-popin {{
-    from {{ opacity: 0; transform: scale(0.88) translateY(8px); }}
-    to   {{ opacity: 1; transform: scale(1)   translateY(0); }}
+    from {{ opacity: 0; transform: scale(0.9) translateY(6px); box-shadow: none; }}
+    to   {{ opacity: 1; transform: scale(1)  translateY(0);   box-shadow: 3px 3px 0px 0px #121212; }}
 }}
 
 /* Position bubble: main statement */
 .bubble-position {{
-    background: rgba(255,255,255,0.07);
-    border-left: 3px solid rgba(255,255,255,0.3);
+    background: #ffffff;
+    border-left: 5px solid #276749;
 }}
 .bubble .position-text {{
+    font-family: 'Outfit', sans-serif;
     font-weight: 700;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     margin-bottom: 8px;
+    color: #121212;
 }}
 .bubble .round-tag {{
     display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     padding: 2px 8px;
-    border-radius: 20px;
-    background: rgba(255,255,255,0.12);
-    color: rgba(255,255,255,0.7);
+    border-radius: 0;
+    border: 1px solid #121212;
+    background: #121212;
+    color: #F0F0F0;
     margin-bottom: 6px;
 }}
 
 /* Fallback bubble */
 .bubble-fallback {{
-    background: repeating-linear-gradient(45deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1) 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 20px);
-    border: 2px dashed rgba(255,255,255,0.3);
+    background: repeating-linear-gradient(45deg, #F0F0F0, #F0F0F0 8px, #ffffff 8px, #ffffff 16px);
+    border: 2px dashed #121212;
     padding: 0 !important;
     overflow: hidden;
+    box-shadow: 3px 3px 0px 0px #121212;
 }}
 .bubble-fallback .fallback-header {{
-    background: rgba(255,255,255,0.15);
-    color: #e2e8f0;
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.05em;
+    background: #E0E0E0;
+    color: #121212;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
     padding: 8px 14px;
-    border-bottom: 1px dashed rgba(255,255,255,0.2);
+    border-bottom: 2px dashed #121212;
     display: flex;
     align-items: center;
     gap: 6px;
+    text-transform: uppercase;
 }}
 .bubble-fallback .fallback-body {{
     padding: 12px 14px;
@@ -262,13 +293,17 @@ details.bubble-detail {{
     margin-top: 6px;
 }}
 details.bubble-detail summary {{
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: rgba(255,255,255,0.5);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #121212;
+    opacity: 0.55;
     cursor: pointer;
     user-select: none;
     list-style: none;
     padding: 3px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }}
 details.bubble-detail summary::-webkit-details-marker {{ display: none; }}
 details.bubble-detail summary::before {{ content: '▶ '; font-size: 0.6rem; }}
@@ -276,67 +311,79 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
 .detail-body {{
     margin-top: 6px;
     font-size: 0.78rem;
-    color: rgba(255,255,255,0.65);
+    color: #121212;
+    opacity: 0.7;
     line-height: 1.5;
 }}
 .evidence-list {{
     margin-top: 5px;
     padding-left: 14px;
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.5);
+    color: #121212;
+    opacity: 0.6;
 }}
 .evidence-list li {{ margin-bottom: 2px; }}
 
-/* Objection bubble */
+/* Objection bubble — red accent, Finance amber role maps to objection warning */
 .bubble-objection {{
-    border: 2px solid #fc8181;
-    background: rgba(252,129,129,0.08);
+    border: 2px solid #121212;
+    border-left: 5px solid #742a2a;
+    background: #fff0f0;
+    box-shadow: 3px 3px 0px 0px #121212;
 }}
 .bubble-objection .obj-header {{
-    font-size: 0.72rem;
-    font-weight: 800;
-    color: #fc8181;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 900;
+    color: #742a2a;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     margin-bottom: 5px;
 }}
 .bubble-objection .obj-claim {{
     font-size: 0.74rem;
-    color: rgba(252,129,129,0.75);
+    color: #742a2a;
+    opacity: 0.8;
     font-style: italic;
     margin-bottom: 5px;
     padding: 4px 8px;
-    background: rgba(252,129,129,0.06);
-    border-radius: 6px;
-    border-left: 2px solid rgba(252,129,129,0.4);
+    background: rgba(116,42,42,0.06);
+    border-radius: 0;
+    border-left: 3px solid #742a2a;
 }}
-.bubble-objection .obj-reason {{ font-size: 0.82rem; font-weight: 500; }}
+.bubble-objection .obj-reason {{ font-size: 0.82rem; font-weight: 500; color: #121212; }}
 
-/* Support bubble */
+/* Support bubble — Climate green */
 .bubble-support {{
-    border: 2px solid #68d391;
-    background: rgba(72,187,120,0.07);
+    border: 2px solid #121212;
+    border-left: 5px solid #276749;
+    background: #f0fff8;
+    box-shadow: 3px 3px 0px 0px #121212;
 }}
 .bubble-support .sup-header {{
-    font-size: 0.72rem;
-    font-weight: 800;
-    color: #68d391;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 900;
+    color: #276749;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     margin-bottom: 5px;
 }}
 
-/* Concession bubble */
+/* Concession bubble — Finance amber (gold/compromise tone) */
 .bubble-concession {{
-    border: 2px solid #fbd38d;
-    background: rgba(251,211,141,0.07);
+    border: 2px solid #121212;
+    border-left: 5px solid #744210;
+    background: #fefcbf;
+    box-shadow: 3px 3px 0px 0px #121212;
 }}
 .bubble-concession .con-header {{
-    font-size: 0.72rem;
-    font-weight: 800;
-    color: #fbd38d;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 900;
+    color: #744210;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     margin-bottom: 5px;
 }}
 
@@ -345,16 +392,21 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.75rem;
-    color: rgba(255,255,255,0.45);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #121212;
+    opacity: 0.45;
     padding: 6px 10px;
     font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }}
 .thinking-dots span {{
     display: inline-block;
     width: 5px; height: 5px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.4);
+    border-radius: 0;
+    background: #744210;
     animation: dot-bounce 1.2s infinite;
 }}
 .thinking-dots span:nth-child(2) {{ animation-delay: 0.2s; }}
@@ -370,50 +422,59 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     align-items: center;
     gap: 8px;
     padding: 10px 16px;
-    border-radius: 10px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    margin: 6px 0;
-    border: 1px solid rgba(255,255,255,0.08);
-    animation: banner-fadein 0.5s ease-out forwards;
+    border-radius: 0;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 8px 0;
+    border: 2px solid #121212;
+    box-shadow: 3px 3px 0px 0px #121212;
+    animation: banner-fadein 0.4s ease-out forwards;
 }}
 @keyframes banner-fadein {{
-    from {{ opacity: 0; transform: scaleX(0.96); }}
+    from {{ opacity: 0; transform: scaleX(0.97); }}
     to   {{ opacity: 1; transform: scaleX(1); }}
 }}
-.banner-conflict-high  {{ background: rgba(126,34,34,0.55); border-color: #fc8181; color: #fed7d7; }}
-.banner-conflict-medium{{ background: rgba(116,66,16,0.55); border-color: #f6ad55; color: #fefcbf; }}
-.banner-conflict-low   {{ background: rgba(22,78,51,0.5);  border-color: #68d391; color: #c6f6d5; }}
-.banner-neutral        {{ background: rgba(30,30,60,0.7);   border-color: rgba(255,255,255,0.15); color: #e2e8f0; }}
-.banner-r3             {{ background: rgba(88,28,135,0.6);  border-color: #b794f4; color: #e9d8fd; }}
-.banner-complete       {{ background: rgba(22,78,51,0.6);   border-color: #68d391; color: #c6f6d5; }}
+/* Finance amber = conflict-high (primary-red role) */
+.banner-conflict-high   {{ background: #744210; border-color: #121212; color: #fefcbf; }}
+/* Finance amber lighter = conflict-medium */
+.banner-conflict-medium {{ background: #fefcbf; border-color: #121212; color: #744210; }}
+/* Climate green = conflict-low */
+.banner-conflict-low    {{ background: #276749; border-color: #121212; color: #c6f6d5; }}
+/* Neutral — off-white, black border */
+.banner-neutral         {{ background: #F0F0F0; border-color: #121212; color: #121212; }}
+/* Round 3 — Community violet (primary-yellow role) */
+.banner-r3              {{ background: #553c9a; border-color: #121212; color: #e9d8fd; }}
+/* Complete — Climate green */
+.banner-complete        {{ background: #276749; border-color: #121212; color: #c6f6d5; }}
+
 .sev-badge {{
     display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 900;
     padding: 2px 8px;
-    border-radius: 20px;
+    border-radius: 0;
+    border: 1px solid currentColor;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
 }}
-.sev-badge.high   {{ background: #742a2a; color: #feb2b2; }}
-.sev-badge.medium {{ background: #744210; color: #fefcbf; }}
-.sev-badge.low    {{ background: #276749; color: #c6f6d5; }}
-
-/* Agent-specific tint colors */
-.col-finance  {{ border-top: 3px solid #d69e2e; }}
-.col-climate  {{ border-top: 3px solid #38a169; }}
-.col-community{{ border-top: 3px solid #6b46c1; }}
-.col-finance  .agent-header  {{ background: rgba(116,66,16,0.25); }}
-.col-climate  .agent-header  {{ background: rgba(39,103,73,0.25); }}
-.col-community .agent-header {{ background: rgba(85,60,154,0.25); }}
+.sev-badge.high   {{ background: #742a2a; color: #feb2b2; border-color: #742a2a; }}
+.sev-badge.medium {{ background: #744210; color: #fefcbf; border-color: #744210; }}
+.sev-badge.low    {{ background: #276749; color: #c6f6d5; border-color: #276749; }}
 
 .thinking-strip {{
-    font-size: 0.68rem;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.65rem;
     font-style: italic;
-    color: rgba(255,255,255,0.35);
+    color: #121212;
+    opacity: 0.35;
     padding: 4px 10px;
     display: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }}
 </style>
 </head>
@@ -827,7 +888,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Courtroom Scene Animation</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
@@ -836,19 +897,19 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
           theme: {{
             extend: {{
               colors: {{
-                "primary": "#111d23",
-                "on-primary": "#ffffff",
-                "error": "#ba1a1a",
-                "outline-variant": "#c3c7ca",
+                "primary": "#121212",
+                "on-primary": "#F0F0F0",
+                "error": "#742a2a",
+                "outline-variant": "#121212",
                 "surface-container-lowest": "#ffffff",
-                "on-surface-variant": "#43474a",
-                "background": "#f9f9f9"
+                "on-surface-variant": "#121212",
+                "background": "#F0F0F0"
               }},
               fontFamily: {{
-                "body-md": ["Public Sans", "Inter", "sans-serif"],
-                "label-md": ["Public Sans", "Inter", "sans-serif"],
-                "headline-md": ["Public Sans", "Inter", "sans-serif"],
-                "body-lg": ["Public Sans", "Inter", "sans-serif"]
+                "body-md": ["Outfit", "sans-serif"],
+                "label-md": ["Outfit", "sans-serif"],
+                "headline-md": ["Outfit", "sans-serif"],
+                "body-lg": ["Outfit", "sans-serif"]
               }},
               scale: {{
                 "98": "0.98"
@@ -860,8 +921,10 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
     <style>
         body {{
             margin: 0;
-            font-family: 'Inter', 'Public Sans', sans-serif;
-            background: transparent;
+            font-family: 'Outfit', sans-serif;
+            background-color: #F0F0F0;
+            background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
+            background-size: 22px 22px;
         }}
         .material-symbols-outlined {{
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -901,14 +964,16 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
         }}
         .conflict-label {{
             position: absolute;
-            background: white;
-            color: #ba1a1a;
-            border: 1px solid #ba1a1a;
-            padding: 2px 6px;
-            border-radius: 4px;
+            background: #121212;
+            color: #F0F0F0;
+            border: 2px solid #121212;
+            padding: 2px 8px;
+            border-radius: 0;
             font-size: 10px;
-            font-family: 'Public Sans', sans-serif;
-            font-weight: bold;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
             z-index: 11;
             transform: translate(-50%, -50%);
         }}
@@ -920,7 +985,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
 </head>
 <body>
     <!-- ANIMATION SCENE CONTAINER -->
-    <div id="animation-scene" class="relative flex flex-col justify-between w-full h-[820px] rounded-2xl overflow-hidden shadow-2xl border border-white border-opacity-10" style="background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);">
+    <div id="animation-scene" class="relative flex flex-col justify-between w-full h-[820px] overflow-hidden" style="background-color: #F0F0F0; border: 4px solid #121212; box-shadow: 8px 8px 0px 0px #121212;">
         
         <!-- Connecting lines overlay -->
         <div id="lines-container" class="absolute inset-0 pointer-events-none z-20"></div>
@@ -932,7 +997,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
         <div id="stage-panels" class="flex-1 grid grid-cols-3 gap-8 px-8 pt-32 pb-24 z-10 items-stretch">
             
             <!-- FINANCE PANEL -->
-            <div id="panel-finance" class="relative flex flex-col rounded-2xl p-6 border border-white border-opacity-20 transition-all duration-500 opacity-40 scale-98 shadow-lg overflow-y-auto hide-scrollbar" style="background-color: #744210; color: #fefcbf;">
+            <div id="panel-finance" class="relative flex flex-col p-6 transition-all duration-300 opacity-40 scale-98 overflow-y-auto hide-scrollbar" style="background-color: #744210; color: #fefcbf; border: 4px solid #121212; box-shadow: 6px 6px 0px 0px #121212; border-radius: 0;">
                 <div class="flex items-center justify-between border-b border-white border-opacity-20 pb-4 mb-6">
                     <div class="flex items-center gap-3">
                         <span class="material-symbols-outlined text-4xl">bar_chart</span>
@@ -944,7 +1009,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
             </div>
 
             <!-- CLIMATE PANEL -->
-            <div id="panel-climate" class="relative flex flex-col rounded-2xl p-6 border border-white border-opacity-20 transition-all duration-500 opacity-40 scale-98 shadow-lg overflow-y-auto hide-scrollbar" style="background-color: #276749; color: #c6f6d5;">
+            <div id="panel-climate" class="relative flex flex-col p-6 transition-all duration-300 opacity-40 scale-98 overflow-y-auto hide-scrollbar" style="background-color: #276749; color: #c6f6d5; border: 4px solid #121212; box-shadow: 6px 6px 0px 0px #121212; border-radius: 0;">
                 <div class="flex items-center justify-between border-b border-white border-opacity-20 pb-4 mb-6">
                     <div class="flex items-center gap-3">
                         <span class="material-symbols-outlined text-4xl">eco</span>
@@ -956,7 +1021,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
             </div>
 
             <!-- COMMUNITY PANEL -->
-            <div id="panel-community" class="relative flex flex-col rounded-2xl p-6 border border-white border-opacity-20 transition-all duration-500 opacity-40 scale-98 shadow-lg overflow-y-auto hide-scrollbar" style="background-color: #553c9a; color: #e9d8fd;">
+            <div id="panel-community" class="relative flex flex-col p-6 transition-all duration-300 opacity-40 scale-98 overflow-y-auto hide-scrollbar" style="background-color: #553c9a; color: #e9d8fd; border: 4px solid #121212; box-shadow: 6px 6px 0px 0px #121212; border-radius: 0;">
                 <div class="flex items-center justify-between border-b border-white border-opacity-20 pb-4 mb-6">
                     <div class="flex items-center gap-3">
                         <span class="material-symbols-outlined text-4xl">other_houses</span>
@@ -970,45 +1035,45 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
         </div>
 
         <!-- Bottom Judge's Bench Console -->
-        <div id="judges-bench" class="relative z-30 flex items-center justify-between px-8 py-5 border-t border-white border-opacity-15 shadow-2xl" style="background: rgba(15, 12, 41, 0.85); backdrop-filter: blur(16px);">
+        <div id="judges-bench" class="relative z-30 flex items-center justify-between px-8 py-4" style="background: #ffffff; border-top: 4px solid #121212; box-shadow: 0 -3px 0 0 #121212;">
             <!-- Play/Pause and Speed Controls -->
-            <div class="flex items-center gap-4">
-                <button id="btn-play-pause" onclick="togglePlay()" class="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-sm rounded-xl shadow-lg transition-all transform active:scale-95">
-                    ⏸️ Pause
+            <div class="flex items-center gap-3">
+                <button id="btn-play-pause" onclick="togglePlay()" class="flex items-center gap-2 px-5 py-2 font-black text-xs uppercase tracking-widest transition-all" style="background: #553c9a; color: #e9d8fd; border: 3px solid #121212; border-radius: 0; box-shadow: 4px 4px 0px 0px #121212; font-family: Outfit, sans-serif; letter-spacing: 0.1em;" onmouseover="this.style.transform='translate(-1px,-1px)'; this.style.boxShadow='6px 6px 0px 0px #121212'" onmouseout="this.style.transform=''; this.style.boxShadow='4px 4px 0px 0px #121212'" onmousedown="this.style.transform='translate(3px,3px)'; this.style.boxShadow='none'" onmouseup="this.style.transform='translate(-1px,-1px)'; this.style.boxShadow='6px 6px 0px 0px #121212'">
+                    ⏸ PAUSE
                 </button>
-                <div class="flex items-center bg-black bg-opacity-40 p-1 rounded-xl border border-white border-opacity-10">
-                    <button id="btn-speed-1" onclick="setSpeed(1)" class="speed-btn px-4 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all">1x</button>
-                    <button id="btn-speed-2" onclick="setSpeed(2)" class="speed-btn px-4 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-all">2x</button>
-                    <button id="btn-speed-4" onclick="setSpeed(4)" class="speed-btn px-4 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-all">4x</button>
+                <div class="flex items-center" style="border: 3px solid #121212; box-shadow: 3px 3px 0px 0px #121212;">
+                    <button id="btn-speed-1" onclick="setSpeed(1)" class="speed-btn px-4 py-1.5 text-xs font-black uppercase transition-all" style="background: #744210; color: #fefcbf; border-right: 2px solid #121212; font-family: Outfit, sans-serif;">1×</button>
+                    <button id="btn-speed-2" onclick="setSpeed(2)" class="speed-btn px-4 py-1.5 text-xs font-black uppercase transition-all" style="background: #F0F0F0; color: #121212; border-right: 2px solid #121212; font-family: Outfit, sans-serif;">2×</button>
+                    <button id="btn-speed-4" onclick="setSpeed(4)" class="speed-btn px-4 py-1.5 text-xs font-black uppercase transition-all" style="background: #F0F0F0; color: #121212; font-family: Outfit, sans-serif;">4×</button>
                 </div>
             </div>
 
             <!-- Progress & Status Indicator -->
-            <div class="flex-1 max-w-md mx-8 flex flex-col items-center">
-                <div id="beat-label" class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Initializing Courtroom Scene...</div>
-                <div class="w-full h-2 bg-black bg-opacity-50 rounded-full overflow-hidden border border-white border-opacity-10 shadow-inner">
-                    <div id="beat-progress-fill" class="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 w-0 transition-all duration-300"></div>
+            <div class="flex-1 max-w-md mx-6 flex flex-col items-center">
+                <div id="beat-label" class="text-xs font-black text-gray-900 uppercase tracking-widest mb-2" style="font-family: Outfit, sans-serif;">Initializing Courtroom Scene...</div>
+                <div class="w-full overflow-hidden" style="height: 8px; background: #E0E0E0; border: 2px solid #121212; border-radius: 0;">
+                    <div id="beat-progress-fill" class="h-full w-0 transition-all duration-300" style="background: #276749;"></div>
                 </div>
             </div>
 
             <!-- Toggle Full Transcript Fallback -->
-            <button onclick="toggleTranscriptView()" class="flex items-center gap-2 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm rounded-xl border border-white border-opacity-20 shadow-lg transition-all transform active:scale-95">
-                📜 View Full Transcript
+            <button onclick="toggleTranscriptView()" class="flex items-center gap-2 px-5 py-2 font-black text-xs uppercase tracking-widest transition-all" style="background: #ffffff; color: #121212; border: 3px solid #121212; border-radius: 0; box-shadow: 4px 4px 0px 0px #121212; font-family: Outfit, sans-serif;" onmouseover="this.style.transform='translate(-1px,-1px)'; this.style.boxShadow='6px 6px 0px 0px #121212'" onmouseout="this.style.transform=''; this.style.boxShadow='4px 4px 0px 0px #121212'">
+                📜 Full Transcript
             </button>
         </div>
 
     </div>
 
     <!-- FULL TRANSCRIPT FALLBACK CONTAINER -->
-    <div id="full-transcript-view" class="hidden bg-background font-body-md text-[#1a1c1c] w-full min-h-[820px] rounded-2xl border border-outline-variant overflow-hidden shadow-2xl flex flex-col">
+    <div id="full-transcript-view" class="hidden bg-background font-body-md text-[#121212] w-full min-h-[820px] overflow-hidden flex flex-col" style="border: 4px solid #121212; box-shadow: 8px 8px 0px 0px #121212; border-radius: 0;">
         <!-- Top Action Bar -->
-        <div class="bg-primary text-on-primary px-8 py-4 flex items-center justify-between border-b border-outline-variant">
+        <div class="px-8 py-4 flex items-center justify-between" style="background: #121212; color: #F0F0F0; border-bottom: 4px solid #121212;">
             <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-3xl">history_edu</span>
-                <h2 class="text-xl font-bold tracking-wide">Full Debate Transcript & Conflict Mapping</h2>
+                <span class="material-symbols-outlined text-3xl" style="color: #fefcbf;">history_edu</span>
+                <h2 class="text-xl font-black tracking-widest uppercase" style="font-family: Outfit, sans-serif; color: #F0F0F0;">Debate Transcript &amp; Conflict Map</h2>
             </div>
-            <button onclick="toggleTranscriptView()" class="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm rounded-xl shadow-lg transition-all transform active:scale-95">
-                🎭 Return to Animation Scene
+            <button onclick="toggleTranscriptView()" class="flex items-center gap-2 px-5 py-2 font-black text-xs uppercase tracking-widest" style="background: #553c9a; color: #e9d8fd; border: 3px solid #e9d8fd; border-radius: 0; box-shadow: 3px 3px 0px 0px rgba(233,216,253,0.5); font-family: Outfit, sans-serif;">
+                🎭 Back to Scene
             </button>
         </div>
         <!-- Transcript Columns -->
@@ -1039,8 +1104,12 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
 
         function setSpeed(mult) {{
             speedMultiplier = mult;
-            document.querySelectorAll('.speed-btn').forEach(btn => btn.classList.remove('bg-indigo-600', 'text-white'));
-            document.getElementById(`btn-speed-${{mult}}`).classList.add('bg-indigo-600', 'text-white');
+            document.querySelectorAll('.speed-btn').forEach(btn => {{
+                btn.style.background = '#F0F0F0';
+                btn.style.color = '#121212';
+            }});
+            const activeBtn = document.getElementById(`btn-speed-${{mult}}`);
+            if (activeBtn) {{ activeBtn.style.background = '#744210'; activeBtn.style.color = '#fefcbf'; }}
             if (isPlaying) {{
                 playBeat(currentBeatIndex);
             }}
@@ -1050,10 +1119,14 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
             isPlaying = !isPlaying;
             const btn = document.getElementById('btn-play-pause');
             if (isPlaying) {{
-                btn.innerHTML = '⏸️ Pause';
+                btn.innerHTML = '⏸ PAUSE';
+                btn.style.background = '#553c9a';
+                btn.style.color = '#e9d8fd';
                 playBeat(currentBeatIndex);
             }} else {{
-                btn.innerHTML = '▶️ Play';
+                btn.innerHTML = '▶ PLAY';
+                btn.style.background = '#276749';
+                btn.style.color = '#c6f6d5';
                 clearAllTimeouts();
             }}
         }}
@@ -1061,7 +1134,8 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
         function toggleTranscriptView() {{
             clearAllTimeouts();
             isPlaying = false;
-            document.getElementById('btn-play-pause').innerHTML = '▶️ Play';
+            const endBtn = document.getElementById('btn-play-pause');
+            if (endBtn) {{ endBtn.innerHTML = '▶ PLAY'; endBtn.style.background = '#276749'; endBtn.style.color = '#c6f6d5'; }}
             document.getElementById('animation-scene').classList.toggle('hidden');
             document.getElementById('full-transcript-view').classList.toggle('hidden');
             setTimeout(drawConflictLines, 200);
@@ -1098,8 +1172,17 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
 
             if (labelText) {{
                 const label = document.createElement('div');
-                label.className = 'absolute bg-slate-900 text-white border-2 px-4 py-1.5 rounded-full text-xs font-extrabold z-30 shadow-2xl transform -translate-x-1/2 -translate-y-1/2';
-                label.style.borderColor = colorHex;
+                label.className = 'absolute z-30 transform -translate-x-1/2 -translate-y-1/2';
+                label.style.background = '#121212';
+                label.style.color = '#F0F0F0';
+                label.style.border = `2px solid ${{colorHex}}`;
+                label.style.padding = '2px 8px';
+                label.style.borderRadius = '0';
+                label.style.fontSize = '10px';
+                label.style.fontFamily = 'Outfit, sans-serif';
+                label.style.fontWeight = '900';
+                label.style.letterSpacing = '0.08em';
+                label.style.textTransform = 'uppercase';
                 label.style.left = `${{x1 + (x2 - x1) / 2}}px`;
                 label.style.top = `${{y1 + (y2 - y1) / 2}}px`;
                 label.innerText = labelText;
@@ -1160,9 +1243,9 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                 }});
                 const startTitle = (beat.session_attempt > 1) ? `⚖️ Session Attempt ${{beat.session_attempt}} (Round ${{beat.negotiation_round}}) Commencing` : `⚖️ Round ${{beat.negotiation_round || beat.round_number}} Commencing`;
                 document.getElementById('status-banner').innerHTML = `
-                    <div class="bg-indigo-950 bg-opacity-95 text-white border-2 border-indigo-400 p-6 rounded-3xl shadow-2xl text-center animate-bounce max-w-xl mx-auto">
-                        <h2 class="text-2xl font-black tracking-wider uppercase">${{startTitle}}</h2>
-                        <p class="text-indigo-200 text-sm mt-2 font-semibold">${{beat.content.message || ''}}</p>
+                    <div class="text-center animate-bounce max-w-xl mx-auto" style="background:#121212; color:#F0F0F0; border: 4px solid #F0F0F0; padding: 1.5rem 2rem; box-shadow: 8px 8px 0px 0px rgba(240,240,240,0.3); border-radius: 0; font-family: Outfit, sans-serif;">
+                        <h2 style="font-size:1.5rem; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#fefcbf;">${{startTitle}}</h2>
+                        <p style="font-size:0.82rem; margin-top:0.5rem; font-weight:700; color:#c6f6d5; letter-spacing:0.04em;">${{beat.content.message || ''}}</p>
                     </div>
                 `;
             }} 

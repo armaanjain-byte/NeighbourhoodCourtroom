@@ -75,15 +75,17 @@ except Exception as e:
 # ── Inline CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
 
 html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Outfit', sans-serif;
 }
 
-/* Background */
+/* ── Bauhaus canvas ──────────────────────────────────────────────────────── */
 .stApp {
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    background-color: #F0F0F0;
+    background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
+    background-size: 22px 22px;
     min-height: 100vh;
 }
 
@@ -93,97 +95,183 @@ html, body, [class*="css"] {
     max-width: 1100px;
 }
 
-/* Hero title */
+/* ── Hero title ─────────────────────────────────────────────────────────── */
 .hero-title {
-    font-size: 3rem;
-    font-weight: 800;
-    background: linear-gradient(90deg, #f8cdda, #1d8cf8, #a18cd1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-family: 'Outfit', sans-serif;
+    font-size: 3.2rem;
+    font-weight: 900;
+    color: #121212;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
     margin-bottom: 0.25rem;
+    line-height: 1;
+    /* left color-block accent tab — Finance amber */
+    border-left: 8px solid #744210;
+    padding-left: 1rem;
 }
 .hero-sub {
-    color: #8892a4;
-    font-size: 1.05rem;
+    color: #121212;
+    opacity: 0.65;
+    font-size: 1rem;
+    font-weight: 500;
     margin-bottom: 2rem;
+    padding-left: 1.5rem;
 }
 
-/* Section headers */
+/* ── Section headers ────────────────────────────────────────────────────── */
 .section-header {
-    color: #e2e8f0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    font-family: 'Outfit', sans-serif;
+    color: #121212;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    margin: 1.5rem 0 0.5rem;
-    padding-bottom: 0.3rem;
-    border-bottom: 1px solid #2d3748;
+    margin: 2rem 0 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 4px solid #121212;
 }
 
-/* Cards */
+/* ── Cards ──────────────────────────────────────────────────────────────── */
 .card {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 14px;
+    background: #ffffff;
+    border: 4px solid #121212;
+    border-radius: 0;
     padding: 1.5rem;
     margin-bottom: 1rem;
-    backdrop-filter: blur(8px);
+    box-shadow: 6px 6px 0px 0px #121212;
 }
 
-/* Score metric cards */
-.score-card {
-    background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 16px;
+/* ── Score metric cards (Bauhaus color-blocked) ─────────────────────────── */
+/* Finance = amber/gold (primary-red role) */
+.score-card-finance {
+    background: #744210;
+    border: 4px solid #121212;
+    border-radius: 0;
     padding: 1.4rem 1.2rem;
     text-align: center;
-    backdrop-filter: blur(10px);
+    box-shadow: 8px 8px 0px 0px #121212;
+    position: relative;
 }
-.score-card .agent-name {
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
+/* Climate = green (primary-blue role) */
+.score-card-climate {
+    background: #276749;
+    border: 4px solid #121212;
+    border-radius: 0;
+    padding: 1.4rem 1.2rem;
+    text-align: center;
+    box-shadow: 8px 8px 0px 0px #121212;
+    position: relative;
+}
+/* Community = violet (primary-yellow role) */
+.score-card-community {
+    background: #553c9a;
+    border: 4px solid #121212;
+    border-radius: 0;
+    padding: 1.4rem 1.2rem;
+    text-align: center;
+    box-shadow: 8px 8px 0px 0px #121212;
+    position: relative;
+}
+/* Geometric corner decoration (circle) */
+.score-card-finance::after,
+.score-card-climate::after,
+.score-card-community::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #121212;
+    opacity: 0.4;
+}
+/* Fallback .score-card for any unclassified cards */
+.score-card {
+    background: #ffffff;
+    border: 4px solid #121212;
+    border-radius: 0;
+    padding: 1.4rem 1.2rem;
+    text-align: center;
+    box-shadow: 8px 8px 0px 0px #121212;
+}
+.score-card .agent-name,
+.score-card-finance .agent-name,
+.score-card-climate .agent-name,
+.score-card-community .agent-name {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #8892a4;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
 }
-.score-card .score-value {
-    font-size: 3rem;
-    font-weight: 800;
+.score-card-finance .agent-name { color: #fefcbf; }
+.score-card-climate .agent-name { color: #c6f6d5; }
+.score-card-community .agent-name { color: #e9d8fd; }
+.score-card .agent-name { color: #121212; }
+
+.score-card .score-value,
+.score-card-finance .score-value,
+.score-card-climate .score-value,
+.score-card-community .score-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 3.5rem;
+    font-weight: 900;
     line-height: 1;
 }
-.score-card .score-label {
-    font-size: 0.75rem;
-    color: #8892a4;
-    margin-top: 0.3rem;
-}
-.score-high { color: #48bb78; }
-.score-mid  { color: #ecc94b; }
-.score-low  { color: #fc8181; }
+.score-card-finance .score-value { color: #fefcbf; }
+.score-card-climate .score-value { color: #c6f6d5; }
+.score-card-community .score-value { color: #e9d8fd; }
 
-/* Transcript entry types */
+.score-card .score-label,
+.score-card-finance .score-label,
+.score-card-climate .score-label,
+.score-card-community .score-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.3rem;
+    opacity: 0.7;
+}
+.score-card-finance .score-label { color: #fefcbf; }
+.score-card-climate .score-label { color: #c6f6d5; }
+.score-card-community .score-label { color: #e9d8fd; }
+.score-card .score-label { color: #121212; }
+
+/* Score colour helpers (kept for logic compatibility) */
+.score-high { color: #276749; }
+.score-mid  { color: #744210; }
+.score-low  { color: #742a2a; }
+
+/* ── Transcript entry types ─────────────────────────────────────────────── */
 .tx-entry {
     padding: 0.75rem 1rem;
-    border-radius: 10px;
+    border-radius: 0;
     margin-bottom: 0.5rem;
     font-size: 0.88rem;
     line-height: 1.55;
+    border: 2px solid #121212;
 }
-.tx-position  { background: rgba(49,130,206,0.15); border-left: 3px solid #3182ce; }
-.tx-evidence  { background: rgba(72,187,120,0.10); border-left: 3px solid #48bb78; }
-.tx-objection { background: rgba(252,129,129,0.13); border-left: 3px solid #fc8181; }
-.tx-support   { background: rgba(237,211,81,0.12);  border-left: 3px solid #ecc94b; }
+.tx-position  { background: #e8f0ff; border-left: 5px solid #276749; }
+.tx-evidence  { background: #eafaf0; border-left: 5px solid #276749; }
+.tx-objection { background: #fff0f0; border-left: 5px solid #742a2a; }
+.tx-support   { background: #fefcbf; border-left: 5px solid #744210; }
 
 .tx-agent-badge {
     display: inline-block;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     padding: 0.15rem 0.55rem;
-    border-radius: 20px;
+    border-radius: 0;
+    border: 1px solid #121212;
     margin-right: 0.5rem;
 }
+/* Exact existing identity colours — preserved verbatim */
 .badge-climate   { background: #276749; color: #c6f6d5; }
 .badge-finance   { background: #744210; color: #fefcbf; }
 .badge-community { background: #553c9a; color: #e9d8fd; }
@@ -191,83 +279,170 @@ html, body, [class*="css"] {
 
 .tx-type-tag {
     display: inline-block;
-    font-size: 0.68rem;
-    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
     padding: 0.1rem 0.45rem;
-    border-radius: 12px;
+    border-radius: 0;
+    border: 1px solid currentColor;
     margin-right: 0.4rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
 }
-.tag-position  { background: rgba(49,130,206,0.25);  color: #90cdf4; }
-.tag-evidence  { background: rgba(72,187,120,0.25);  color: #9ae6b4; }
-.tag-objection { background: rgba(252,129,129,0.3);  color: #feb2b2; }
-.tag-support   { background: rgba(237,211,81,0.25);  color: #faf089; }
+.tag-position  { background: #c6f6d5; color: #276749; }
+.tag-evidence  { background: #c6f6d5; color: #276749; }
+.tag-objection { background: #fed7d7; color: #742a2a; }
+.tag-support   { background: #fefcbf; color: #744210; }
 
-/* Conflict badges */
+/* ── Conflict / severity badges ─────────────────────────────────────────── */
 .conflict-badge {
     display: inline-block;
-    font-size: 0.72rem;
-    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 900;
     padding: 0.2rem 0.7rem;
-    border-radius: 20px;
+    border-radius: 0;
+    border: 2px solid #121212;
     text-transform: uppercase;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.08em;
 }
+/* Exact existing severity colours — preserved verbatim */
 .severity-high   { background: #742a2a; color: #feb2b2; }
 .severity-medium { background: #744210; color: #fefcbf; }
 .severity-low    { background: #276749; color: #c6f6d5; }
 
-/* Proposal table */
+/* ── Proposal table ─────────────────────────────────────────────────────── */
 .param-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.88rem;
+    border: 3px solid #121212;
 }
 .param-table th {
     text-align: left;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
+    padding: 0.55rem 0.75rem;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #718096;
-    border-bottom: 1px solid #2d3748;
+    color: #fefcbf;
+    background: #744210;
+    border-bottom: 3px solid #121212;
+    border-right: 1px solid rgba(255,255,255,0.2);
 }
 .param-table td {
     padding: 0.55rem 0.75rem;
-    color: #e2e8f0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: #121212;
+    background: #ffffff;
+    border-bottom: 1px solid #e0e0e0;
+    border-right: 1px solid #e0e0e0;
 }
-.param-table tr:hover td { background: rgba(255,255,255,0.03); }
-.param-changed { color: #68d391; font-weight: 600; }
+.param-table tr:nth-child(even) td { background: #F0F0F0; }
+.param-table tr:hover td { background: #fefcbf; }
+.param-changed { color: #276749; font-weight: 700; }
 
-/* Override panel */
+/* ── Override panel ─────────────────────────────────────────────────────── */
 .override-panel {
-    background: rgba(49,130,206,0.08);
-    border: 1px solid rgba(49,130,206,0.25);
-    border-radius: 14px;
+    background: #ffffff;
+    border: 4px solid #121212;
+    border-radius: 0;
     padding: 1.5rem;
     margin-top: 1rem;
+    box-shadow: 6px 6px 0px 0px #121212;
 }
 
-/* Spinner override */
-.stSpinner > div { color: #a18cd1 !important; }
+/* ── Spinner override ────────────────────────────────────────────────────── */
+.stSpinner > div { color: #553c9a !important; }
 
-/* Streamlit widget label colour */
-label { color: #cbd5e0 !important; }
+/* ── Streamlit widget label colour ───────────────────────────────────────── */
+label { color: #121212 !important; font-family: 'Outfit', sans-serif !important; font-weight: 700 !important; }
 
-/* Button style override */
+/* ── Bauhaus Button ─────────────────────────────────────────────────────── */
 div.stButton > button {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    padding: 0.6rem 2rem;
-    font-weight: 600;
-    font-size: 1rem;
-    transition: opacity 0.2s;
+    font-family: 'Outfit', sans-serif;
+    background: #553c9a;
+    color: #e9d8fd;
+    border: 3px solid #121212;
+    border-radius: 0;
+    padding: 0.65rem 2rem;
+    font-weight: 900;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    box-shadow: 4px 4px 0px 0px #121212;
+    transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
 }
-div.stButton > button:hover { opacity: 0.88; }
+div.stButton > button:hover {
+    background: #6b46c1;
+    color: #e9d8fd;
+    transform: translate(-1px, -1px);
+    box-shadow: 6px 6px 0px 0px #121212;
+}
+div.stButton > button:active {
+    transform: translate(3px, 3px);
+    box-shadow: none;
+}
+
+/* ── Streamlit selectbox / input overrides ──────────────────────────────── */
+div[data-baseweb="select"] > div {
+    border: 3px solid #121212 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: 3px 3px 0px 0px #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+}
+
+/* ── Streamlit tab overrides ─────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    border-bottom: 4px solid #121212;
+    gap: 0;
+}
+.stTabs [data-baseweb="tab"] {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #121212;
+    background: #E0E0E0;
+    border: 3px solid #121212;
+    border-bottom: none;
+    border-radius: 0;
+    padding: 0.5rem 1.2rem;
+    margin-right: -3px;
+}
+.stTabs [aria-selected="true"] {
+    background: #744210 !important;
+    color: #fefcbf !important;
+}
+
+/* ── Streamlit info / warning / error banners ────────────────────────────── */
+div[data-testid="stAlert"] {
+    border-radius: 0 !important;
+    border-width: 3px !important;
+    border-style: solid !important;
+    border-color: #121212 !important;
+    box-shadow: 4px 4px 0px 0px #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+}
+
+/* ── Caption / st.caption ───────────────────────────────────────────────── */
+div[data-testid="stCaptionContainer"] p {
+    font-family: 'Outfit', sans-serif;
+    color: #121212;
+    opacity: 0.65;
+}
+
+/* ── Metric delta ────────────────────────────────────────────────────────── */
+div[data-testid="metric-container"] {
+    background: #ffffff;
+    border: 3px solid #121212;
+    border-radius: 0;
+    padding: 1rem;
+    box-shadow: 5px 5px 0px 0px #121212;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -707,9 +882,9 @@ def stage_result(is_override: bool = False) -> None:
             cls = _score_class(new_score)
             with cols[i]:
                 st.markdown(
-                    f'<div class="score-card">'
+                    f'<div class="score-card-{agent_name}">'
                     f'<div class="agent-name">{agent_name} Agent</div>'
-                    f'<div class="score-value {cls}">{new_score:.0f}</div>'
+                    f'<div class="score-value">{new_score:.0f}</div>'
                     f'<div class="score-label">/ 100</div>'
                     f'</div>',
                     unsafe_allow_html=True,
