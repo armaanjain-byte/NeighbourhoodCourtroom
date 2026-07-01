@@ -177,7 +177,7 @@ class DataLoader:
                     "base_costs": {
                         "housing_unit": float(raw_city.get("residential_cost_per_sqft", 150)) * 1000.0,
                         "parking_space": float(raw_city.get("parking_cost_per_space", 25000)),
-                        "green_space_pct": float(raw_city.get("green_space_cost_per_sqft", 15)) * 43560.0,
+                        "green_space_pct": 500000.0 * (float(raw_city.get("green_space_cost_per_sqft", 15)) / 15.0),
                         "community_center_sqft": float(raw_city.get("commercial_cost_per_sqft", 350.0)),
                     },
                     "soft_cost_multiplier": 1.1,

@@ -128,7 +128,7 @@ def test_construction_costs_flat_format(mock_data_dir, loader):
     assert costs["city_index"] == 94.0
     assert costs["base_costs"]["housing_unit"] == 140000.0  # 140.0 * 1000.0
     assert costs["base_costs"]["parking_space"] == 23000.0
-    assert costs["base_costs"]["green_space_pct"] == 435600.0  # 10.0 * 43560.0
+    assert costs["base_costs"]["green_space_pct"] == pytest.approx(333333.33333)
     assert costs["base_costs"]["community_center_sqft"] == 300.0
 
 def test_construction_costs_legacy_format(mock_data_dir, loader):

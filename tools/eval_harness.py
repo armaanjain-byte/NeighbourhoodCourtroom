@@ -208,7 +208,7 @@ def main():
     metrics = run_eval_harness(args.runs, args.live)
     
     # Write JSON
-    with open("eval_results.json", "w") as f:
+    with open("eval_results.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
         
     # Write Markdown
@@ -224,7 +224,7 @@ def main():
 - **Score Consistency (StdDev)**: ±{metrics['score_stddev']:.1f} score variance across identical runs.
 - **Conflict Resolution Rate**: {metrics['conflict_escalation']['resolved_pct']:.1f}% of disagreements resolved via weighted mean vs {metrics['conflict_escalation']['escalated_pct']:.1f}% escalated to HIGH severity.
 """
-    with open("eval_report.md", "w") as f:
+    with open("eval_report.md", "w", encoding="utf-8") as f:
         f.write(md_content)
         
     print("\nResults saved to eval_results.json and eval_report.md")

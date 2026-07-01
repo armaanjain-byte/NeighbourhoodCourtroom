@@ -159,7 +159,7 @@ class TestCostCalculator:
         # city_index: 105.0 -> 1.05
         # residential_cost_per_sqft: 210 -> housing_unit = 210,000
         # parking_cost_per_space: 25000
-        # green_space_cost_per_sqft: 12 -> 12 * 43560 = 522,720
+        # green_space_cost_per_sqft: 12 -> 500,000 * (12 / 15.0) = 400,000
         # commercial_cost_per_sqft: 280
         # 
         # base_proposal has:
@@ -170,10 +170,10 @@ class TestCostCalculator:
         # 
         # Housing: 100 * 210,000 * 1.05 = 22,050,000
         # Parking: 200 * 25,000 * 1.05 = 5,250,000
-        # Green: 20.0 * 522,720 * 1.05 = 10,977,120
+        # Green: 20.0 * 400,000 * 1.05 = 8,400,000
         # Community: 5000 * 280 * 1.05 = 1,470,000
         
         assert breakdown["housing_cost"] == pytest.approx(22_050_000.0)
         assert breakdown["parking_cost"] == pytest.approx(5_250_000.0)
-        assert breakdown["green_space_cost"] == pytest.approx(10_977_120.0)
+        assert breakdown["green_space_cost"] == pytest.approx(8_400_000.0)
         assert breakdown["community_center_cost"] == pytest.approx(1_470_000.0)
