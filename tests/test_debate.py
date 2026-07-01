@@ -272,3 +272,53 @@ class TestRunDebateRound:
         assert round_record.detected_conflicts[0].disagreement_severity == "high"
         # Not auto-resolved
         assert updated.green_space_pct == 20.0
+
+    def test_round_level_budget_reconciliation(self) -> None:
+        """Verify that when changes blow the budget, increases are scaled back but cuts are preserved."""
+        proposal = create_initial_proposal(
+            city_slug="phoenix_az",
+            green_space_pct=20.0,
+            parking_spaces=100,
+            housing_units=100
+        )
+        
+        # Finance proposes a cut to parking.
+        # Climate proposes massive increase to green space.
+        # Community proposes massive increase to housing.
+        outputs = {
+            "finance": _make_output("finance", {"parking_spaces": 50.0}),
+            "climate": _make_output("climate", {"green_space_pct": 80.0}),
+            "community": _make_output("community", {"housing_units": 500.0})
+        }
+        
+        class RealMockCostCalculator(CostCalculator):
+            def __init__(self):
+                super().__init__(MockDataLoader())
+            def calculate_estimated_cost(self, p: Proposal) -> float:
+                # 100k per housing unit, 10k per parking, 500k per green space pct
+                return (p.housing_units * 100000) + (p.parking_spaces * 10000) + (p.green_space_pct * 500000)
+                
+        calc = RealMockCostCalculator()
+        # Original cost: (100 * 100k) + (100 * 10k) + (20 * 500k) = 10M + 1M + 10M = 21M
+        assert calc.calculate_estimated_cost(proposal) == 21_000_000.0
+        
+        # Local budget is BASE_TARGET_BUDGET (55M) * 1.0 = 55M. 1.1x = 60.5M.
+        # Unscaled changes cost: (500 * 100k) + (50 * 10k) + (80 * 500k) = 50M + 0.5M + 40M = 90.5M.
+        # This is > 60.5M. Delta is 90.5M - 21M = 69.5M.
+        # Allowed increase = 60.5M - 21M = 39.5M.
+        # Fraction = 39.5M / 69.5M = 0.5683... -> exact value used in engine
+        
+        debate_round, updated = run_debate_round(proposal, outputs, cost_calculator=calc)
+        
+        # Cuts MUST be preserved completely (fraction not applied to decreases)
+        assert updated.parking_spaces == 50.0
+        
+        # Increases must be scaled back
+        # Housing: orig 100, proposed 500. Increase 400. 400 * 0.5683453 = 227.3. New = 327
+        assert updated.housing_units == 327
+        
+        # Green space: orig 20, proposed 80. Increase 60. 60 * 0.5683453 = 34.1. New = 54.1
+        assert round(updated.green_space_pct, 1) == 54.1
+        
+        # Ensure the engine summary mentions the budget reconciliation
+        assert "[BUDGET RECONCILIATION]" in debate_round.engine_summary

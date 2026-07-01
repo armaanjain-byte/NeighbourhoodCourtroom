@@ -259,7 +259,7 @@ class TestCommunityAgent:
                 return {
                     "city_index": 1.0,
                     "base_costs": {
-                        "housing_unit": 250000.0, # 100 units = 25M
+                        "housing_unit": 565000.0, # 100 units = 56.5M
                         "community_center_sqft": 1250.0, # 2000 sqft = 2.5M
                     },
                     "soft_cost_multiplier": 1.0,
@@ -289,7 +289,7 @@ class TestCommunityAgent:
                 return {
                     "city_index": 1.0,
                     "base_costs": {
-                        "housing_unit": 400000.0, # 100 units = 40M (way over 25M budget!)
+                        "housing_unit": 800000.0, # 100 units = 80M (way over 65M budget!)
                     },
                     "soft_cost_multiplier": 1.0,
                     "contingency_multiplier": 1.0,

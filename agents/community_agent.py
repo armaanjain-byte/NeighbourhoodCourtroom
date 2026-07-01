@@ -283,7 +283,8 @@ class CommunityAgent(BaseAgent):
                 city_index = costs.get("city_index", 1.0)
                 # Normalize city_index if it's on a 100-scale
                 city_index = city_index / 100.0 if city_index > 10.0 else city_index
-                local_budget = 25_000_000.0 * city_index
+                from agents.finance_agent import FinanceAgent
+                local_budget = FinanceAgent.BASE_TARGET_BUDGET * city_index
                 
                 test_proposal = proposal.model_copy(update=changes)
                 new_cost = calc.calculate_estimated_cost(test_proposal)

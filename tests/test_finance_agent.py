@@ -95,7 +95,7 @@ def proposal_over_budget() -> Proposal:
         green_space_pct=30.0,
         housing_units=100,
         parking_spaces=200,
-        estimated_cost=60_000_000.0,  # over 50M limit
+        estimated_cost=65_000_000.0,  # over 55M limit
     )
 
 
@@ -104,7 +104,7 @@ def proposal_well_under_budget() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
         housing_units=100,
-        estimated_cost=30_000_000.0,  # well under 50M limit
+        estimated_cost=30_000_000.0,  # well under 55M limit
     )
 
 
@@ -113,7 +113,7 @@ def proposal_near_budget() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
         housing_units=100,
-        estimated_cost=48_000_000.0,  # near 50M limit (96%)
+        estimated_cost=52_000_000.0,  # near 55M limit (94%)
     )
 
 
@@ -133,12 +133,12 @@ class TestFinanceAgent:
         assert agent.agent_name == "finance"
 
     def test_over_budget_proposal(self, proposal_over_budget: Proposal) -> None:
-        agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 50M
+        agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 55M
         output = agent.evaluate(proposal_over_budget, {})
         
-        # 60M / 50M = 1.2
-        # score = 100 - (1.2 * 40) = 52.0
-        assert output.score == 52.0
+        # 65M / 55M = 1.1818
+        # score = 100 - (1.1818 * 40) = 52.7
+        assert round(output.score, 1) == 52.7
         assert output.verdict == "modify"
         
         # Changes expected: green_space -> 20.0, housing -> 150, parking -> 160

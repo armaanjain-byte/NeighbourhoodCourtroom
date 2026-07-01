@@ -169,6 +169,48 @@ def run_debate_round(
     # 2 & 3. Detect and resolve conflicts
     conflicts, resolution, summary = process_conflicts(opening_state, agent_outputs)
 
+    # 3.5. Round-Level Budget Reconciliation
+    resolved_changes = resolution.get("resolved_changes", {})
+    if resolved_changes and cost_calculator is not None:
+        try:
+            # Temporary copy to calculate proposed new cost
+            test_proposal = opening_state.model_copy(update=resolved_changes)
+            new_cost = cost_calculator.calculate_estimated_cost(test_proposal)
+            current_cost = cost_calculator.calculate_estimated_cost(opening_state)
+            
+            # Retrieve local budget
+            costs = cost_calculator.data_loader.get_construction_costs(opening_state.city_slug)
+            city_index = costs.get("city_index", 1.0)
+            city_index = city_index / 100.0 if city_index > 10.0 else city_index
+            
+            from agents.finance_agent import FinanceAgent
+            local_budget = FinanceAgent.BASE_TARGET_BUDGET * city_index
+            
+            # If the combined changes blow the budget, scale back the net INCREASES
+            if new_cost > local_budget * 1.1:
+                delta_cost = new_cost - current_cost
+                if delta_cost > 0:
+                    allowed_increase = max(0.0, (local_budget * 1.1) - current_cost)
+                    fraction = allowed_increase / delta_cost
+                    fraction = max(0.0, min(1.0, fraction))
+                    
+                    if fraction < 1.0:
+                        scaled_changes = {}
+                        for k, v in resolved_changes.items():
+                            orig_val = getattr(opening_state, k)
+                            if v > orig_val:
+                                # This parameter is increasing cost. Scale it back.
+                                scaled_val = orig_val + (v - orig_val) * fraction
+                                scaled_changes[k] = int(scaled_val) if isinstance(orig_val, int) else round(scaled_val, 2)
+                            else:
+                                # This parameter is a cut/decrease. Preserve it entirely.
+                                scaled_changes[k] = v
+                                
+                        resolution["resolved_changes"] = scaled_changes
+                        summary += f"\n\n[BUDGET RECONCILIATION]: Combined changes exceeded local budget + 10%. Scale-back factor of {fraction} applied to proposed increases to preserve Finance cuts."
+        except Exception:
+            pass
+
     # 4 & 5. Apply resolved changes and produce closing state
     closing_state = apply_resolved_changes(
         opening_state, 

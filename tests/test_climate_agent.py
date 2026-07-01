@@ -213,18 +213,18 @@ class TestClimateAgent:
                 return {
                     "city_index": 1.0,
                     "base_costs": {
-                        "housing_unit": 250000.0, # 100 units = 25M
+                        "housing_unit": 565080.0, # 100 units = 56.5M
                     },
                     "soft_cost_multiplier": 1.0,
                     "contingency_multiplier": 1.0,
                 }
         agent = ClimateAgent(ModeratelyOverBudgetMockLoader())
-        # Current cost is exactly 25M
+        # Current cost is exactly 56.5M
         proposal = create_initial_proposal("phoenix_az", green_space_pct=0.0, parking_spaces=0, housing_units=100, community_center_sqft=0.0)
         output = agent.evaluate(proposal, {})
         
-        # delta_cost = 5.175M (5M green + 175k community). allowed = 1.25M
-        # fraction = 1.25 / 5.175 = 0.24
+        # delta_cost = 5.175M (5M green + 175k community). allowed = 1.242M
+        # fraction = 1.242 / 5.175 = 0.24
         # green_space_pct = 0.0 + 10.0 * 0.24 = 2.4
         
         assert "scaled back to 24%" in output.reasoning_and_evidence
@@ -236,7 +236,7 @@ class TestClimateAgent:
                 return {
                     "city_index": 1.0,
                     "base_costs": {
-                        "housing_unit": 400000.0, # 100 units = 40M (way over 25M budget!)
+                        "housing_unit": 800000.0, # 100 units = 80M (way over 55M budget!)
                     },
                     "soft_cost_multiplier": 1.0,
                     "contingency_multiplier": 1.0,
@@ -245,7 +245,7 @@ class TestClimateAgent:
         proposal = create_initial_proposal("phoenix_az", green_space_pct=0.0, parking_spaces=0, housing_units=100, community_center_sqft=0.0)
         output = agent.evaluate(proposal, {})
         
-        # current_cost = 40M. threshold = 26.25M. allowed = 0.0
+        # current_cost = 80M. threshold = 57.75M. allowed = 0.0
         # fraction = max(0.1, 0.0) = 0.1
         # green_space_pct = 0.0 + 10.0 * 0.1 = 1.0
         

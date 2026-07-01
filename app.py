@@ -166,6 +166,7 @@ header[data-testid="stHeader"] [data-testid="stMainMenu"] button:hover {
 /* ── Cards ──────────────────────────────────────────────────────────────── */
 .card {
     background: #ffffff;
+    color: #121212;
     border: 4px solid #121212;
     border-radius: 0;
     padding: 1.5rem;
@@ -681,7 +682,7 @@ Agents negotiate across up to three rounds, proposing changes and responding to 
     if eval_data:
         with st.expander("📊 System Quality Metrics (Eval Harness Results)", expanded=False):
             st.markdown("""
-            <div style="font-family:'Outfit',sans-serif;font-size:0.9rem;color:#121212;line-height:1.6;margin-bottom:1rem;">
+            <div class="legend-text" style="font-size:0.9rem;display:block;">
             These metrics are precomputed by running the conflict engine headlessly across multiple city scenarios to evaluate agent consistency and grounding quality.
             </div>
             """, unsafe_allow_html=True)
@@ -697,7 +698,7 @@ Agents negotiate across up to three rounds, proposing changes and responding to 
             ecols[3].metric("Escalated Conflicts", f"{esc_pct:.1f}%")
             
             st.markdown(f"""
-            <div style="font-size:0.75rem;color:#4a5568;margin-top:1rem;">
+            <div class="legend-text" style="font-size:0.75rem;margin-top:1rem;display:block;">
             * Based on {eval_data.get('total_sessions', 0)} headless simulation sessions. Budget sanity rate: {eval_data.get('budget_sanity_pct', 0):.1f}%. Fallback usage: {eval_data.get('fallback_usage_pct', 0):.1f}%.
             </div>
             """, unsafe_allow_html=True)
@@ -939,7 +940,7 @@ def stage_result(is_override: bool = False) -> None:
   <span><span style="background:#276749;color:#c6f6d5;padding:2px 8px;border-radius:12px;font-weight:700;">🌿 CLIMATE</span>&nbsp; Environmental impact &amp; green infrastructure</span>
   <span><span style="background:#553c9a;color:#e9d8fd;padding:2px 8px;border-radius:12px;font-weight:700;">🏘️ COMMUNITY</span>&nbsp; Resident quality of life &amp; social equity</span>
 </div>
-<div style="font-size:0.76rem;color:#718096;margin-bottom:0.6rem;">Score = 0–100. Each agent rates how well the final proposal serves their domain. Higher is better.</div>
+<div class="legend-text" style="font-size:0.76rem;margin-bottom:0.6rem;display:block;">Score = 0–100. Each agent rates how well the final proposal serves their domain. Higher is better.</div>
 """, unsafe_allow_html=True)
 
     cols = st.columns(3)
@@ -1094,11 +1095,14 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
             unsafe_allow_html=True,
         )
         # Proposal table legend
-        st.caption(
-            "**Opening** = the numbers you originally submitted. "
-            "**Final** = the numbers after all rounds of negotiation. "
-            "**↑ green** = increased by agents, **↓ green** = decreased. "
-            "Unchanged rows mean all agents agreed to keep your number as-is."
+        st.markdown(
+            '<div class="legend-text" style="display:block;">'
+            '<strong>Opening</strong> = the numbers you originally submitted. '
+            '<strong>Final</strong> = the numbers after all rounds of negotiation. '
+            '<strong>↑ green</strong> = increased by agents, <strong>↓ green</strong> = decreased. '
+            'Unchanged rows mean all agents agreed to keep your number as-is.'
+            '</div>',
+            unsafe_allow_html=True
         )
         st.markdown('<div class="card">', unsafe_allow_html=True)
         render_proposal_table(session)
@@ -1120,10 +1124,13 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
 
     # ── Override panel ────────────────────────────────────────────────────
     st.markdown('<div class="section-header">🔨 Your Ruling</div>', unsafe_allow_html=True)
-    st.caption(
-        "As the judge, you can **lock any parameter** to a specific value — overriding what the agents negotiated. "
-        "Once you lock a value, the agents re-debate the remaining parameters with your ruling as a hard constraint. "
-        "Locked parameters cannot be changed again by any agent in future rounds."
+    st.markdown(
+        '<div class="legend-text" style="display:block;">'
+        'As the judge, you can <strong>lock any parameter</strong> to a specific value — overriding what the agents negotiated. '
+        'Once you lock a value, the agents re-debate the remaining parameters with your ruling as a hard constraint. '
+        'Locked parameters cannot be changed again by any agent in future rounds.'
+        '</div>',
+        unsafe_allow_html=True
     )
 
     ov_param = st.selectbox(
