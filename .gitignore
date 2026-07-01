@@ -6,3 +6,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .streamlit/secrets.toml
+
+# Scratch and debug scripts
+debug_*.py
+scratch_*.py
+raw_*_test.py
+
