@@ -29,6 +29,53 @@ class MockDataLoader:
             raise RuntimeError("Database connection lost.")
         return {"city_index": self.city_index}
 
+    def get_reference_standards(self, filename: str) -> dict:
+        """Return a minimal finance standards dict for testing."""
+        return {
+            "building_cost_benchmarks": {
+                "residential_multifamily": {
+                    "low_cost_per_sqft": 120,
+                    "mid_cost_per_sqft": 200,
+                    "high_cost_per_sqft": 320,
+                    "unit": "USD per square foot",
+                    "source": "RSMeans Construction Cost Data 2024"
+                },
+                "structured_parking": {
+                    "low_cost_per_space": 15000,
+                    "mid_cost_per_space": 25000,
+                    "high_cost_per_space": 45000,
+                    "unit": "USD per structured parking space",
+                    "source": "RSMeans Construction Cost Data 2024"
+                }
+            },
+            "parking_ratio_standards": {
+                "residential_multifamily_urban": {
+                    "min_spaces_per_unit": 0.5,
+                    "typical_spaces_per_unit": 1.0,
+                    "source": "ITE Parking Generation Manual, 5th Edition (2019)"
+                }
+            },
+            "civic_amenity_roi": {
+                "community_center": {
+                    "property_value_uplift_pct": 5.0,
+                    "payback_years_typical": 20,
+                    "source": "Urban Land Institute (2022)"
+                },
+                "green_space": {
+                    "property_value_uplift_pct_within_500ft": 8.0,
+                    "source": "Trust for Public Land CityPark Score 2023"
+                }
+            },
+            "affordability_benchmarks": {
+                "affordable_unit_cost_subsidy_per_unit": {
+                    "low": 30000,
+                    "typical": 60000,
+                    "high": 120000,
+                    "source": "HUD Choice Neighborhoods 2022"
+                }
+            }
+        }
+
 
 class MockCostCalculator(CostCalculator):
     def __init__(self, city_index: float, should_fail: bool = False):
@@ -195,3 +242,51 @@ class TestFinanceAgent:
         opinion = agent.generate_opinion(proposal_near_budget, {})
         assert "using deterministic fallback" in opinion.position
 
+
+# ── Tests for get_cost_benchmarks tool ──────────────────────────────────
+
+def test_get_cost_benchmarks_all_categories():
+    """get_cost_benchmarks('all') returns all major categories."""
+    agent = FinanceAgent(MockCostCalculator(1.0))
+    result = agent.execute_tool_call("get_cost_benchmarks", {"category": "all"})
+    assert "building_cost_benchmarks" in result
+    assert "parking_ratio_standards" in result
+    assert "civic_amenity_roi" in result
+    assert "affordability_benchmarks" in result
+
+
+def test_get_cost_benchmarks_building_costs():
+    """get_cost_benchmarks returns RSMeans building cost data with correct numeric ranges."""
+    agent = FinanceAgent(MockCostCalculator(1.0))
+    result = agent.execute_tool_call("get_cost_benchmarks", {"category": "building_cost_benchmarks"})
+    assert "building_cost_benchmarks" in result
+    assert "parking_ratio_standards" not in result
+    residential = result["building_cost_benchmarks"]["residential_multifamily"]
+    assert residential["low_cost_per_sqft"] == 120
+    assert residential["mid_cost_per_sqft"] == 200
+    assert residential["high_cost_per_sqft"] == 320
+    parking = result["building_cost_benchmarks"]["structured_parking"]
+    assert parking["low_cost_per_space"] == 15000
+    assert parking["mid_cost_per_space"] == 25000
+    assert parking["high_cost_per_space"] == 45000
+
+
+def test_get_cost_benchmarks_parking_ratios():
+    """get_cost_benchmarks returns ITE parking ratio standards."""
+    agent = FinanceAgent(MockCostCalculator(1.0))
+    result = agent.execute_tool_call("get_cost_benchmarks", {"category": "parking_ratio_standards"})
+    assert "parking_ratio_standards" in result
+    ratios = result["parking_ratio_standards"]["residential_multifamily_urban"]
+    assert ratios["min_spaces_per_unit"] == 0.5
+    assert ratios["typical_spaces_per_unit"] == 1.0
+
+
+def test_get_cost_benchmarks_civic_roi():
+    """get_cost_benchmarks returns ULI green space and community center ROI data."""
+    agent = FinanceAgent(MockCostCalculator(1.0))
+    result = agent.execute_tool_call("get_cost_benchmarks", {"category": "civic_amenity_roi"})
+    assert "civic_amenity_roi" in result
+    green = result["civic_amenity_roi"]["green_space"]
+    assert green["property_value_uplift_pct_within_500ft"] == 8.0
+    community = result["civic_amenity_roi"]["community_center"]
+    assert community["payback_years_typical"] == 20

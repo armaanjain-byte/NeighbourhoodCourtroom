@@ -228,3 +228,19 @@ class DataLoader:
         """List all city slugs present in cities.json."""
         data = self._load_json("cities.json")
         return list(data.keys())
+
+    def get_reference_standards(self, filename: str) -> dict:
+        """Load a non-city-specific reference/standards JSON file using the same caching pattern.
+        
+        Parameters
+        ----------
+        filename : str
+            The filename (e.g. 'finance_standards.json') relative to data_root.
+            
+        Returns
+        -------
+        dict
+            The parsed standards data.
+        """
+        return self._load_json(filename)
+

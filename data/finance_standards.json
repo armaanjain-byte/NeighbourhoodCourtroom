@@ -1,0 +1,79 @@
+{
+  "_comment": "Finance domain knowledge base — RSMeans 2024 summary data and Urban Land Institute benchmarks. Source: RSMeans Construction Cost Data (2024 edition, public summary tables); Urban Land Institute 'Ten Principles for Building Healthy Places' 2023; HUD CPD program guidelines for civic amenity ROI.",
+  "building_cost_benchmarks": {
+    "residential_multifamily": {
+      "low_cost_per_sqft": 120,
+      "mid_cost_per_sqft": 200,
+      "high_cost_per_sqft": 320,
+      "unit": "USD per square foot",
+      "source": "RSMeans Construction Cost Data 2024, Section 03 — Concrete/Wood Frame Residential"
+    },
+    "community_center": {
+      "low_cost_per_sqft": 200,
+      "mid_cost_per_sqft": 300,
+      "high_cost_per_sqft": 450,
+      "unit": "USD per square foot",
+      "source": "RSMeans Construction Cost Data 2024, Section 11 — Recreation Buildings"
+    },
+    "structured_parking": {
+      "low_cost_per_space": 15000,
+      "mid_cost_per_space": 25000,
+      "high_cost_per_space": 45000,
+      "unit": "USD per structured parking space",
+      "source": "RSMeans Construction Cost Data 2024, Section 02 — Site Work / Parking"
+    },
+    "surface_parking": {
+      "low_cost_per_space": 3000,
+      "mid_cost_per_space": 5000,
+      "high_cost_per_space": 8000,
+      "unit": "USD per surface parking space",
+      "source": "RSMeans Construction Cost Data 2024, Section 02 — Site Work"
+    }
+  },
+  "parking_ratio_standards": {
+    "residential_multifamily_urban": {
+      "min_spaces_per_unit": 0.5,
+      "typical_spaces_per_unit": 1.0,
+      "max_spaces_per_unit": 1.5,
+      "note": "Urban multifamily parking ratios; lower in transit-rich areas",
+      "source": "ITE Parking Generation Manual, 5th Edition (2019)"
+    },
+    "community_center_per_1000sqft": {
+      "min": 3.0,
+      "typical": 4.5,
+      "max": 6.0,
+      "unit": "spaces per 1,000 sqft",
+      "source": "ITE Parking Generation Manual, 5th Edition (2019)"
+    }
+  },
+  "civic_amenity_roi": {
+    "community_center": {
+      "economic_value_per_sqft_per_year": 12.0,
+      "property_value_uplift_pct": 5.0,
+      "health_savings_per_user_per_year": 200,
+      "payback_years_typical": 20,
+      "source": "Urban Land Institute, The Economics of Civic Facilities (2022)"
+    },
+    "green_space": {
+      "property_value_uplift_pct_within_500ft": 8.0,
+      "annual_stormwater_savings_per_acre": 3000,
+      "heat_reduction_value_per_pct_canopy": 500,
+      "source": "Trust for Public Land CityPark Score 2023; EPA National Stormwater Calculator"
+    }
+  },
+  "affordability_benchmarks": {
+    "ami_income_limits": {
+      "very_low_income_pct_ami": 50,
+      "low_income_pct_ami": 80,
+      "moderate_income_pct_ami": 120,
+      "source": "HUD FY2023 Income Limits documentation"
+    },
+    "affordable_unit_cost_subsidy_per_unit": {
+      "low": 30000,
+      "typical": 60000,
+      "high": 120000,
+      "unit": "USD subsidy per affordable unit",
+      "source": "HUD Choice Neighborhoods 2022 Grantee data"
+    }
+  }
+}

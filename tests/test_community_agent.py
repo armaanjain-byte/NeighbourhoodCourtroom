@@ -43,6 +43,43 @@ class MockDataLoader(DataLoader):
             raise RuntimeError("Land use data corrupted.")
         return {"max_parking_spaces": 150}
 
+    def get_reference_standards(self, filename: str) -> dict:
+        """Return a minimal community standards dict for testing."""
+        return {
+            "community_facility_standards": {
+                "sqft_per_capita": {
+                    "minimum_sqft_per_1000_residents": 1000.0,
+                    "recommended_sqft_per_1000_residents": 1500.0,
+                    "source": "APA Planning Advisory Service Report #596 (2018)"
+                },
+                "program_area_minimums": {
+                    "min_multipurpose_hall_sqft": 2000,
+                    "source": "APA Community Facilities Design Standards (2018)"
+                }
+            },
+            "ada_accessibility_requirements": {
+                "parking_accessible_spaces": {
+                    "pct_required_accessible_over_100_spaces": 4.0,
+                    "source": "ADA Standards for Accessible Design (2010), Section 208"
+                }
+            },
+            "affordable_housing_benchmarks": {
+                "inclusionary_zoning_typical_ranges": {
+                    "minimum_affordable_pct_typical": 10.0,
+                    "moderate_affordable_pct_typical": 20.0,
+                    "high_affordable_pct_typical": 30.0,
+                    "source": "Furman Center, Inclusionary Zoning (2023)"
+                }
+            },
+            "walkability_standards": {
+                "walk_score_categories": {
+                    "very_walkable_min": 70,
+                    "somewhat_walkable_min": 50,
+                    "source": "Walk Score methodology; EPA Smart Growth Program"
+                }
+            }
+        }
+
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -242,3 +279,46 @@ class TestCommunityAgent:
         assert "scaled back to 10%" in output.reasoning_and_evidence
         assert output.proposed_changes["community_center_sqft"] == 200.0
         assert output.proposed_changes["affordable_housing_pct"] == 15.5
+
+
+# ── Tests for get_planning_standards tool ─────────────────────────────
+
+def test_get_planning_standards_all_categories():
+    """get_planning_standards('all') returns all top-level categories (excluding _ prefixed)."""
+    agent = CommunityAgent(MockDataLoader())
+    result = agent.execute_tool_call("get_planning_standards", {"category": "all"})
+    assert "community_facility_standards" in result
+    assert "ada_accessibility_requirements" in result
+    assert "affordable_housing_benchmarks" in result
+    assert "walkability_standards" in result
+
+
+def test_get_planning_standards_community_facility():
+    """get_planning_standards returns APA sqft per capita minimums."""
+    agent = CommunityAgent(MockDataLoader())
+    result = agent.execute_tool_call("get_planning_standards", {"category": "community_facility_standards"})
+    assert "community_facility_standards" in result
+    assert "ada_accessibility_requirements" not in result
+    sqft = result["community_facility_standards"]["sqft_per_capita"]
+    assert sqft["minimum_sqft_per_1000_residents"] == 1000.0
+    assert sqft["recommended_sqft_per_1000_residents"] == 1500.0
+
+
+def test_get_planning_standards_affordable_housing():
+    """get_planning_standards returns HUD/Furman Center inclusionary zoning benchmarks."""
+    agent = CommunityAgent(MockDataLoader())
+    result = agent.execute_tool_call("get_planning_standards", {"category": "affordable_housing_benchmarks"})
+    assert "affordable_housing_benchmarks" in result
+    ranges = result["affordable_housing_benchmarks"]["inclusionary_zoning_typical_ranges"]
+    assert ranges["minimum_affordable_pct_typical"] == 10.0
+    assert ranges["moderate_affordable_pct_typical"] == 20.0
+    assert ranges["high_affordable_pct_typical"] == 30.0
+
+
+def test_get_planning_standards_ada():
+    """get_planning_standards returns ADA parking accessibility requirements."""
+    agent = CommunityAgent(MockDataLoader())
+    result = agent.execute_tool_call("get_planning_standards", {"category": "ada_accessibility_requirements"})
+    assert "ada_accessibility_requirements" in result
+    ada = result["ada_accessibility_requirements"]["parking_accessible_spaces"]
+    assert ada["pct_required_accessible_over_100_spaces"] == 4.0

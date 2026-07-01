@@ -34,6 +34,36 @@ class MockDataLoader(DataLoader):
             raise RuntimeError("Land use data corrupted.")
         return {"max_parking_spaces": 150}
 
+    def get_reference_standards(self, filename: str) -> dict:
+        """Return a minimal climate standards dict for testing."""
+        return {
+            "heat_island_mitigation": {
+                "tree_canopy_targets": {
+                    "minimum_canopy_pct_urban": 20.0,
+                    "recommended_canopy_pct_urban": 30.0,
+                    "cooling_effect_per_10pct_canopy_f": 2.5,
+                    "source": "EPA Heat Island Effect Mitigation Strategies (2023)"
+                },
+                "green_space_cooling_threshold": {
+                    "min_green_space_pct_for_measurable_cooling": 15.0,
+                    "strong_cooling_effect_threshold_pct": 25.0,
+                    "source": "EPA Heat Island Compendium (2023)"
+                }
+            },
+            "stormwater_guidance": {
+                "impervious_surface_limits": {
+                    "low_impact_max_impervious_pct": 25.0,
+                    "moderate_impact_max_impervious_pct": 40.0,
+                    "source": "EPA NPDES Phase II Guidance (2016)"
+                }
+            },
+            "parking_climate_impact": {
+                "impervious_area_per_space_sqft": 330,
+                "annual_runoff_gallons_per_space": 15000,
+                "source": "EPA Reducing Urban Heat Islands Compendium (2023)"
+            }
+        }
+
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -209,3 +239,46 @@ class TestClimateAgent:
         
         assert "scaled back to 10%" in output.reasoning_and_evidence
         assert output.proposed_changes["green_space_pct"] == 1.0
+
+
+# ── Tests for get_climate_guidance tool ────────────────────────────────────
+
+def test_get_climate_guidance_all_categories():
+    """get_climate_guidance('all') returns all top-level categories (excluding _ prefixed)."""
+    agent = ClimateAgent(MockDataLoader())
+    result = agent.execute_tool_call("get_climate_guidance", {"category": "all"})
+    assert "heat_island_mitigation" in result
+    assert "stormwater_guidance" in result
+    assert "parking_climate_impact" in result
+
+
+def test_get_climate_guidance_specific_category():
+    """get_climate_guidance returns only the requested category."""
+    agent = ClimateAgent(MockDataLoader())
+    result = agent.execute_tool_call("get_climate_guidance", {"category": "heat_island_mitigation"})
+    assert "heat_island_mitigation" in result
+    assert "stormwater_guidance" not in result
+    # Spot-check a real numeric value from the standards
+    canopy = result["heat_island_mitigation"]["tree_canopy_targets"]
+    assert canopy["minimum_canopy_pct_urban"] == 20.0
+    assert canopy["recommended_canopy_pct_urban"] == 30.0
+
+
+def test_get_climate_guidance_stormwater():
+    """get_climate_guidance returns stormwater data with correct EPA impervious surface limits."""
+    agent = ClimateAgent(MockDataLoader())
+    result = agent.execute_tool_call("get_climate_guidance", {"category": "stormwater_guidance"})
+    assert "stormwater_guidance" in result
+    limits = result["stormwater_guidance"]["impervious_surface_limits"]
+    assert limits["low_impact_max_impervious_pct"] == 25.0
+    assert limits["moderate_impact_max_impervious_pct"] == 40.0
+
+
+def test_get_climate_guidance_parking_impact():
+    """get_climate_guidance returns parking_climate_impact with numeric values usable as evidence."""
+    agent = ClimateAgent(MockDataLoader())
+    result = agent.execute_tool_call("get_climate_guidance", {"category": "parking_climate_impact"})
+    assert "parking_climate_impact" in result
+    impact = result["parking_climate_impact"]
+    assert impact["impervious_area_per_space_sqft"] == 330
+    assert impact["annual_runoff_gallons_per_space"] == 15000

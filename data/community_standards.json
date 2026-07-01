@@ -1,0 +1,80 @@
+{
+  "_comment": "Community domain knowledge base — APA, ADA, HUD, and Census guidance standards. Sources cited per field.",
+  "community_facility_standards": {
+    "sqft_per_capita": {
+      "minimum_sqft_per_1000_residents": 1000.0,
+      "recommended_sqft_per_1000_residents": 1500.0,
+      "high_service_sqft_per_1000_residents": 2500.0,
+      "source": "American Planning Association (APA) Planning Advisory Service Report #596, Community Facilities (2018)"
+    },
+    "proximity_standards": {
+      "max_walking_distance_to_community_center_ft": 2640,
+      "recommended_walking_distance_ft": 1320,
+      "source": "APA Planning Advisory Service Report #596 (2018)"
+    },
+    "program_area_minimums": {
+      "min_meeting_room_sqft": 500,
+      "min_multipurpose_hall_sqft": 2000,
+      "min_kitchen_sqft": 300,
+      "source": "APA Community Facilities Design Standards (2018)"
+    }
+  },
+  "ada_accessibility_requirements": {
+    "parking_accessible_spaces": {
+      "total_spaces_1_to_25_required_accessible": 1,
+      "total_spaces_26_to_50_required_accessible": 2,
+      "total_spaces_51_to_75_required_accessible": 3,
+      "total_spaces_76_to_100_required_accessible": 4,
+      "pct_required_accessible_over_100_spaces": 4.0,
+      "van_accessible_pct_of_accessible_spaces": 1.0,
+      "source": "ADA Standards for Accessible Design (2010), Section 208 — Parking Spaces"
+    },
+    "community_facility_accessible_entry": {
+      "min_door_width_inches": 32,
+      "recommended_door_width_inches": 36,
+      "max_ramp_slope_ratio": 12,
+      "source": "ADA Standards for Accessible Design (2010), Sections 404 and 405"
+    }
+  },
+  "affordable_housing_benchmarks": {
+    "hud_income_thresholds": {
+      "extremely_low_income_pct_ami": 30,
+      "very_low_income_pct_ami": 50,
+      "low_income_pct_ami": 80,
+      "source": "HUD FY2023 Income Limit Definitions"
+    },
+    "inclusionary_zoning_typical_ranges": {
+      "minimum_affordable_pct_typical": 10.0,
+      "moderate_affordable_pct_typical": 20.0,
+      "high_affordable_pct_typical": 30.0,
+      "note": "Typical inclusionary zoning mandates in US cities; requirements vary by jurisdiction",
+      "source": "Furman Center for Real Estate and Urban Policy — Inclusionary Zoning (2023); Grounded Solutions Network Database"
+    },
+    "density_bonus_incentive": {
+      "typical_density_bonus_pct_for_10pct_affordable": 10.0,
+      "typical_density_bonus_pct_for_20pct_affordable": 22.0,
+      "source": "California Density Bonus Law (2023); HUD LIHTC program guidelines (general reference)"
+    }
+  },
+  "walkability_standards": {
+    "walk_score_categories": {
+      "walker_paradise_min": 90,
+      "very_walkable_min": 70,
+      "somewhat_walkable_min": 50,
+      "car_dependent_max": 49,
+      "source": "Walk Score methodology (walkscore.com); referenced by EPA Smart Growth Program"
+    },
+    "transit_access_benchmarks": {
+      "excellent_transit_score_min": 70,
+      "good_transit_score_min": 50,
+      "minimal_transit_score_max": 24,
+      "source": "Walk Score Transit Score methodology; FTA Transit Equity criteria"
+    },
+    "pedestrian_infrastructure": {
+      "min_sidewalk_width_ft": 5.0,
+      "recommended_sidewalk_width_ft": 8.0,
+      "recommended_crosswalk_spacing_ft": 500.0,
+      "source": "AASHTO Guide for Development of Bicycle Facilities (2012); FHWA Pedestrian Safety Guide"
+    }
+  }
+}

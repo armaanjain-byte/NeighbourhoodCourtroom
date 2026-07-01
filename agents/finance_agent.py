@@ -31,6 +31,9 @@ from models.agent_opinion import AgentOpinion
 from agents.base_agent import BaseAgent
 from tools.cost_calculator import CostCalculator
 
+# Filename for the finance domain knowledge base
+FINANCE_STANDARDS_FILE = "finance_standards.json"
+
 
 class FinanceAgent(BaseAgent):
     """The Finance Agent evaluates proposals strictly on budget and density."""
@@ -93,6 +96,25 @@ class FinanceAgent(BaseAgent):
                     },
                     "required": ["housing_units", "green_space_pct", "parking_spaces", "community_center_sqft", "city_slug"]
                 }
+            },
+            {
+                "name": "get_cost_benchmarks",
+                "description": (
+                    "Get nationally recognized cost benchmarks, parking ratio standards, and civic amenity ROI data from published sources "
+                    "(RSMeans, ULI, HUD). Use these to compare city-specific costs against industry standards and justify your position "
+                    "with authoritative references — e.g. whether parking costs are above typical ranges, or whether green space ROI "
+                    "justifies investment. Cite specific benchmark values from this tool as evidence."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "category": {
+                            "type": "STRING",
+                            "description": "One of: 'building_cost_benchmarks', 'parking_ratio_standards', 'civic_amenity_roi', 'affordability_benchmarks', or 'all'"
+                        }
+                    },
+                    "required": ["category"]
+                }
             }
         ]
 
@@ -117,6 +139,12 @@ class FinanceAgent(BaseAgent):
                 estimated_cost=0.0,
             )
             return {"estimated_cost": self.cost_calculator.calculate_estimated_cost(proposal)}
+        elif name == "get_cost_benchmarks":
+            standards = self.cost_calculator.data_loader.get_reference_standards(FINANCE_STANDARDS_FILE)
+            category = args.get("category", "all")
+            if category == "all":
+                return {k: v for k, v in standards.items() if not k.startswith("_")}
+            return {category: standards.get(category, {})}
         else:
             return super().execute_tool_call(name, args)
 

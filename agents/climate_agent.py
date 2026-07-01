@@ -31,6 +31,9 @@ from models.agent_opinion import AgentOpinion
 from agents.base_agent import BaseAgent
 from tools.data_loader import DataLoader
 
+# Filename for the climate domain knowledge base
+CLIMATE_STANDARDS_FILE = "climate_standards.json"
+
 
 class ClimateAgent(BaseAgent):
     """The Climate Agent evaluates proposals strictly on environmental resilience."""
@@ -88,6 +91,26 @@ class ClimateAgent(BaseAgent):
                     },
                     "required": ["city_slug"]
                 }
+            },
+            {
+                "name": "get_climate_guidance",
+                "description": (
+                    "Get nationally recognized climate and environmental planning guidance from published standards "
+                    "(EPA, ASHRAE, NOAA, NRPA). Use these benchmarks to justify why specific green space percentages, "
+                    "parking limits, or stormwater targets are necessary — e.g. EPA heat island mitigation thresholds, "
+                    "ASHRAE climate zone minimum green cover percentages, or EPA impervious surface guidance. "
+                    "Always cite the specific numeric benchmark from this tool in your evidence."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "category": {
+                            "type": "STRING",
+                            "description": "One of: 'heat_island_mitigation', 'stormwater_guidance', 'green_space_standards', 'parking_climate_impact', or 'all'"
+                        }
+                    },
+                    "required": ["category"]
+                }
             }
         ]
 
@@ -96,6 +119,12 @@ class ClimateAgent(BaseAgent):
             return self.data_loader.get_climate(args["city_slug"])
         elif name == "get_land_use_data":
             return self.data_loader.get_land_use(args["city_slug"])
+        elif name == "get_climate_guidance":
+            standards = self.data_loader.get_reference_standards(CLIMATE_STANDARDS_FILE)
+            category = args.get("category", "all")
+            if category == "all":
+                return {k: v for k, v in standards.items() if not k.startswith("_")}
+            return {category: standards.get(category, {})}
         else:
             return super().execute_tool_call(name, args)
 

@@ -31,6 +31,9 @@ from models.agent_opinion import AgentOpinion
 from agents.base_agent import BaseAgent
 from tools.data_loader import DataLoader
 
+# Filename for the community domain knowledge base
+COMMUNITY_STANDARDS_FILE = "community_standards.json"
+
 
 class CommunityAgent(BaseAgent):
     """The Community Agent evaluates proposals on resident wellbeing and amenities."""
@@ -88,6 +91,26 @@ class CommunityAgent(BaseAgent):
                     },
                     "required": ["city_slug"]
                 }
+            },
+            {
+                "name": "get_planning_standards",
+                "description": (
+                    "Get nationally recognized community planning and equity standards from published sources "
+                    "(APA, ADA, HUD, NRPA). Use these to justify community facility sizing, affordable housing percentages, "
+                    "and accessibility requirements — e.g. APA recommended sqft of community space per 1,000 residents, "
+                    "ADA parking accessibility ratios, or HUD inclusionary zoning benchmarks. "
+                    "Always cite the specific numeric standard from this tool in your evidence."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "category": {
+                            "type": "STRING",
+                            "description": "One of: 'community_facility_standards', 'ada_accessibility_requirements', 'affordable_housing_benchmarks', 'walkability_standards', or 'all'"
+                        }
+                    },
+                    "required": ["category"]
+                }
             }
         ]
 
@@ -96,6 +119,12 @@ class CommunityAgent(BaseAgent):
             return self.data_loader.get_demographics(args["city_slug"])
         elif name == "get_walkability":
             return self.data_loader.get_walkability(args["city_slug"])
+        elif name == "get_planning_standards":
+            standards = self.data_loader.get_reference_standards(COMMUNITY_STANDARDS_FILE)
+            category = args.get("category", "all")
+            if category == "all":
+                return {k: v for k, v in standards.items() if not k.startswith("_")}
+            return {category: standards.get(category, {})}
         else:
             return super().execute_tool_call(name, args)
 

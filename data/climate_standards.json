@@ -1,0 +1,63 @@
+{
+  "_comment": "Climate domain knowledge base — EPA, ASHRAE, and USEPA guidance standards. Sources cited per field.",
+  "heat_island_mitigation": {
+    "tree_canopy_targets": {
+      "minimum_canopy_pct_urban": 20.0,
+      "recommended_canopy_pct_urban": 30.0,
+      "optimal_canopy_pct_urban": 40.0,
+      "cooling_effect_per_10pct_canopy_f": 2.5,
+      "source": "EPA Heat Island Effect Mitigation Strategies (2023); American Forests Urban Tree Equity Score"
+    },
+    "cool_surface_targets": {
+      "min_reflective_roof_fraction_pct": 25.0,
+      "recommended_reflective_pct": 50.0,
+      "source": "ASHRAE Standard 90.1-2022, Section 5 — Building Envelope"
+    },
+    "green_space_cooling_threshold": {
+      "min_green_space_pct_for_measurable_cooling": 15.0,
+      "strong_cooling_effect_threshold_pct": 25.0,
+      "source": "EPA Heat Island Compendium (2008, updated 2023); USEPA"
+    }
+  },
+  "stormwater_guidance": {
+    "impervious_surface_limits": {
+      "low_impact_max_impervious_pct": 25.0,
+      "moderate_impact_max_impervious_pct": 40.0,
+      "high_impact_impervious_pct": 60.0,
+      "note": "Higher impervious surface increases runoff volume and pollutant loading",
+      "source": "EPA National Pollutant Discharge Elimination System (NPDES) Phase II Small MS4 Guidance (2016)"
+    },
+    "green_infrastructure_targets": {
+      "min_pervious_area_pct": 20.0,
+      "recommended_pervious_area_pct": 35.0,
+      "source": "EPA Green Infrastructure Municipal Handbook (2008, updated 2021)"
+    },
+    "retention_requirement_inches": {
+      "typical_design_storm_1yr": 1.2,
+      "typical_design_storm_2yr": 1.8,
+      "source": "NOAA Atlas 14 precipitation frequency data used in local MS4 permits"
+    }
+  },
+  "green_space_standards": {
+    "per_capita_targets": {
+      "minimum_parkland_sqft_per_resident": 25.0,
+      "recommended_parkland_sqft_per_resident": 50.0,
+      "world_urban_parks_benchmark_sqft": 80.0,
+      "source": "National Recreation and Park Association (NRPA) Park Metrics 2023; UWOT (Urban Waters of the US)"
+    },
+    "ashrae_climate_zone_guidance": {
+      "hot_dry_zone_2B_min_green_pct": 15.0,
+      "hot_humid_zone_1A_2A_min_green_pct": 20.0,
+      "mixed_humid_zone_4A_min_green_pct": 25.0,
+      "cool_humid_zone_5A_min_green_pct": 20.0,
+      "marine_zone_3C_4C_min_green_pct": 20.0,
+      "source": "ASHRAE Standard 90.1-2022; EPA Climate Zone Map; DOE Building Energy Codes"
+    }
+  },
+  "parking_climate_impact": {
+    "impervious_area_per_space_sqft": 330,
+    "surface_temperature_increase_f_vs_green": 20,
+    "annual_runoff_gallons_per_space": 15000,
+    "source": "EPA Reducing Urban Heat Islands: Compendium of Strategies (2023); USEPA Parking Lot Design Guidance"
+  }
+}
