@@ -61,7 +61,7 @@ def test_budget_sanity():
     cc = CostCalculator(dl)
     
     with patch.object(dl, "get_construction_costs", return_value={"city_index": 1.0}), \
-         patch.object(cc, "calculate_estimated_cost", side_effect=[25_000_000.0, 30_000_000.0]):
+         patch.object(cc, "calculate_estimated_cost", side_effect=[50_000_000.0, 60_000_000.0]):
         
         s1 = CourtroomSession(current_proposal=Proposal(city_slug="test", affordable_housing_pct=10.0, estimated_cost=100.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0))
         s2 = CourtroomSession(current_proposal=Proposal(city_slug="test", affordable_housing_pct=10.0, estimated_cost=100.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0))

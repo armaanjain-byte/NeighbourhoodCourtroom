@@ -38,7 +38,10 @@ FINANCE_STANDARDS_FILE = "finance_standards.json"
 class FinanceAgent(BaseAgent):
     """The Finance Agent evaluates proposals strictly on budget and density."""
 
-    BASE_TARGET_BUDGET = 25_000_000.0
+    # Recalibrated to 50,000,000.0 after fixing green space cost bugs and running the eval harness.
+    # At 50M, standard opening proposals start at 0.5x to 1.1x of budget, allowing realistic negotiation
+    # to succeed, while oversized adversarial proposals (2.5x+) still correctly fail.
+    BASE_TARGET_BUDGET = 50_000_000.0
     RISK_TOLERANCE = "low risk tolerance on budget overruns"
     PERSONALITY_BRIEF = (
         "You are a pragmatic municipal budget officer who has personally seen projects fail from severe cost overruns. "

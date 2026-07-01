@@ -95,7 +95,7 @@ def proposal_over_budget() -> Proposal:
         green_space_pct=30.0,
         housing_units=100,
         parking_spaces=200,
-        estimated_cost=30_000_000.0,  # over 25M limit
+        estimated_cost=60_000_000.0,  # over 50M limit
     )
 
 
@@ -104,7 +104,7 @@ def proposal_well_under_budget() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
         housing_units=100,
-        estimated_cost=15_000_000.0,  # well under 25M limit
+        estimated_cost=30_000_000.0,  # well under 50M limit
     )
 
 
@@ -113,7 +113,7 @@ def proposal_near_budget() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
         housing_units=100,
-        estimated_cost=24_000_000.0,  # near 25M limit (96%)
+        estimated_cost=48_000_000.0,  # near 50M limit (96%)
     )
 
 
@@ -121,7 +121,7 @@ def proposal_near_budget() -> Proposal:
 def proposal_extreme_over_budget() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
-        estimated_cost=100_000_000.0,  # 4x over budget
+        estimated_cost=200_000_000.0,  # 4x over budget
     )
 
 
@@ -133,10 +133,10 @@ class TestFinanceAgent:
         assert agent.agent_name == "finance"
 
     def test_over_budget_proposal(self, proposal_over_budget: Proposal) -> None:
-        agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 25M
+        agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 50M
         output = agent.evaluate(proposal_over_budget, {})
         
-        # 30M / 25M = 1.2
+        # 60M / 50M = 1.2
         # score = 100 - (1.2 * 40) = 52.0
         assert output.score == 52.0
         assert output.verdict == "modify"
@@ -151,7 +151,7 @@ class TestFinanceAgent:
         assert "exceeds local budget limit" in output.reasoning_and_evidence
 
     def test_well_under_budget_proposal(self, proposal_well_under_budget: Proposal) -> None:
-        agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 25M
+        agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 50M
         output = agent.evaluate(proposal_well_under_budget, {})
         
         assert output.score == 90.0
@@ -165,7 +165,7 @@ class TestFinanceAgent:
         assert "well under the local budget limit" in output.reasoning_and_evidence
 
     def test_near_budget_proposal(self, proposal_near_budget: Proposal) -> None:
-        agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 25M
+        agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 50M
         output = agent.evaluate(proposal_near_budget, {})
         
         assert output.score == 95.0
@@ -174,8 +174,8 @@ class TestFinanceAgent:
         assert "utilized efficiently" in output.reasoning_and_evidence
 
     def test_data_loader_integration_city_index(self, proposal_near_budget: Proposal) -> None:
-        # If city_index is 0.5, local budget is 12.5M.
-        # The 24M proposal is now extremely over budget.
+        # If city_index is 0.5, local budget is 25M.
+        # The 48M proposal is now extremely over budget.
         agent = FinanceAgent(MockCostCalculator(0.5))
         output = agent.evaluate(proposal_near_budget, {})
         
@@ -197,7 +197,7 @@ class TestFinanceAgent:
         agent = FinanceAgent(MockCostCalculator(1.0))
         output = agent.evaluate(proposal_extreme_over_budget, {})
         
-        # 100M / 25M = 4.0. 100 - (4.0 * 40) = -60.0. max(0.0, -60.0) = 0.0
+        # 200M / 50M = 4.0. 100 - (4.0 * 40) = -60.0. max(0.0, -60.0) = 0.0
         assert output.score == 0.0
         assert output.verdict == "modify"
 
