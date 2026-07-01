@@ -186,3 +186,59 @@ class TestCommunityAgent:
         opinion = agent.generate_opinion(proposal_strong_community, {})
         assert "using deterministic fallback" in opinion.position
 
+    def test_incremental_fallback_step(self) -> None:
+        agent = CommunityAgent(MockDataLoader())
+        proposal = create_initial_proposal("phoenix_az", community_center_sqft=5000.0, affordable_housing_pct=0.0)
+        output = agent.evaluate(proposal, {})
+        assert output.proposed_changes["community_center_sqft"] == 7000.0
+
+    def test_incremental_fallback_close_to_target(self) -> None:
+        agent = CommunityAgent(MockDataLoader())
+        proposal = create_initial_proposal("phoenix_az", community_center_sqft=9000.0, affordable_housing_pct=0.0)
+        output = agent.evaluate(proposal, {})
+        assert output.proposed_changes["community_center_sqft"] == 10000.0
+
+    def test_incremental_fallback_above_target(self) -> None:
+        agent = CommunityAgent(MockDataLoader())
+        proposal = create_initial_proposal("phoenix_az", community_center_sqft=15000.0, affordable_housing_pct=0.0)
+        output = agent.evaluate(proposal, {})
+        assert output.proposed_changes["community_center_sqft"] == 15000.0
+
+    def test_budget_scale_back_logic(self) -> None:
+        class ModeratelyOverBudgetMockLoader(MockDataLoader):
+            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
+                return {
+                    "city_index": 1.0,
+                    "base_costs": {
+                        "housing_unit": 250000.0, # 100 units = 25M
+                        "community_center_sqft": 1250.0, # 2000 sqft = 2.5M
+                    },
+                    "soft_cost_multiplier": 1.0,
+                    "contingency_multiplier": 1.0,
+                }
+        agent = CommunityAgent(ModeratelyOverBudgetMockLoader())
+        proposal = create_initial_proposal("phoenix_az", community_center_sqft=0.0, affordable_housing_pct=15.0, housing_units=100, parking_spaces=0, green_space_pct=0.0)
+        output = agent.evaluate(proposal, {})
+        
+        assert "scaled back to 25%" in output.reasoning_and_evidence
+        assert output.proposed_changes["community_center_sqft"] == 500.0
+        assert output.proposed_changes["affordable_housing_pct"] == 16.25
+
+    def test_dramatically_over_budget_scale_back(self) -> None:
+        class DramaticBudgetBustingMockLoader(MockDataLoader):
+            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
+                return {
+                    "city_index": 1.0,
+                    "base_costs": {
+                        "housing_unit": 400000.0, # 100 units = 40M (way over 25M budget!)
+                    },
+                    "soft_cost_multiplier": 1.0,
+                    "contingency_multiplier": 1.0,
+                }
+        agent = CommunityAgent(DramaticBudgetBustingMockLoader())
+        proposal = create_initial_proposal("phoenix_az", community_center_sqft=0.0, affordable_housing_pct=15.0, housing_units=100, parking_spaces=0, green_space_pct=0.0)
+        output = agent.evaluate(proposal, {})
+        
+        assert "scaled back to 10%" in output.reasoning_and_evidence
+        assert output.proposed_changes["community_center_sqft"] == 200.0
+        assert output.proposed_changes["affordable_housing_pct"] == 15.5

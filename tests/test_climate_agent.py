@@ -165,3 +165,47 @@ class TestClimateAgent:
         opinion = agent.generate_opinion(proposal_strong_climate, {})
         assert "using deterministic fallback" in opinion.position
 
+    def test_budget_scale_back_logic(self) -> None:
+        class ModeratelyOverBudgetMockLoader(MockDataLoader):
+            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
+                return {
+                    "city_index": 1.0,
+                    "base_costs": {
+                        "housing_unit": 250000.0, # 100 units = 25M
+                    },
+                    "soft_cost_multiplier": 1.0,
+                    "contingency_multiplier": 1.0,
+                }
+        agent = ClimateAgent(ModeratelyOverBudgetMockLoader())
+        # Current cost is exactly 25M
+        proposal = create_initial_proposal("phoenix_az", green_space_pct=0.0, parking_spaces=0, housing_units=100, community_center_sqft=0.0)
+        output = agent.evaluate(proposal, {})
+        
+        # delta_cost = 5.175M (5M green + 175k community). allowed = 1.25M
+        # fraction = 1.25 / 5.175 = 0.24
+        # green_space_pct = 0.0 + 10.0 * 0.24 = 2.4
+        
+        assert "scaled back to 24%" in output.reasoning_and_evidence
+        assert output.proposed_changes["green_space_pct"] == 2.4
+
+    def test_dramatically_over_budget_scale_back(self) -> None:
+        class DramaticBudgetBustingMockLoader(MockDataLoader):
+            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
+                return {
+                    "city_index": 1.0,
+                    "base_costs": {
+                        "housing_unit": 400000.0, # 100 units = 40M (way over 25M budget!)
+                    },
+                    "soft_cost_multiplier": 1.0,
+                    "contingency_multiplier": 1.0,
+                }
+        agent = ClimateAgent(DramaticBudgetBustingMockLoader())
+        proposal = create_initial_proposal("phoenix_az", green_space_pct=0.0, parking_spaces=0, housing_units=100, community_center_sqft=0.0)
+        output = agent.evaluate(proposal, {})
+        
+        # current_cost = 40M. threshold = 26.25M. allowed = 0.0
+        # fraction = max(0.1, 0.0) = 0.1
+        # green_space_pct = 0.0 + 10.0 * 0.1 = 1.0
+        
+        assert "scaled back to 10%" in output.reasoning_and_evidence
+        assert output.proposed_changes["green_space_pct"] == 1.0

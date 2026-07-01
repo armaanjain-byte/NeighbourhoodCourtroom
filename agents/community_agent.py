@@ -216,16 +216,22 @@ class CommunityAgent(BaseAgent):
                 
                 test_proposal = proposal.model_copy(update=changes)
                 new_cost = calc.calculate_estimated_cost(test_proposal)
+                current_cost = calc.calculate_estimated_cost(proposal)
                 
                 if new_cost > local_budget * 1.05:
-                    # Scale back changes by 50%
-                    scaled_changes = {}
-                    for k, v in changes.items():
-                        orig_val = getattr(proposal, k)
-                        scaled_val = orig_val + (v - orig_val) * 0.5
-                        scaled_changes[k] = int(scaled_val) if isinstance(orig_val, int) else scaled_val
-                    changes = scaled_changes
-                    reasoning += f" However, to respect the local budget limit, these improvements have been scaled back by 50% to avoid dramatic cost overruns."
+                    delta_cost = new_cost - current_cost
+                    if delta_cost > 0:
+                        allowed_increase = max(0.0, (local_budget * 1.05) - current_cost)
+                        fraction = round(allowed_increase / delta_cost, 2)
+                        fraction = max(0.1, min(1.0, fraction))
+                        
+                        scaled_changes = {}
+                        for k, v in changes.items():
+                            orig_val = getattr(proposal, k)
+                            scaled_val = orig_val + (v - orig_val) * fraction
+                            scaled_changes[k] = int(scaled_val) if isinstance(orig_val, int) else round(scaled_val, 2)
+                        changes = scaled_changes
+                        reasoning += f" However, to respect the local budget limit, these improvements have been scaled back to {int(fraction * 100)}% of their original scope to avoid dramatic cost overruns."
             except Exception:
                 pass
         else:
