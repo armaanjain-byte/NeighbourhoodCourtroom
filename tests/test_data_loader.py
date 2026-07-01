@@ -107,3 +107,43 @@ def test_construction_costs_malformed(mock_data_dir, loader):
     loader._cache.pop("construction_costs.json", None) # clear cache
     with pytest.raises(DatasetLoadError):
         loader.get_construction_costs("phoenix_az")
+
+def test_construction_costs_flat_format(mock_data_dir, loader):
+    # Test flat format parsing and mapping (e.g., residential_cost_per_sqft to housing_unit * 1000.0)
+    flat_format_data = {
+        "austin_tx": {
+            "city_index": 94.0,
+            "residential_cost_per_sqft": 140.0,
+            "parking_cost_per_space": 23000.0,
+            "green_space_cost_per_sqft": 10.0,
+            "commercial_cost_per_sqft": 300.0
+        }
+    }
+    with open(mock_data_dir / "construction_costs.json", "w") as f:
+        json.dump(flat_format_data, f)
+        
+    loader._cache.pop("construction_costs.json", None)
+    costs = loader.get_construction_costs("austin_tx")
+    
+    assert costs["city_index"] == 94.0
+    assert costs["base_costs"]["housing_unit"] == 140000.0  # 140.0 * 1000.0
+    assert costs["base_costs"]["parking_space"] == 23000.0
+    assert costs["base_costs"]["green_space_pct"] == 435600.0  # 10.0 * 43560.0
+    assert costs["base_costs"]["community_center_sqft"] == 300.0
+
+def test_construction_costs_legacy_format(mock_data_dir, loader):
+    # Test legacy format parsing explicitly
+    legacy_format_data = {
+        "cost_index_by_city": {"seattle_wa": 1.18},
+        "base_costs_per_sqft": {"legacy_park": 15},
+        "soft_cost_multiplier": 1.3
+    }
+    with open(mock_data_dir / "construction_costs.json", "w") as f:
+        json.dump(legacy_format_data, f)
+        
+    loader._cache.pop("construction_costs.json", None)
+    costs = loader.get_construction_costs("seattle_wa")
+    
+    assert costs["city_index"] == 1.18
+    assert costs["base_costs"]["legacy_park"] == 15
+    assert costs["soft_cost_multiplier"] == 1.3

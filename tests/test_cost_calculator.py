@@ -125,3 +125,55 @@ class TestCostCalculator:
         # Total: 34,925,000 + 3,492,500 = 38,417,500
         assert breakdown["housing_cost"] == pytest.approx(15_000_000.0)
         assert breakdown["total_estimated_cost"] == pytest.approx(38_417_500.0)
+
+    def test_city_index_normalization_large_value(self, base_proposal: Proposal) -> None:
+        # Test that city_index > 10.0 is divided by 100
+        class MockLargeIndexLoader(DataLoader):
+            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
+                return {"city_index": 120.0, "base_costs": {"housing_unit": 100000.0}}
+        calc = CostCalculator(MockLargeIndexLoader())
+        breakdown = calc.calculate_cost_breakdown(base_proposal)
+        # 120.0 should become 1.2. 100 units * 100k * 1.2 = 12M
+        assert breakdown["housing_cost"] == pytest.approx(12_000_000.0)
+
+    def test_city_index_normalization_small_value(self, base_proposal: Proposal) -> None:
+        # Test that city_index <= 10.0 is NOT divided by 100
+        class MockSmallIndexLoader(DataLoader):
+            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
+                return {"city_index": 1.2, "base_costs": {"housing_unit": 100000.0}}
+        calc = CostCalculator(MockSmallIndexLoader())
+        breakdown = calc.calculate_cost_breakdown(base_proposal)
+        # 1.2 should stay 1.2. 100 units * 100k * 1.2 = 12M
+        assert breakdown["housing_cost"] == pytest.approx(12_000_000.0)
+
+    def test_real_city_calculation(self, base_proposal: Proposal) -> None:
+        # Use real DataLoader against data/construction_costs.json
+        loader = DataLoader()
+        calc = CostCalculator(loader)
+        
+        # Override proposal to detroit_mi
+        detroit_proposal = base_proposal.model_copy(update={"city_slug": "detroit_mi"})
+        breakdown = calc.calculate_cost_breakdown(detroit_proposal)
+        
+        # From JSON for detroit_mi:
+        # city_index: 105.0 -> 1.05
+        # residential_cost_per_sqft: 210 -> housing_unit = 210,000
+        # parking_cost_per_space: 25000
+        # green_space_cost_per_sqft: 12 -> 12 * 43560 = 522,720
+        # commercial_cost_per_sqft: 280
+        # 
+        # base_proposal has:
+        # housing_units = 100
+        # parking_spaces = 200
+        # green_space_pct = 20.0
+        # community_center_sqft = 5000.0
+        # 
+        # Housing: 100 * 210,000 * 1.05 = 22,050,000
+        # Parking: 200 * 25,000 * 1.05 = 5,250,000
+        # Green: 20.0 * 522,720 * 1.05 = 10,977,120
+        # Community: 5000 * 280 * 1.05 = 1,470,000
+        
+        assert breakdown["housing_cost"] == pytest.approx(22_050_000.0)
+        assert breakdown["parking_cost"] == pytest.approx(5_250_000.0)
+        assert breakdown["green_space_cost"] == pytest.approx(10_977_120.0)
+        assert breakdown["community_center_cost"] == pytest.approx(1_470_000.0)
