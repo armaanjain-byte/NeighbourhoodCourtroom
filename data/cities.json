@@ -6,7 +6,7 @@
     "city_tier": 1,
     "population": 1644409,
     "lat": 33.4484,
-    "lon": -112.0740
+    "lon": -112.074
   },
   "detroit_mi": {
     "name": "Detroit",
@@ -34,5 +34,77 @@
     "population": 974447,
     "lat": 30.2672,
     "lon": -97.7431
+  },
+  "san_francisco_ca": {
+    "name": "San Francisco",
+    "state": "CA",
+    "region": "West",
+    "city_tier": 1,
+    "population": 808437,
+    "lat": 37.7749,
+    "lon": -122.4194
+  },
+  "miami_fl": {
+    "name": "Miami",
+    "state": "FL",
+    "region": "Southeast",
+    "city_tier": 1,
+    "population": 449514,
+    "lat": 25.7617,
+    "lon": -80.1918
+  },
+  "chicago_il": {
+    "name": "Chicago",
+    "state": "IL",
+    "region": "Midwest",
+    "city_tier": 1,
+    "population": 2665039,
+    "lat": 41.8781,
+    "lon": -87.6298
+  },
+  "columbus_oh": {
+    "name": "Columbus",
+    "state": "OH",
+    "region": "Midwest",
+    "city_tier": 2,
+    "population": 907971,
+    "lat": 39.9612,
+    "lon": -82.9988
+  },
+  "new_york_ny": {
+    "name": "New York",
+    "state": "NY",
+    "region": "Northeast",
+    "city_tier": 1,
+    "population": 8335897,
+    "lat": 40.7128,
+    "lon": -74.006
+  },
+  "atlanta_ga": {
+    "name": "Atlanta",
+    "state": "GA",
+    "region": "Southeast",
+    "city_tier": 1,
+    "population": 499127,
+    "lat": 33.749,
+    "lon": -84.388
+  },
+  "denver_co": {
+    "name": "Denver",
+    "state": "CO",
+    "region": "Mountain",
+    "city_tier": 1,
+    "population": 713252,
+    "lat": 39.7392,
+    "lon": -104.9903
+  },
+  "boston_ma": {
+    "name": "Boston",
+    "state": "MA",
+    "region": "Northeast",
+    "city_tier": 1,
+    "population": 650706,
+    "lat": 42.3601,
+    "lon": -71.0589
   }
 }

@@ -26,5 +26,61 @@
     "commercial_cost_per_sqft": 260,
     "green_space_cost_per_sqft": 16,
     "parking_cost_per_space": 22000
+  },
+  "san_francisco_ca": {
+    "city_index": 128.0,
+    "residential_cost_per_sqft": 350.0,
+    "commercial_cost_per_sqft": 450.0,
+    "green_space_cost_per_sqft": 25.0,
+    "parking_cost_per_space": 40000.0
+  },
+  "miami_fl": {
+    "city_index": 98.0,
+    "residential_cost_per_sqft": 210.0,
+    "commercial_cost_per_sqft": 290.0,
+    "green_space_cost_per_sqft": 15.0,
+    "parking_cost_per_space": 25000.0
+  },
+  "chicago_il": {
+    "city_index": 115.0,
+    "residential_cost_per_sqft": 240.0,
+    "commercial_cost_per_sqft": 320.0,
+    "green_space_cost_per_sqft": 18.0,
+    "parking_cost_per_space": 30000.0
+  },
+  "columbus_oh": {
+    "city_index": 96.0,
+    "residential_cost_per_sqft": 170.0,
+    "commercial_cost_per_sqft": 230.0,
+    "green_space_cost_per_sqft": 12.0,
+    "parking_cost_per_space": 18000.0
+  },
+  "new_york_ny": {
+    "city_index": 132.0,
+    "residential_cost_per_sqft": 400.0,
+    "commercial_cost_per_sqft": 500.0,
+    "green_space_cost_per_sqft": 30.0,
+    "parking_cost_per_space": 45000.0
+  },
+  "atlanta_ga": {
+    "city_index": 98.0,
+    "residential_cost_per_sqft": 180.0,
+    "commercial_cost_per_sqft": 250.0,
+    "green_space_cost_per_sqft": 12.0,
+    "parking_cost_per_space": 20000.0
+  },
+  "denver_co": {
+    "city_index": 105.0,
+    "residential_cost_per_sqft": 220.0,
+    "commercial_cost_per_sqft": 300.0,
+    "green_space_cost_per_sqft": 15.0,
+    "parking_cost_per_space": 25000.0
+  },
+  "boston_ma": {
+    "city_index": 125.0,
+    "residential_cost_per_sqft": 320.0,
+    "commercial_cost_per_sqft": 420.0,
+    "green_space_cost_per_sqft": 20.0,
+    "parking_cost_per_space": 35000.0
   }
 }

@@ -18,5 +18,45 @@
     "max_parking_spaces": 180,
     "typical_zoning": "SF-3",
     "max_building_height_stories": 40
+  },
+  "san_francisco_ca": {
+    "max_parking_spaces": 50,
+    "typical_zoning": "RH-2",
+    "max_building_height_stories": 60
+  },
+  "miami_fl": {
+    "max_parking_spaces": 150,
+    "typical_zoning": "T4",
+    "max_building_height_stories": 45
+  },
+  "chicago_il": {
+    "max_parking_spaces": 100,
+    "typical_zoning": "RS-3",
+    "max_building_height_stories": 100
+  },
+  "columbus_oh": {
+    "max_parking_spaces": 200,
+    "typical_zoning": "R-3",
+    "max_building_height_stories": 30
+  },
+  "new_york_ny": {
+    "max_parking_spaces": 25,
+    "typical_zoning": "R6",
+    "max_building_height_stories": 100
+  },
+  "atlanta_ga": {
+    "max_parking_spaces": 200,
+    "typical_zoning": "R4",
+    "max_building_height_stories": 50
+  },
+  "denver_co": {
+    "max_parking_spaces": 150,
+    "typical_zoning": "U-SU-C",
+    "max_building_height_stories": 40
+  },
+  "boston_ma": {
+    "max_parking_spaces": 80,
+    "typical_zoning": "R-1",
+    "max_building_height_stories": 50
   }
 }

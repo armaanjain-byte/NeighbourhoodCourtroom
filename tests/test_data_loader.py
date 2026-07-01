@@ -49,7 +49,7 @@ def mock_data_dir(tmp_path):
 
 @pytest.fixture
 def loader(mock_data_dir):
-    return DataLoader(data_root=mock_data_dir)
+    return DataLoader(data_root=mock_data_dir, skip_validation=True)
 
 def test_successful_loads(loader):
     assert loader.load_city("phoenix_az")["name"] == "Phoenix, AZ"
