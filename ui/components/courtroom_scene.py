@@ -146,18 +146,12 @@ body {{
     transition: background 0.3s;
     flex-shrink: 0;
 }}
-.presence-dot.thinking {{
-    background: #744210;
-    animation: presence-pulse 1.0s ease-in-out infinite;
-}}
-.presence-dot.spoke {{
-    background: #276749;
-    animation: none;
-}}
+.presence-dot.thinking {{ background: #F6C445; animation: presence-pulse 1.5s infinite; }}
+.presence-dot.spoke {{ background: #48BB78; }}
 
 @keyframes presence-pulse {{
-    0%,100% {{ box-shadow: 0 0 0 0 rgba(116,66,16,0.7); }}
-    50% {{ box-shadow: 0 0 0 6px rgba(116,66,16,0); }}
+    0%,100% {{ box-shadow: 0 0 0 0 rgba(246,196,69,0.7); }}
+    50% {{ box-shadow: 0 0 0 4px rgba(246,196,69,0.0); }}
 }}
 
 /* Column-specific header tints — identity colors */

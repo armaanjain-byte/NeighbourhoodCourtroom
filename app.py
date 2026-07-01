@@ -940,7 +940,12 @@ def stage_result(is_override: bool = False) -> None:
   <span><span style="background:#276749;color:#c6f6d5;padding:2px 8px;border-radius:12px;font-weight:700;">🌿 CLIMATE</span>&nbsp; Environmental impact &amp; green infrastructure</span>
   <span><span style="background:#553c9a;color:#e9d8fd;padding:2px 8px;border-radius:12px;font-weight:700;">🏘️ COMMUNITY</span>&nbsp; Resident quality of life &amp; social equity</span>
 </div>
-<div class="legend-text" style="font-size:0.76rem;margin-bottom:0.6rem;display:block;">Score = 0–100. Each agent rates how well the final proposal serves their domain. Higher is better.</div>
+<div class="legend-text" style="font-size:0.76rem;margin-bottom:0.6rem;display:block;">
+  <strong>Scoring Basis (0–100):</strong><br>
+  💰 <strong>Finance</strong>: Distance of estimated cost from the local budget limit (penalizes going over budget).<br>
+  🌿 <strong>Climate</strong>: Green space relative to the city target (80% weight) and parking vs max limits (20% weight).<br>
+  🏘️ <strong>Community</strong>: Community center area (40%), affordable housing (30%), and effective walkability (30%) relative to targets.
+</div>
 """, unsafe_allow_html=True)
 
     cols = st.columns(3)
