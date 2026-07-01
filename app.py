@@ -130,18 +130,24 @@ header[data-testid="stHeader"] [data-testid="stMainMenu"] button:hover {
     padding-left: 1rem;
 }
 .hero-sub {
-    color: #4A4A4A;
-    font-size: 1rem;
-    font-weight: 500;
+    color: #121212;
+    background: rgba(240, 240, 240, 0.85);
+    display: inline-block;
+    border-radius: 4px;
+    padding: 0.25rem 1rem 0.25rem 1.5rem;
+    font-size: 1.05rem;
+    font-weight: 600;
     margin-bottom: 2rem;
-    padding-left: 1.5rem;
 }
 .legend-text {
-    color: #4A4A4A;
+    color: #121212;
+    background: rgba(240, 240, 240, 0.85);
+    display: inline-block;
+    border-radius: 4px;
+    padding: 0.25rem 1rem 0.25rem 1.5rem;
     font-size: 0.9rem;
     font-weight: 500;
     margin-bottom: 1.5rem;
-    padding-left: 1.5rem;
 }
 
 /* ── Section headers ────────────────────────────────────────────────────── */

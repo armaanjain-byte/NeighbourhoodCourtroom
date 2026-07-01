@@ -474,6 +474,15 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }}
+.awaiting-placeholder {{
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    color: #718096;
+    font-style: italic;
+    text-align: center;
+    padding: 24px 12px;
+    opacity: 0.8;
+}}
 </style>
 </head>
 <body>
@@ -487,7 +496,9 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
         <div class="presence-dot" id="dot-finance"></div>
         <div class="col-flash" id="flash-finance"></div>
       </div>
-      <div class="agent-feed" id="feed-finance"></div>
+      <div class="agent-feed" id="feed-finance">
+        <div class="awaiting-placeholder" id="await-finance">Awaiting statement...</div>
+      </div>
     </div>
     <div class="agent-col col-climate" id="col-climate">
       <div class="agent-header">
@@ -496,7 +507,9 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
         <div class="presence-dot" id="dot-climate"></div>
         <div class="col-flash" id="flash-climate"></div>
       </div>
-      <div class="agent-feed" id="feed-climate"></div>
+      <div class="agent-feed" id="feed-climate">
+        <div class="awaiting-placeholder" id="await-climate">Awaiting statement...</div>
+      </div>
     </div>
     <div class="agent-col col-community" id="col-community">
       <div class="agent-header">
@@ -505,7 +518,9 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
         <div class="presence-dot" id="dot-community"></div>
         <div class="col-flash" id="flash-community"></div>
       </div>
-      <div class="agent-feed" id="feed-community"></div>
+      <div class="agent-feed" id="feed-community">
+        <div class="awaiting-placeholder" id="await-community">Awaiting statement...</div>
+      </div>
     </div>
   </div>
 
@@ -554,6 +569,8 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     function addBubble(agent, id, html) {{
         const container = feed(agent);
         if (!container) return;
+        const awaitEl = document.getElementById('await-' + agent);
+        if (awaitEl) awaitEl.remove();
         const div = document.createElement('div');
         const isNew = !rendered.has(id);
         div.className = 'bubble ' + (isNew ? 'bubble-new' : 'bubble-static');
@@ -569,6 +586,8 @@ details.bubble-detail[open] summary::before {{ content: '▼ '; }}
     function addThinking(agent) {{
         const container = feed(agent);
         if (!container) return;
+        const awaitEl = document.getElementById('await-' + agent);
+        if (awaitEl) awaitEl.remove();
         // Remove old thinking indicator for this agent
         const old = container.querySelector('.thinking-indicator');
         if (old) old.remove();
