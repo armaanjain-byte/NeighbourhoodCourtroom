@@ -221,10 +221,10 @@ class FinanceAgent(BaseAgent):
             score = max(0.0, 100.0 - (ratio * 40))
             verdict = "modify"
 
-            changes = {
-                "green_space_pct": max(0.0, proposal.green_space_pct - 10.0),
-                "housing_units": proposal.housing_units + 50,
-                "parking_spaces": int(proposal.parking_spaces * 0.8),
+            changes: dict[str, float] = {
+                "green_space_pct": float(max(0.0, proposal.green_space_pct - 10.0)),
+                "housing_units": float(proposal.housing_units + 50),
+                "parking_spaces": float(int(proposal.parking_spaces * 0.8)),
             }
             reasoning = (
                 f"Project estimated cost (${cost:,.2f}) exceeds local budget limit "
@@ -236,8 +236,8 @@ class FinanceAgent(BaseAgent):
             # Well under budget (more than 10% under) -> under-utilization
             score = 90.0
             verdict = "modify"
-            changes = {
-                "housing_units": proposal.housing_units + 20
+            changes: dict[str, float] = {
+                "housing_units": float(proposal.housing_units + 20)
             }
             reasoning = (
                 f"Project is well under the local budget limit of ${local_budget:,.2f}. "
@@ -248,7 +248,7 @@ class FinanceAgent(BaseAgent):
             # Near budget (between 90% and 100% of budget limit)
             score = 95.0
             verdict = "accept"
-            changes = {}
+            changes: dict[str, float] = {}
             reasoning = "Project budget is utilized efficiently and is within acceptable limits."
 
         filtered = self.filter_unknown_parameters(changes)

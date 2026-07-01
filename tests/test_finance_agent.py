@@ -19,7 +19,7 @@ from agents.finance_agent import FinanceAgent
 
 # ── Mocks ───────────────────────────────────────────────────────────────────
 
-class MockDataLoader:
+class MockDataLoader(DataLoader):
     def __init__(self, city_index: float, should_fail: bool = False):
         self.city_index = city_index
         self.should_fail = should_fail
