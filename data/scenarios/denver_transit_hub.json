@@ -1,2 +1,12 @@
 {
+  "scenario_id": "denver_transit_hub",
+  "city_slug": "denver_co",
+  "initial_proposal": {
+    "green_space_pct": 10.0,
+    "affordable_housing_pct": 5.0,
+    "housing_units": 100,
+    "parking_spaces": 300,
+    "community_center_sqft": 2000.0,
+    "estimated_cost": 0.0
+  }
 }

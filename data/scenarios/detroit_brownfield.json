@@ -1,2 +1,12 @@
 {
+  "scenario_id": "detroit_brownfield",
+  "city_slug": "detroit_mi",
+  "initial_proposal": {
+    "green_space_pct": 5.0,
+    "affordable_housing_pct": 10.0,
+    "housing_units": 80,
+    "parking_spaces": 50,
+    "community_center_sqft": 1000.0,
+    "estimated_cost": 0.0
+  }
 }

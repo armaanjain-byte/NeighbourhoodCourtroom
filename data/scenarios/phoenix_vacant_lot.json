@@ -1,2 +1,12 @@
 {
+  "scenario_id": "phoenix_vacant_lot",
+  "city_slug": "phoenix_az",
+  "initial_proposal": {
+    "green_space_pct": 5.0,
+    "affordable_housing_pct": 5.0,
+    "housing_units": 200,
+    "parking_spaces": 400,
+    "community_center_sqft": 0.0,
+    "estimated_cost": 0.0
+  }
 }
