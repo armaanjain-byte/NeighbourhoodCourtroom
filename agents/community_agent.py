@@ -196,6 +196,48 @@ class CommunityAgent(BaseAgent):
         target_affordable = demographics.get("target_affordable_housing_pct", 20.0)
         base_walkability = walkability.get("walkability_score", 50.0)
 
+        standards_flags = []
+
+        # Explicitly check for exploitative standard violations
+        try:
+            standards = self.data_loader.get_reference_standards(COMMUNITY_STANDARDS_FILE)
+            affordable_benchmarks = standards.get("affordable_housing_benchmarks", {})
+            inclusionary_zoning = affordable_benchmarks.get("inclusionary_zoning_typical_ranges", {})
+            min_affordable_pct_typical = inclusionary_zoning.get("minimum_affordable_pct_typical", 10.0)
+            
+            passed = proposal.affordable_housing_pct >= min_affordable_pct_typical
+            standards_flags.append({
+                "standard_name": "HUD Affordable Housing",
+                "source_citation": inclusionary_zoning.get("source", "HUD/Furman Center"),
+                "proposal_value": f"{proposal.affordable_housing_pct}%",
+                "threshold": f"{min_affordable_pct_typical}% minimum",
+                "passed": passed
+            })
+            
+            if not passed:
+                changes = {
+                    "affordable_housing_pct": target_affordable,
+                }
+                reasoning = (
+                    f"SEVERE VIOLATION: Proposal provides only {proposal.affordable_housing_pct}% affordable housing, "
+                    f"which egregiously violates the HUD/Furman Center standard for typical minimum inclusionary "
+                    f"zoning ({min_affordable_pct_typical}%). This is unacceptable and exploitative. "
+                    f"Mandating an immediate increase to the city's demographic target of {target_affordable}%."
+                )
+                filtered = self.filter_unknown_parameters(changes)
+                out = self.build_output(
+                    score=10.0,
+                    verdict="modify",
+                    changes=filtered,
+                    reasoning=reasoning
+                )
+                out.standards_flags = standards_flags
+                return out
+        except Exception as e:
+            # If standard loading fails, continue with default mathematical evaluation
+            pass
+
+
         # Derived mock metrics
         # Walkability improves with green space and decreases with excessive parking
         effective_walkability = base_walkability + (proposal.green_space_pct * 0.5) - (proposal.parking_spaces * 0.1)
@@ -274,9 +316,11 @@ class CommunityAgent(BaseAgent):
 
         filtered = self.filter_unknown_parameters(changes)
 
-        return self.build_output(
+        out = self.build_output(
             score=score,
             verdict=verdict,
             changes=filtered,
             reasoning=reasoning
         )
+        out.standards_flags = standards_flags
+        return out

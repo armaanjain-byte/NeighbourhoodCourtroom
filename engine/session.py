@@ -10,7 +10,7 @@ Dependencies:
     models.proposal.Proposal, models.debate_round.DebateRound
 """
 
-from typing import Any, Generator, Literal
+from typing import Any, Generator, Literal, Sequence
 from uuid import uuid4
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
@@ -41,7 +41,7 @@ class CourtroomSession(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     round_3_attempted: bool = False
 
-    def stream_round(self, agents: list[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> Generator[dict[str, Any], None, None]:
+    def stream_round(self, agents: Sequence[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> Generator[dict[str, Any], None, None]:
         """Run a debate round as a generator, yielding structured progress events.
 
         This preserves ALL logic of the original run_round (early-stop, bounded
@@ -347,7 +347,7 @@ class CourtroomSession(BaseModel):
         yield {"event": "round_resolved", "round": debate_round_number, "summary": debate_round.engine_summary}
         yield {"event": "session_complete", "debate_round": debate_round.model_dump()}
 
-    def run_round(self, agents: list[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> DebateRound:
+    def run_round(self, agents: Sequence[BaseAgent], context: dict[str, Any], cost_calculator: CostCalculator) -> DebateRound:
         """Run a debate round synchronously, blocking until completion.
 
         Thin wrapper around :meth:`stream_round` that drains the generator and

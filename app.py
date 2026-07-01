@@ -1018,6 +1018,39 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
         render_conflicts(session)
 
     with tab_prop:
+        st.markdown('<div class="section-header">📋 Standards Check</div>', unsafe_allow_html=True)
+        
+        dl = DataLoader()
+        c_agent = CommunityAgent(dl)
+        cl_agent = ClimateAgent(dl)
+        c_out = c_agent.evaluate(session.current_proposal, {})
+        cl_out = cl_agent.evaluate(session.current_proposal, {})
+        
+        flags = getattr(c_out, "standards_flags", []) + getattr(cl_out, "standards_flags", [])
+        
+        if not flags:
+            st.info("No explicit standards checked for this proposal.")
+        else:
+            for flag in flags:
+                icon = "✅" if flag["passed"] else "❌"
+                color = "#276749" if flag["passed"] else "#742a2a"
+                bg_color = "#eafaf0" if flag["passed"] else "#fff0f0"
+                
+                st.markdown(
+                    f'''
+                    <div style="background:{bg_color}; border: 3px solid #121212; border-left: 8px solid {color}; padding: 1rem; margin-bottom: 0.8rem; box-shadow: 4px 4px 0px 0px #121212;">
+                        <div style="font-weight:900; font-size:1.05rem; margin-bottom:0.3rem; font-family:'Outfit', sans-serif;">{icon} {flag["standard_name"]}</div>
+                        <div style="font-size:0.9rem; margin-bottom:0.2rem; font-family:'Outfit', sans-serif;">
+                            <strong>Proposed:</strong> {flag["proposal_value"]} &nbsp;|&nbsp; <strong>Standard:</strong> {flag["threshold"]}
+                        </div>
+                        <div style="font-size:0.75rem; color:#4a5568; font-style:italic; font-family:'Outfit', sans-serif;">
+                            Citation: {flag["source_citation"]}
+                        </div>
+                    </div>
+                    ''',
+                    unsafe_allow_html=True
+                )
+
         st.markdown(
             '<div class="section-header">Final Proposal Parameters</div>',
             unsafe_allow_html=True,

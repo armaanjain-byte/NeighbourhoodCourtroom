@@ -201,7 +201,8 @@ class FinanceAgent(BaseAgent):
         """
         try:
             costs = self.cost_calculator.data_loader.get_construction_costs(proposal.city_slug)
-            city_index = costs.get("city_index", 1.0)
+            raw_index = costs.get("city_index", 1.0)
+            city_index = raw_index / 100.0 if raw_index > 10.0 else raw_index
         except Exception as e:
             # Invalid dataset handling
             return self.build_output(

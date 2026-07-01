@@ -8,4 +8,5 @@ class AgentOutput(BaseModel):
     proposed_changes: dict[str, float]
     reasoning_and_evidence: str
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    standards_flags: list[dict] = Field(default_factory=list)
 

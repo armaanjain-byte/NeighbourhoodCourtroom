@@ -89,7 +89,7 @@ def proposal_poor_community() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
         community_center_sqft=0.0,
-        affordable_housing_pct=0.0,
+        affordable_housing_pct=10.0,
         housing_units=300, # Triggers density penalty
         parking_spaces=200, # Decreases walkability
         green_space_pct=10.0,
@@ -129,16 +129,22 @@ class TestCommunityAgent:
         
         # Expected changes:
         # community_center_sqft min(0+2000, 10000) = 2000.0
-        # affordable_housing_pct min(0+5, 20) = 5.0
+        # affordable_housing_pct min(10+5, 20) = 15.0
         # parking_spaces max(0, 200 - 20) = 180
         # green_space_pct = 10.0 + 5.0 = 15.0
         changes = output.proposed_changes
         assert changes["community_center_sqft"] == 2000.0
-        assert changes["affordable_housing_pct"] == 5.0
+        assert changes["affordable_housing_pct"] == 15.0
         assert changes["parking_spaces"] == 180
         assert changes["green_space_pct"] == 15.0
         
         assert "lacks adequate community amenities" in output.reasoning_and_evidence
+
+        # Check standards_flags
+        assert len(output.standards_flags) == 1
+        flag = output.standards_flags[0]
+        assert flag["standard_name"] == "HUD Affordable Housing"
+        assert flag["passed"]
 
     def test_strong_community_proposal(self, proposal_strong_community: Proposal) -> None:
         agent = CommunityAgent(MockDataLoader())
@@ -152,6 +158,12 @@ class TestCommunityAgent:
         assert output.verdict == "accept"
         assert output.proposed_changes == {}
         assert "supports a high quality of life" in output.reasoning_and_evidence
+
+        # Check standards_flags
+        assert len(output.standards_flags) == 1
+        flag = output.standards_flags[0]
+        assert flag["standard_name"] == "HUD Affordable Housing"
+        assert flag["passed"]
 
     def test_low_walkability(self, proposal_strong_community: Proposal) -> None:
         # Force low base walkability, causing score to drop below 85.0
@@ -225,19 +237,19 @@ class TestCommunityAgent:
 
     def test_incremental_fallback_step(self) -> None:
         agent = CommunityAgent(MockDataLoader())
-        proposal = create_initial_proposal("phoenix_az", community_center_sqft=5000.0, affordable_housing_pct=0.0)
+        proposal = create_initial_proposal("phoenix_az", community_center_sqft=5000.0, affordable_housing_pct=10.0)
         output = agent.evaluate(proposal, {})
         assert output.proposed_changes["community_center_sqft"] == 7000.0
 
     def test_incremental_fallback_close_to_target(self) -> None:
         agent = CommunityAgent(MockDataLoader())
-        proposal = create_initial_proposal("phoenix_az", community_center_sqft=9000.0, affordable_housing_pct=0.0)
+        proposal = create_initial_proposal("phoenix_az", community_center_sqft=9000.0, affordable_housing_pct=10.0)
         output = agent.evaluate(proposal, {})
         assert output.proposed_changes["community_center_sqft"] == 10000.0
 
     def test_incremental_fallback_above_target(self) -> None:
         agent = CommunityAgent(MockDataLoader())
-        proposal = create_initial_proposal("phoenix_az", community_center_sqft=15000.0, affordable_housing_pct=0.0)
+        proposal = create_initial_proposal("phoenix_az", community_center_sqft=15000.0, affordable_housing_pct=10.0)
         output = agent.evaluate(proposal, {})
         assert output.proposed_changes["community_center_sqft"] == 15000.0
 
@@ -260,6 +272,16 @@ class TestCommunityAgent:
         assert "scaled back to 25%" in output.reasoning_and_evidence
         assert output.proposed_changes["community_center_sqft"] == 500.0
         assert output.proposed_changes["affordable_housing_pct"] == 16.25
+
+    def test_community_agent_catches_adversarial_affordable_housing(self) -> None:
+        agent = CommunityAgent(MockDataLoader())
+        proposal = create_initial_proposal("phoenix_az", affordable_housing_pct=2.0)
+        output = agent.evaluate(proposal, {})
+        
+        assert output.score <= 10.0
+        assert output.verdict == "modify"
+        assert output.proposed_changes["affordable_housing_pct"] == 20.0
+        assert "egregiously violates the HUD/Furman Center standard" in output.reasoning_and_evidence
 
     def test_dramatically_over_budget_scale_back(self) -> None:
         class DramaticBudgetBustingMockLoader(MockDataLoader):

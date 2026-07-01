@@ -265,11 +265,31 @@ class ClimateAgent(BaseAgent):
                 f"stormwater capture ({stormwater_capture_pct:.1f}%) and heat resilience."
             )
 
+        standards_flags = []
+        try:
+            standards = self.data_loader.get_reference_standards(CLIMATE_STANDARDS_FILE)
+            heat_island = standards.get("heat_island_mitigation", {})
+            cooling_threshold = heat_island.get("green_space_cooling_threshold", {})
+            min_green_pct = cooling_threshold.get("min_green_space_pct_for_measurable_cooling", 15.0)
+            
+            passed = proposal.green_space_pct >= min_green_pct
+            standards_flags.append({
+                "standard_name": "EPA Heat Island Mitigation",
+                "source_citation": cooling_threshold.get("source", "EPA Heat Island Compendium"),
+                "proposal_value": f"{proposal.green_space_pct}%",
+                "threshold": f"{min_green_pct}% minimum",
+                "passed": passed
+            })
+        except Exception:
+            pass
+
         filtered = self.filter_unknown_parameters(changes)
 
-        return self.build_output(
+        out = self.build_output(
             score=score,
             verdict=verdict,
             changes=filtered,
             reasoning=reasoning
         )
+        out.standards_flags = standards_flags
+        return out

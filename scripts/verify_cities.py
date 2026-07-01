@@ -15,10 +15,10 @@ def test_all_cities():
     data_loader = DataLoader()
     cost_calculator = CostCalculator(data_loader)
     
-    cities = data_loader.cities
+    cities = data_loader.list_available_cities()
     success_count = 0
     
-    for city_slug in cities.keys():
+    for city_slug in cities:
         print(f"\n--- Testing {city_slug} ---")
         try:
             proposal = create_initial_proposal(city_slug, green_space_pct=20.0, parking_spaces=100)
@@ -32,3 +32,5 @@ def test_all_cities():
 
 if __name__ == "__main__":
     test_all_cities()
+
+    

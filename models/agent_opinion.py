@@ -23,3 +23,4 @@ class AgentOpinion(BaseModel):
     concession_rationale: str | None = None
     own_previous_position: dict[str, float] | None = None
     is_fallback: bool = False
+    standards_flags: list[dict] = Field(default_factory=list)

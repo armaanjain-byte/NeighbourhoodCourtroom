@@ -117,6 +117,12 @@ class TestClimateAgent:
         assert changes["community_center_sqft"] == 2500.0
         
         assert "poor environmental resilience" in output.reasoning_and_evidence
+        
+        # Check standards_flags
+        assert len(output.standards_flags) == 1
+        flag = output.standards_flags[0]
+        assert flag["standard_name"] == "EPA Heat Island Mitigation"
+        assert not flag["passed"]
 
     def test_strong_climate_proposal(self, proposal_strong_climate: Proposal) -> None:
         agent = ClimateAgent(MockDataLoader())
@@ -130,6 +136,12 @@ class TestClimateAgent:
         assert output.verdict == "accept"
         assert output.proposed_changes == {}
         assert "meets environmental standards" in output.reasoning_and_evidence
+
+        # Check standards_flags
+        assert len(output.standards_flags) == 1
+        flag = output.standards_flags[0]
+        assert flag["standard_name"] == "EPA Heat Island Mitigation"
+        assert flag["passed"]
 
     def test_low_green_space(self) -> None:
         agent = ClimateAgent(MockDataLoader())
