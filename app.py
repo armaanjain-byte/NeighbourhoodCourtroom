@@ -664,6 +664,44 @@ Agents negotiate across up to three rounds, proposing changes and responding to 
                 st.session_state["onboarding_dismissed"] = True
                 st.rerun()
 
+    # ── System Quality Panel (Eval Harness Results) ─────────────────────────
+    @st.cache_data
+    def load_eval_results():
+        import json
+        import os
+        if os.path.exists("eval_results.json"):
+            try:
+                with open("eval_results.json", "r") as f:
+                    return json.load(f)
+            except Exception:
+                return None
+        return None
+
+    eval_data = load_eval_results()
+    if eval_data:
+        with st.expander("📊 System Quality Metrics (Eval Harness Results)", expanded=False):
+            st.markdown("""
+            <div style="font-family:'Outfit',sans-serif;font-size:0.9rem;color:#121212;line-height:1.6;margin-bottom:1rem;">
+            These metrics are precomputed by running the conflict engine headlessly across multiple city scenarios to evaluate agent consistency and grounding quality.
+            </div>
+            """, unsafe_allow_html=True)
+            
+            ecols = st.columns(4)
+            ecols[0].metric("Evidence Grounding", f"{eval_data.get('evidence_grounding_pct', 0):.1f}%")
+            ecols[1].metric("Score Variance", f"±{eval_data.get('score_stddev', 0):.1f}")
+            
+            res_pct = eval_data.get('conflict_escalation', {}).get('resolved_pct', 0)
+            esc_pct = eval_data.get('conflict_escalation', {}).get('escalated_pct', 0)
+            
+            ecols[2].metric("Auto-Resolved Conflicts", f"{res_pct:.1f}%")
+            ecols[3].metric("Escalated Conflicts", f"{esc_pct:.1f}%")
+            
+            st.markdown(f"""
+            <div style="font-size:0.75rem;color:#4a5568;margin-top:1rem;">
+            * Based on {eval_data.get('total_sessions', 0)} headless simulation sessions. Budget sanity rate: {eval_data.get('budget_sanity_pct', 0):.1f}%. Fallback usage: {eval_data.get('fallback_usage_pct', 0):.1f}%.
+            </div>
+            """, unsafe_allow_html=True)
+
     if st.session_state.get("error"):
         st.error(f"Previous run failed: {st.session_state['error']}")
         st.session_state["error"] = None

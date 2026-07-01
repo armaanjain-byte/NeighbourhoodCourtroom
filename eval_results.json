@@ -1,0 +1,11 @@
+{
+  "total_sessions": 8,
+  "evidence_grounding_pct": 100.0,
+  "fallback_usage_pct": 100.0,
+  "budget_sanity_pct": 0.0,
+  "conflict_escalation": {
+    "escalated_pct": 45.45454545454545,
+    "resolved_pct": 54.54545454545455
+  },
+  "score_stddev": 2.71119632129558
+}
