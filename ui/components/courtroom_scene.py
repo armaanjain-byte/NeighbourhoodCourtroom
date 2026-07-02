@@ -1054,8 +1054,8 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
         <div id="judges-bench" class="relative z-30 flex items-center justify-between px-8 py-4" style="background: #ffffff; border-top: 4px solid #121212; box-shadow: 0 -3px 0 0 #121212;">
             <!-- Play/Pause and Speed Controls -->
             <div class="flex items-center gap-3">
-                <button id="btn-play-pause" onclick="togglePlay()" class="flex items-center gap-2 px-5 py-2 font-black text-xs uppercase tracking-widest transition-all" style="background: #553c9a; color: #e9d8fd; border: 3px solid #121212; border-radius: 0; box-shadow: 4px 4px 0px 0px #121212; font-family: Outfit, sans-serif; letter-spacing: 0.1em;" onmouseover="this.style.transform='translate(-1px,-1px)'; this.style.boxShadow='6px 6px 0px 0px #121212'" onmouseout="this.style.transform=''; this.style.boxShadow='4px 4px 0px 0px #121212'" onmousedown="this.style.transform='translate(3px,3px)'; this.style.boxShadow='none'" onmouseup="this.style.transform='translate(-1px,-1px)'; this.style.boxShadow='6px 6px 0px 0px #121212'">
-                    ⏸ PAUSE
+                <button id="btn-play-pause" onclick="togglePlay()" class="flex items-center gap-2 px-5 py-2 font-black text-xs uppercase tracking-widest transition-all" style="background: #276749; color: #c6f6d5; border: 3px solid #121212; border-radius: 0; box-shadow: 4px 4px 0px 0px #121212; font-family: Outfit, sans-serif; letter-spacing: 0.1em;" onmouseover="this.style.transform='translate(-1px,-1px)'; this.style.boxShadow='6px 6px 0px 0px #121212'" onmouseout="this.style.transform=''; this.style.boxShadow='4px 4px 0px 0px #121212'" onmousedown="this.style.transform='translate(3px,3px)'; this.style.boxShadow='none'" onmouseup="this.style.transform='translate(-1px,-1px)'; this.style.boxShadow='6px 6px 0px 0px #121212'">
+                    ▶ PLAY
                 </button>
                 <div class="flex items-center" style="border: 3px solid #121212; box-shadow: 3px 3px 0px 0px #121212;">
                     <button id="btn-speed-1" onclick="setSpeed(1)" class="speed-btn px-4 py-1.5 text-xs font-black uppercase transition-all" style="background: #744210; color: #fefcbf; border-right: 2px solid #121212; font-family: Outfit, sans-serif;">1×</button>
@@ -1107,7 +1107,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
     <script>
         const beats = {beats_json};
         let currentBeatIndex = 0;
-        let isPlaying = true;
+        let isPlaying = false;
         let speedMultiplier = 1;
         let timeoutId = null;
         let subTimeoutIds = [];
