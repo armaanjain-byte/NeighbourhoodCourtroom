@@ -25,9 +25,10 @@ from engine.state import (
 )
 from engine.override import apply_human_override, calculate_change_summary
 from tools.cost_calculator import CostCalculator
+from tools.data_loader import DataLoader
 
 
-class MockDataLoader:
+class MockDataLoader(DataLoader):
     def get_construction_costs(self, city_slug: str) -> dict:
         return {"city_index": 1.0}
 

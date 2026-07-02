@@ -78,6 +78,8 @@ class MockDataLoader(DataLoader):
 
 
 class MockCostCalculator(CostCalculator):
+    data_loader: MockDataLoader
+
     def __init__(self, city_index: float, should_fail: bool = False):
         self.data_loader = MockDataLoader(city_index, should_fail)
 
