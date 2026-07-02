@@ -660,10 +660,10 @@ def render_proposal_table(session: CourtroomSession) -> None:
     
     budget_limit = session.budget_limit
     
-    # Render Budget Limit row
+    # Render Budget Limit (Hard Ceiling) row
     rows += (
         f"<tr>"
-        f"<td><strong>Budget Limit (Your Input)</strong></td>"
+        f"<td><strong>Budget Limit (Your Hard Ceiling)</strong></td>"
         f"<td>{_fmt_value('estimated_cost', budget_limit)}</td>"
         f"<td>{_fmt_value('estimated_cost', budget_limit)}</td>"
         f"</tr>"
@@ -671,16 +671,32 @@ def render_proposal_table(session: CourtroomSession) -> None:
 
     # Render Estimated Construction Cost row
     changed_cost = abs(float(final_cost) - float(open_cost)) > 0.01
-    cost_cls = "param-changed" if changed_cost else ""
     cost_arrow = " ↑" if changed_cost and float(final_cost) > float(open_cost) else (" ↓" if changed_cost else "")
+    
     over_budget = final_cost > budget_limit and budget_limit > 0
-    cost_color = 'color: #e53e3e; font-weight: bold;' if over_budget else ''
+    cost_color = 'color: #e53e3e; font-weight: bold;' if over_budget else 'color: #276749; font-weight: bold;'
     
     rows += (
         f"<tr>"
         f"<td><strong>Estimated Construction Cost</strong></td>"
         f"<td>{_fmt_value('estimated_cost', open_cost)}</td>"
-        f'<td class="{cost_cls}" style="{cost_color}">{_fmt_value("estimated_cost", final_cost)}{cost_arrow}</td>'
+        f'<td style="{cost_color}">{_fmt_value("estimated_cost", final_cost)}{cost_arrow}</td>'
+        f"</tr>"
+    )
+
+    # Render Budget Utilization row
+    utilization_pct = (final_cost / budget_limit * 100) if budget_limit > 0 else 0
+    utilization_open_pct = (open_cost / budget_limit * 100) if budget_limit > 0 else 0
+    util_changed = abs(utilization_pct - utilization_open_pct) > 0.1
+    util_arrow = " ↑" if util_changed and utilization_pct > utilization_open_pct else (" ↓" if util_changed else "")
+    
+    util_color = 'color: #e53e3e; font-weight: bold;' if utilization_pct > 100 else 'color: #276749; font-weight: bold;'
+
+    rows += (
+        f"<tr>"
+        f"<td><strong>Budget Utilization</strong></td>"
+        f"<td>{utilization_open_pct:.1f}%</td>"
+        f'<td style="{util_color}">{utilization_pct:.1f}%{util_arrow}</td>'
         f"</tr>"
     )
 
@@ -806,6 +822,7 @@ Agents negotiate across up to three rounds, proposing changes and responding to 
             parking_spaces = max(0, min(100000, int(result.get("parking_spaces", 0))))
             community_center_sqft = max(0.0, min(1000000.0, float(result.get("community_center_sqft", 0.0))))
             total_budget = max(0.0, min(10_000_000_000.0, float(result.get("total_budget", 0.0))))
+            lot_size_sqft = float(result.get("lot_size_sqft", 1_000_000.0))
             
             proposal = create_initial_proposal(
                 city_slug=city_slug,
@@ -817,6 +834,7 @@ Agents negotiate across up to three rounds, proposing changes and responding to 
             )
             st.session_state["proposal"] = proposal
             st.session_state["user_budget_input"] = total_budget
+            st.session_state["lot_size_sqft"] = lot_size_sqft
             st.session_state["city_slug"] = city_slug
             st.session_state["stage"] = "debating"
             st.rerun()
@@ -886,7 +904,11 @@ def stage_debating() -> None:
                 FinanceAgent(calc),
                 CommunityAgent(data_loader),
             ]
-            session = create_session(proposal, budget_limit=st.session_state.get("user_budget_input", 0.0))
+            session = create_session(
+                proposal, 
+                budget_limit=st.session_state.get("user_budget_input", 0.0),
+                city_data={"lot_sqft": st.session_state.get("lot_size_sqft", 1_000_000.0)}
+            )
             st.session_state["debate_session"] = session
             st.session_state["debate_agents"] = agents
             st.session_state["debate_calc"] = calc

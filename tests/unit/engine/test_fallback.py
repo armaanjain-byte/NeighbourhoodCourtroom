@@ -471,9 +471,8 @@ class TestBudgetGuards:
             apply_changes(proposal, {"budget_limit": 999_000_000.0}, actor="test")
 
     def test_run_debate_round_rejects_estimated_cost(self) -> None:
-        """run_debate_round() must raise AssertionError if estimated_cost is in resolved changes."""
+        """run_debate_round() must strip estimated_cost from proposed changes."""
         from engine.debate import run_debate_round
-        from engine.conflict import resolve_conflicts
         from models.agent_output import AgentOutput
 
         proposal = _proposal()
@@ -484,12 +483,12 @@ class TestBudgetGuards:
                 reasoning_and_evidence="test", confidence=0.5,
             )
         }
-        # This should raise because estimated_cost ends up in resolved_changes
-        with pytest.raises(AssertionError, match="estimated_cost"):
-            run_debate_round(proposal, agent_outputs, round_number=1)
+        # This should strip estimated_cost and apply other changes successfully
+        round_result, proposal_out = run_debate_round(proposal, agent_outputs, round_number=1)
+        assert getattr(proposal_out, "estimated_cost", None) != 999_000_000.0
 
     def test_run_debate_round_rejects_budget_limit(self) -> None:
-        """run_debate_round() must raise AssertionError if budget_limit ends up in resolved changes."""
+        """run_debate_round() must strip budget_limit from proposed changes."""
         from engine.debate import run_debate_round
         from models.agent_output import AgentOutput
 
@@ -501,8 +500,9 @@ class TestBudgetGuards:
                 reasoning_and_evidence="test", confidence=0.5,
             )
         }
-        with pytest.raises(AssertionError, match="budget_limit"):
-            run_debate_round(proposal, agent_outputs, round_number=1)
+        # This should strip budget_limit and apply other changes successfully
+        round_result, proposal_out = run_debate_round(proposal, agent_outputs, round_number=1)
+        assert proposal_out.budget_limit == proposal.budget_limit
 
 
 # ── BaseAgent wiring test ─────────────────────────────────────────────────────

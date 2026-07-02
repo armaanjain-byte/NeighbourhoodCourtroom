@@ -135,14 +135,23 @@
     <section class="mb-8">
         <h2 class="section-header">Proposal Details</h2>
         <div class="space-y-6 bg-white p-6" style="border: 4px solid #121212; box-shadow: 6px 6px 0px 0px #121212;">
+            <!-- Site Area -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="font-black text-sm text-on-surface uppercase tracking-wider" style="font-family: Outfit, sans-serif; letter-spacing: 0.1em; font-size: 0.7rem;">Total Site Area (Acres)</label>
+                    <span class="font-black text-xl" style="color: #121212; font-family: Outfit, sans-serif;" id="val-site_area_acres">23 acres</span>
+                </div>
+                <input class="block" id="inp-site_area_acres" max="100" min="1" step="1" oninput="updateValWithFormat(this, ' acres'); updateLandUsePreview();" type="range" value="23"/>
+                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #E0E0E0; color: #121212; display: inline-block;">1 acre = 43,560 sqft. Determines total available land for development.</p>
+            </div>
             <!-- Green Space -->
             <div class="space-y-2">
                 <div class="flex justify-between items-center">
                     <label class="font-black text-sm text-on-surface uppercase tracking-wider" style="font-family: Outfit, sans-serif; letter-spacing: 0.1em; font-size: 0.7rem;">Green Space Percentage</label>
                     <span class="font-black text-xl" style="color: #276749; font-family: Outfit, sans-serif;" id="val-green_space_pct">20%</span>
                 </div>
-                <input class="block" id="inp-green_space_pct" max="100" min="0" oninput="updateVal(this, '%')" type="range" value="20"/>
-                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #c6f6d5; color: #276749; display: inline-block;">20% = about 1 acre of parks on a 5-acre lot</p>
+                <input class="block" id="inp-green_space_pct" max="100" min="0" oninput="updateVal(this, '%'); updateLandUsePreview();" type="range" value="20"/>
+                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #c6f6d5; color: #276749; display: inline-block;">Percentage of the total site area dedicated to parks and greenery.</p>
             </div>
             <!-- Affordable Housing -->
             <div class="space-y-2">
@@ -159,8 +168,8 @@
                     <label class="font-black text-sm text-on-surface uppercase tracking-wider" style="font-family: Outfit, sans-serif; letter-spacing: 0.1em; font-size: 0.7rem;">Housing Units</label>
                     <span class="font-black text-xl" style="color: #744210; font-family: Outfit, sans-serif;" id="val-housing_units">100</span>
                 </div>
-                <input class="block" id="inp-housing_units" max="2000" min="10" step="10" oninput="updateVal(this, '')" type="range" value="100"/>
-                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #fefcbf; color: #744210; display: inline-block;">Total number of residential dwellings constructed.</p>
+                <input class="block" id="inp-housing_units" max="2000" min="10" step="10" oninput="updateVal(this, ''); updateLandUsePreview();" type="range" value="100"/>
+                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #fefcbf; color: #744210; display: inline-block;">Assumes mid-rise 5-story buildings for footprint calculation.</p>
             </div>
             <!-- Parking Spaces -->
             <div class="space-y-2">
@@ -168,8 +177,8 @@
                     <label class="font-black text-sm text-on-surface uppercase tracking-wider" style="font-family: Outfit, sans-serif; letter-spacing: 0.1em; font-size: 0.7rem;">Parking Spaces</label>
                     <span class="font-black text-xl" style="color: #744210; font-family: Outfit, sans-serif;" id="val-parking_spaces">150</span>
                 </div>
-                <input class="block" id="inp-parking_spaces" max="1000" min="0" step="10" oninput="updateVal(this, '')" type="range" value="150"/>
-                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #fefcbf; color: #744210; display: inline-block;">1.5 spaces per unit on average for 100 units.</p>
+                <input class="block" id="inp-parking_spaces" max="1000" min="0" step="10" oninput="updateVal(this, ''); updateLandUsePreview();" type="range" value="150"/>
+                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #fefcbf; color: #744210; display: inline-block;">Assumes 330 sqft per space (surface parking equivalent).</p>
             </div>
             <!-- Community Center -->
             <div class="space-y-2">
@@ -177,8 +186,26 @@
                     <label class="font-black text-sm text-on-surface uppercase tracking-wider" style="font-family: Outfit, sans-serif; letter-spacing: 0.1em; font-size: 0.7rem;">Community Center (sqft)</label>
                     <span class="font-black text-xl" style="color: #553c9a; font-family: Outfit, sans-serif;" id="val-community_center_sqft">5,000 sqft</span>
                 </div>
-                <input class="block" id="inp-community_center_sqft" max="100000" min="0" step="500" oninput="updateValWithFormat(this, ' sqft')" type="range" value="5000"/>
-                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #e9d8fd; color: #553c9a; display: inline-block;">5,000 sqft is roughly the size of a standard neighborhood gymnasium.</p>
+                <input class="block" id="inp-community_center_sqft" max="100000" min="0" step="500" oninput="updateValWithFormat(this, ' sqft'); updateLandUsePreview();" type="range" value="5000"/>
+                <p class="text-xs font-medium opacity-60" style="padding: 4px 8px; background: #e9d8fd; color: #553c9a; display: inline-block;">Single-story footprint.</p>
+            </div>
+
+            <!-- Land Use Preview -->
+            <div class="mt-6 pt-4 border-t-2 border-black">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="font-black text-sm text-on-surface uppercase tracking-wider" style="font-family: Outfit, sans-serif; letter-spacing: 0.1em; font-size: 0.7rem;">Land Use Preview</label>
+                    <span class="font-black text-sm" id="val-land_use_status">Checking...</span>
+                </div>
+                <div class="w-full h-6 bg-gray-200 border-2 border-black flex">
+                    <div id="bar-residential" class="h-full bg-[#744210]" style="width: 0%" title="Residential"></div>
+                    <div id="bar-parking" class="h-full bg-[#742a2a]" style="width: 0%" title="Parking"></div>
+                    <div id="bar-community" class="h-full bg-[#553c9a]" style="width: 0%" title="Community Center"></div>
+                    <div id="bar-green" class="h-full bg-[#276749]" style="width: 0%" title="Green Space"></div>
+                </div>
+                <div class="flex justify-between mt-1 text-[0.65rem] font-bold uppercase opacity-70">
+                    <span>0%</span>
+                    <span id="val-land_use_pct">0%</span>
+                </div>
             </div>
         </div>
     </section>
@@ -330,10 +357,47 @@
         e.target.value = parseInt(value).toLocaleString();
     });
 
+    function updateLandUsePreview() {
+        const acres = parseFloat(document.getElementById('inp-site_area_acres').value);
+        const lot_sqft = acres * 43560;
+        const housing_units = parseInt(document.getElementById('inp-housing_units').value);
+        const parking_spaces = parseInt(document.getElementById('inp-parking_spaces').value);
+        const cc_sqft = parseFloat(document.getElementById('inp-community_center_sqft').value);
+        const green_pct = parseFloat(document.getElementById('inp-green_space_pct').value);
+
+        const residential_footprint = (housing_units * 800) / 5;
+        const parking_footprint = parking_spaces * 330;
+        const community_footprint = cc_sqft;
+        const green_footprint = lot_sqft * green_pct / 100;
+        
+        const total_footprint = residential_footprint + parking_footprint + community_footprint + green_footprint;
+        const pct = (total_footprint / lot_sqft) * 100;
+
+        document.getElementById('bar-residential').style.width = Math.min((residential_footprint / lot_sqft) * 100, 100) + '%';
+        document.getElementById('bar-parking').style.width = Math.min((parking_footprint / lot_sqft) * 100, 100) + '%';
+        document.getElementById('bar-community').style.width = Math.min((community_footprint / lot_sqft) * 100, 100) + '%';
+        document.getElementById('bar-green').style.width = Math.min((green_footprint / lot_sqft) * 100, 100) + '%';
+
+        const statusEl = document.getElementById('val-land_use_status');
+        const pctEl = document.getElementById('val-land_use_pct');
+        pctEl.innerText = Math.round(pct) + '%';
+        
+        if (pct <= 100) {
+            statusEl.innerText = "Feasible (Fits on site)";
+            statusEl.style.color = "#276749";
+            pctEl.style.color = "#276749";
+        } else {
+            statusEl.innerText = "Unfeasible (Exceeds lot)";
+            statusEl.style.color = "#e53e3e";
+            pctEl.style.color = "#e53e3e";
+        }
+    }
+
     // Submit Action
     document.getElementById('submit-btn').addEventListener('click', () => {
         const budgetRaw = budgetInput.value.replace(/\D/g, "");
         const budget = budgetRaw ? parseInt(budgetRaw) : 25000000;
+        const acres = parseFloat(document.getElementById('inp-site_area_acres').value);
 
         const data = {
             city_slug: selectedCity,
@@ -342,13 +406,15 @@
             housing_units: parseInt(document.getElementById('inp-housing_units').value),
             parking_spaces: parseInt(document.getElementById('inp-parking_spaces').value),
             community_center_sqft: parseFloat(document.getElementById('inp-community_center_sqft').value),
-            total_budget: budget
+            total_budget: budget,
+            lot_size_sqft: acres * 43560
         };
 
         sendMessageToStreamlitClient("streamlit:setComponentValue", {value: data});
     });
 
     // Init
+    updateLandUsePreview();
     init();
 </script>
 </body>

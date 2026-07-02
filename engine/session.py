@@ -27,6 +27,7 @@ from agents.base_agent import BaseAgent
 from tools.cost_calculator import CostCalculator
 
 SessionStatus = Literal["CREATED", "IN_PROGRESS", "WAITING_FOR_JUDGE", "COMPLETED"]
+IMMUTABLE_PARAMETERS = ["budget_limit", "estimated_cost", "calculated_construction_cost"]
 
 
 class CourtroomSession(BaseModel):
@@ -35,6 +36,7 @@ class CourtroomSession(BaseModel):
     session_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     current_proposal: Proposal
     budget_limit: float = 0.0
+    city_data: dict[str, Any] = Field(default_factory=dict)
     debate_rounds: list[DebateRound] = Field(default_factory=list)
     override_history: list[dict[str, Any]] = Field(default_factory=list)
     transcript: CourtroomTranscript = Field(default_factory=CourtroomTranscript)
@@ -135,7 +137,9 @@ class CourtroomSession(BaseModel):
                 self.current_proposal,
                 r1_agent_outputs,
                 round_number=debate_round_number,
-                cost_calculator=cost_calculator
+                cost_calculator=cost_calculator,
+                city_data=self.city_data or context.get("city_data"),
+                budget_limit=self.budget_limit,
             )
             debate_round.round_1_opinions = round_1_opinions
             self.debate_rounds.append(debate_round)
@@ -235,36 +239,23 @@ class CourtroomSession(BaseModel):
             self.current_proposal,
             llm_agent_outputs,
             round_number=debate_round_number,
-            cost_calculator=cost_calculator
+            cost_calculator=cost_calculator,
+            city_data=self.city_data or context.get("city_data"),
+            budget_limit=self.budget_limit,
         )
 
-        # Pre-resolution check: flag budget overruns as high-severity
-        if cost_calculator and self.budget_limit > 0:
-            budget_status = cost_calculator.check_budget(updated_proposal, city_data=None, budget_limit=self.budget_limit)
-            if not budget_status["within_budget"]:
-                # Find which parameters pushed it over budget and add a high severity conflict
-                from models.conflict import Conflict
-                for agent_name, out in llm_agent_outputs.items():
-                    for param, val in out.proposed_changes.items():
-                        if param not in debate_round.human_review_params:
-                            debate_round.detected_conflicts.append(Conflict(
-                                parameter=param,
-                                agent_a=agent_name,
-                                agent_b="finance_rules",
-                                proposed_value_a=val,
-                                proposed_value_b=getattr(self.current_proposal, param),
-                                disagreement_severity="high"
-                            ))
-                            debate_round.human_review_params.append(param)
-                            # Revert the parameter in the updated_proposal
-                            setattr(updated_proposal, param, getattr(self.current_proposal, param))
 
         # ── Attach opinion records to the DebateRound ────────────────────────
         debate_round.round_1_opinions = round_1_opinions
         debate_round.round_2_opinions = round_2_opinions
 
         # ── Phase C: Bounded Round 3 for unresolved HIGH conflicts ───────────
-        high_conflicts = [c for c in debate_round.detected_conflicts if c.disagreement_severity == "high" and c.parameter not in self.current_proposal.human_locks]
+        high_conflicts = [
+            c for c in debate_round.detected_conflicts
+            if c.disagreement_severity == "high"
+            and c.parameter not in self.current_proposal.human_locks
+            and c.agent_a not in {"land_rules", "budget_rules"}
+        ]
         if high_conflicts and not self.round_3_attempted:
             self.round_3_attempted = True
             print(f"Session {self.session_id}: HIGH severity conflicts persist after Round 2. Initiating bounded Round 3.")
@@ -367,7 +358,9 @@ class CourtroomSession(BaseModel):
                 self.current_proposal,
                 llm_agent_outputs,
                 round_number=debate_round_number,
-                cost_calculator=cost_calculator
+                cost_calculator=cost_calculator,
+                city_data=self.city_data or context.get("city_data"),
+                budget_limit=self.budget_limit,
             )
             debate_round.round_1_opinions = round_1_opinions
             debate_round.round_2_opinions = round_2_opinions
@@ -485,7 +478,11 @@ class CourtroomSession(BaseModel):
         }
 
 
-def create_session(initial_proposal: Proposal, budget_limit: float = 0.0) -> CourtroomSession:
+def create_session(
+    initial_proposal: Proposal,
+    budget_limit: float = 0.0,
+    city_data: dict[str, Any] | None = None,
+) -> CourtroomSession:
     """Initialize a new courtroom session.
 
     Parameters
@@ -500,4 +497,13 @@ def create_session(initial_proposal: Proposal, budget_limit: float = 0.0) -> Cou
     CourtroomSession
         A fresh session in the CREATED state.
     """
-    return CourtroomSession(current_proposal=initial_proposal, budget_limit=budget_limit)
+    proposal = initial_proposal
+    if budget_limit and initial_proposal.budget_limit != budget_limit:
+        proposal = initial_proposal.model_copy(update={"budget_limit": budget_limit})
+    if city_data is not None:
+        proposal._city_data = dict(city_data)
+    return CourtroomSession(
+        current_proposal=proposal,
+        budget_limit=budget_limit,
+        city_data=dict(city_data or {}),
+    )

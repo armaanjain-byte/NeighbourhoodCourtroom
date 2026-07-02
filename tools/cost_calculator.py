@@ -28,6 +28,35 @@ COST_CONSTANTS = {
 }
 
 
+
+
+def check_land_feasibility(proposal: Proposal, lot_size_sqft: float) -> Dict[str, Any]:
+    """Check whether proposal footprints fit within the physical site area."""
+    building_floors = 5
+    residential_footprint = (proposal.housing_units * 800) / building_floors
+    parking_footprint = proposal.parking_spaces * 330
+    cc_footprint = proposal.community_center_sqft
+    green_footprint = lot_size_sqft * proposal.green_space_pct / 100
+
+    total_footprint = (
+        residential_footprint
+        + parking_footprint
+        + cc_footprint
+        + green_footprint
+    )
+    return {
+        "feasible": total_footprint <= lot_size_sqft,
+        "total_footprint": total_footprint,
+        "available": lot_size_sqft,
+        "overage_sqft": max(0, total_footprint - lot_size_sqft),
+        "breakdown": {
+            "residential": residential_footprint,
+            "parking": parking_footprint,
+            "community_center": cc_footprint,
+            "green_space": green_footprint,
+        },
+    }
+
 @dataclass
 class CostBreakdown:
     residential_cost: float
@@ -107,3 +136,10 @@ class CostCalculator:
             "overage": max(0.0, overage),
             "breakdown": breakdown
         }
+
+    def check_land_feasibility(self, proposal: Proposal, city_data: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        """Verify whether a proposal fits inside the available lot area."""
+        if city_data is None:
+            city_data = self.data_loader.load_city(proposal.city_slug)
+        lot_size_sqft = city_data.get("lot_sqft", 1_000_000)
+        return check_land_feasibility(proposal, lot_size_sqft)

@@ -43,7 +43,7 @@ PARAM_BOUNDS: dict[str, tuple[float, float]] = {
     "housing_units": (0, 100000),
     "parking_spaces": (0, 100000),
     "community_center_sqft": (0.0, 1000000.0),
-    # estimated_cost is derived, not negotiable.
+    # calculated_construction_cost is derived, not negotiable.
 }
 
 # Parameters whose Proposal field type is int (agents send floats)
@@ -55,8 +55,9 @@ PARAM_LABELS: dict[str, str] = {
     "housing_units": "Housing Density (Units/Hectare)",
     "parking_spaces": "Parking Coverage (Spaces)",
     "community_center_sqft": "Community Center (sqft)",
-    "estimated_cost": "Total Estimated Cost ($)"
 }
+
+IMMUTABLE_PARAMETERS: set[str] = {"budget_limit", "estimated_cost", "calculated_construction_cost"}
 
 
 def _coerce_value(param: str, value: float) -> float | int:
@@ -74,6 +75,7 @@ def create_initial_proposal(
     housing_units: int = 100,
     parking_spaces: int = 150,
     community_center_sqft: float = 5000.0,
+    budget_limit: float = 0.0,
 ) -> Proposal:
     """Create a fresh Proposal with sensible defaults.
 
@@ -100,6 +102,7 @@ def create_initial_proposal(
     return Proposal(
         city_slug=city_slug,
         version=1,
+        budget_limit=budget_limit,
         green_space_pct=green_space_pct,
         affordable_housing_pct=affordable_housing_pct,
         housing_units=housing_units,

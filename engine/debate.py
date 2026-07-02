@@ -20,6 +20,7 @@ Design:
 from __future__ import annotations
 
 from typing import Any
+import logging
 
 from models.proposal import Proposal
 from models.agent_output import AgentOutput
@@ -32,9 +33,68 @@ from engine.conflict import (
     resolve_conflicts,
     generate_resolution_summary,
 )
-from tools.cost_calculator import CostCalculator
+from tools.cost_calculator import CostCalculator, check_land_feasibility
+
+logger = logging.getLogger(__name__)
+IMMUTABLE_PARAMETERS = {"budget_limit", "estimated_cost", "calculated_construction_cost"}
 
 
+
+def strip_immutable_agent_changes(
+    agent_outputs: dict[str, AgentOutput],
+) -> dict[str, AgentOutput]:
+    """Drop frozen/computed fields before conflict resolution."""
+    sanitized: dict[str, AgentOutput] = {}
+    for agent_name, output in agent_outputs.items():
+        immutable_keys = [
+            key for key in output.proposed_changes
+            if key in IMMUTABLE_PARAMETERS
+        ]
+        if immutable_keys:
+            logger.warning(
+                "Agent '%s' proposed immutable parameter(s) %s; stripping before resolution.",
+                agent_name,
+                immutable_keys,
+            )
+        filtered_changes = {
+            key: value for key, value in output.proposed_changes.items()
+            if key not in IMMUTABLE_PARAMETERS
+        }
+        sanitized[agent_name] = output.model_copy(update={
+            "proposed_changes": filtered_changes,
+            "verdict": "modify" if filtered_changes else "accept",
+        })
+    return sanitized
+
+
+def _resolve_city_data(
+    proposal: Proposal,
+    cost_calculator: CostCalculator | None,
+    city_data: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if city_data is not None:
+        return dict(city_data)
+    if cost_calculator is not None:
+        try:
+            return dict(cost_calculator.data_loader.load_city(proposal.city_slug))
+        except Exception:
+            return {}
+    return {}
+
+
+def _physical_constraint_conflict(
+    parameter: str,
+    proposed_value: float,
+    reason_agent: str,
+) -> Conflict:
+    return Conflict(
+        parameter=parameter,
+        agent_a=reason_agent,
+        agent_b="physical_constraints",
+        proposed_value_a=proposed_value,
+        proposed_value_b=0.0,
+        disagreement_severity="high",
+    )
 def process_conflicts(
     proposal: Proposal,
     agent_outputs: dict[str, AgentOutput],
@@ -135,6 +195,8 @@ def run_debate_round(
     agent_outputs: dict[str, AgentOutput],
     round_number: int = 1,
     cost_calculator: CostCalculator | None = None,
+    city_data: dict[str, Any] | None = None,
+    budget_limit: float = 0.0,
 ) -> tuple[DebateRound, Proposal]:
     """Execute a complete, deterministic debate orchestration cycle.
 
@@ -165,6 +227,7 @@ def run_debate_round(
     """
     # 1. Capture opening state
     opening_state = clone_proposal(proposal)
+    agent_outputs = strip_immutable_agent_changes(agent_outputs)
 
     # 2 & 3. Detect and resolve conflicts
     conflicts, resolution, summary = process_conflicts(opening_state, agent_outputs)
@@ -187,11 +250,52 @@ def run_debate_round(
         "remove it from agent proposals before passing to the conflict engine."
     )
 
-    closing_state = apply_resolved_changes(
+    candidate_state = apply_resolved_changes(
         opening_state,
         resolved,
         cost_calculator=cost_calculator,
     )
+
+    resolved_city_data = _resolve_city_data(opening_state, cost_calculator, city_data)
+    lot_size_sqft = resolved_city_data.get("lot_sqft")
+    closing_state = candidate_state
+
+    if lot_size_sqft and lot_size_sqft > 0:
+        land_status = check_land_feasibility(candidate_state, float(lot_size_sqft))
+        if not land_status["feasible"]:
+            conflicts.append(_physical_constraint_conflict(
+                "land_feasibility",
+                float(land_status["total_footprint"]),
+                "land_rules",
+            ))
+            summary += (
+                f" Land feasibility failed: footprint "
+                f"{land_status['total_footprint']:,.0f} sqft exceeds available "
+                f"{land_status['available']:,.0f} sqft by "
+                f"{land_status['overage_sqft']:,.0f} sqft; changes require human review."
+            )
+            closing_state = opening_state
+
+    active_budget_limit = budget_limit or opening_state.budget_limit
+    if cost_calculator is not None and active_budget_limit > 0:
+        budget_status = cost_calculator.check_budget(
+            closing_state,
+            resolved_city_data,
+            active_budget_limit,
+        )
+        if not budget_status["within_budget"]:
+            conflicts.append(_physical_constraint_conflict(
+                "calculated_construction_cost",
+                float(budget_status["breakdown"].total_estimated_cost),
+                "budget_rules",
+            ))
+            summary += (
+                f" Budget ceiling failed: estimated construction cost "
+                f"${budget_status['breakdown'].total_estimated_cost:,.0f} exceeds "
+                f"the hard budget limit ${active_budget_limit:,.0f} by "
+                f"${budget_status['overage']:,.0f}; changes require human review."
+            )
+            closing_state = opening_state
 
     # 6. Create DebateRound
     debate_round = build_debate_round(
