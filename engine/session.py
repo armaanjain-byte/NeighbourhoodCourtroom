@@ -34,6 +34,7 @@ class CourtroomSession(BaseModel):
     
     session_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     current_proposal: Proposal
+    budget_limit: float = 0.0
     debate_rounds: list[DebateRound] = Field(default_factory=list)
     override_history: list[dict[str, Any]] = Field(default_factory=list)
     transcript: CourtroomTranscript = Field(default_factory=CourtroomTranscript)
@@ -238,9 +239,9 @@ class CourtroomSession(BaseModel):
         )
 
         # Pre-resolution check: flag budget overruns as high-severity
-        if cost_calculator and updated_proposal.budget_limit > 0:
-            new_cost = cost_calculator.calculate_construction_cost(updated_proposal)
-            if new_cost > updated_proposal.budget_limit:
+        if cost_calculator and self.budget_limit > 0:
+            budget_status = cost_calculator.check_budget(updated_proposal, city_data=None, budget_limit=self.budget_limit)
+            if not budget_status["within_budget"]:
                 # Find which parameters pushed it over budget and add a high severity conflict
                 from models.conflict import Conflict
                 for agent_name, out in llm_agent_outputs.items():
@@ -484,17 +485,19 @@ class CourtroomSession(BaseModel):
         }
 
 
-def create_session(initial_proposal: Proposal) -> CourtroomSession:
+def create_session(initial_proposal: Proposal, budget_limit: float = 0.0) -> CourtroomSession:
     """Initialize a new courtroom session.
 
     Parameters
     ----------
     initial_proposal : Proposal
         The opening state of the neighborhood before any debate.
+    budget_limit : float
+        The absolute budget limit set by the user.
 
     Returns
     -------
     CourtroomSession
         A fresh session in the CREATED state.
     """
-    return CourtroomSession(current_proposal=initial_proposal)
+    return CourtroomSession(current_proposal=initial_proposal, budget_limit=budget_limit)

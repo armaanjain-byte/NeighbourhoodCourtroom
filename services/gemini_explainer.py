@@ -41,7 +41,9 @@ def generate_judge_brief_fallback(session: CourtroomSession) -> str:
     """Generate a deterministic fallback summary of the debate when LLM is unavailable."""
     from engine.summary import generate_plain_language_summary
     
-    summary = generate_plain_language_summary(session)
+    from tools.cost_calculator import CostCalculator
+    from tools.data_loader import DataLoader
+    summary = generate_plain_language_summary(session, CostCalculator(DataLoader()))
     
     # Extract standards flags from the final round
     flags_text = ""

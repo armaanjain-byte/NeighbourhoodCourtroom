@@ -24,7 +24,15 @@ def test_summary_no_changes():
     )
     session.debate_rounds.append(rnd)
     
-    summary = generate_plain_language_summary(session)
+    from tools.cost_calculator import CostCalculator
+    from tools.data_loader import DataLoader
+    from unittest.mock import Mock
+    dl = Mock(spec=DataLoader)
+    dl.load_city.return_value = {}
+    cc = Mock(spec=CostCalculator)
+    cc.data_loader = dl
+    cc.calculate_construction_cost.return_value = Mock(total_estimated_cost=50_000_000.0)
+    summary = generate_plain_language_summary(session, cc)
     assert summary["outcome"] == "All parameters were successfully resolved by the agents without requiring your input."
     assert summary["changes"] == "The agents accepted your original proposal without any modifications."
     assert "90/100" in summary["finance_score"]
@@ -51,7 +59,15 @@ def test_summary_with_changes():
     )
     session.debate_rounds.append(rnd)
     
-    summary = generate_plain_language_summary(session)
+    from tools.cost_calculator import CostCalculator
+    from tools.data_loader import DataLoader
+    from unittest.mock import Mock
+    dl = Mock(spec=DataLoader)
+    dl.load_city.return_value = {}
+    cc = Mock(spec=CostCalculator)
+    cc.data_loader = dl
+    cc.calculate_construction_cost.return_value = Mock(total_estimated_cost=50_000_000.0)
+    summary = generate_plain_language_summary(session, cc)
     assert "All parameters were successfully resolved" in summary["outcome"]
     assert "Green space increased from 20.0% to 25.0%" in summary["changes"]
     assert "Affordable housing increased from 15.0% to 20.0%" in summary["changes"]
@@ -67,7 +83,15 @@ def test_summary_with_override():
     session = create_session(proposal)
     session.override_history.append({"parameter": "green_space_pct", "value": 30.0})
     
-    summary = generate_plain_language_summary(session)
+    from tools.cost_calculator import CostCalculator
+    from tools.data_loader import DataLoader
+    from unittest.mock import Mock
+    dl = Mock(spec=DataLoader)
+    dl.load_city.return_value = {}
+    cc = Mock(spec=CostCalculator)
+    cc.data_loader = dl
+    cc.calculate_construction_cost.return_value = Mock(total_estimated_cost=50_000_000.0)
+    summary = generate_plain_language_summary(session, cc)
     assert "You stepped in and applied 1 manual override" in summary["outcome"]
 
 def test_summary_with_escalation():
@@ -84,5 +108,13 @@ def test_summary_with_escalation():
     )
     session.debate_rounds.append(rnd)
     
-    summary = generate_plain_language_summary(session)
+    from tools.cost_calculator import CostCalculator
+    from tools.data_loader import DataLoader
+    from unittest.mock import Mock
+    dl = Mock(spec=DataLoader)
+    dl.load_city.return_value = {}
+    cc = Mock(spec=CostCalculator)
+    cc.data_loader = dl
+    cc.calculate_construction_cost.return_value = Mock(total_estimated_cost=50_000_000.0)
+    summary = generate_plain_language_summary(session, cc)
     assert "escalated 1 to your review" in summary["outcome"]

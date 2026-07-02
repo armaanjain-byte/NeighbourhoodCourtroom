@@ -231,25 +231,22 @@ class ClimateAgent(BaseAgent):
             from tools.cost_calculator import CostCalculator
             calc = CostCalculator(self.data_loader)
             try:
-                costs = calc.data_loader.get_construction_costs(proposal.city_slug)
-                city_index = costs.get("city_index", 1.0)
-                # Normalize city_index if it's on a 100-scale
-                city_index = city_index / 100.0 if city_index > 10.0 else city_index
-                from agents.finance_agent import FinanceAgent
-                local_budget = FinanceAgent.BASE_TARGET_BUDGET * city_index
-                
-                test_proposal = proposal.model_copy(update=changes)
-                new_cost = calc.calculate_estimated_cost(test_proposal)
-                current_cost = calc.calculate_estimated_cost(proposal)
-                
-                if new_cost > local_budget * 1.05:
-                    delta_cost = new_cost - current_cost
-                    if delta_cost > 0:
-                        allowed_increase = max(0.0, (local_budget * 1.05) - current_cost)
-                        fraction = round(allowed_increase / delta_cost, 2)
-                        fraction = max(0.1, min(1.0, fraction))
-                        
-                        scaled_changes = {}
+                local_budget = context.get("budget_limit", 0.0)
+                if local_budget > 0:
+                    city_data = self.data_loader.load_city(proposal.city_slug)
+                    
+                    test_proposal = proposal.model_copy(update=changes)
+                    new_cost = calc.calculate_construction_cost(test_proposal, city_data).total_estimated_cost
+                    current_cost = calc.calculate_construction_cost(proposal, city_data).total_estimated_cost
+                    
+                    if new_cost > local_budget * 1.05:
+                        delta_cost = new_cost - current_cost
+                        if delta_cost > 0:
+                            allowed_increase = max(0.0, (local_budget * 1.05) - current_cost)
+                            fraction = round(allowed_increase / delta_cost, 2)
+                            fraction = max(0.1, min(1.0, fraction))
+                            
+                            scaled_changes = {}
                         for k, v in changes.items():
                             orig_val = getattr(proposal, k)
                             scaled_val = orig_val + (v - orig_val) * fraction

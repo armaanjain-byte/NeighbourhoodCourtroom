@@ -74,8 +74,6 @@ def create_initial_proposal(
     housing_units: int = 100,
     parking_spaces: int = 150,
     community_center_sqft: float = 5000.0,
-    estimated_cost: float = 25_000_000.0,
-    budget_limit: float = 0.0,
 ) -> Proposal:
     """Create a fresh Proposal with sensible defaults.
 
@@ -93,10 +91,6 @@ def create_initial_proposal(
         Total number of parking spaces.
     community_center_sqft : float
         Square-footage of community center area.
-    estimated_cost : float
-        Total estimated project cost in USD.
-    budget_limit : float
-        The absolute budget limit set by the user.
 
     Returns
     -------
@@ -111,8 +105,6 @@ def create_initial_proposal(
         housing_units=housing_units,
         parking_spaces=parking_spaces,
         community_center_sqft=community_center_sqft,
-        estimated_cost=estimated_cost,
-        budget_limit=budget_limit,
     )
 
 
@@ -233,44 +225,8 @@ def apply_changes(
                 "timestamp": timestamp,
             })
 
-    # 2. Recalculate estimated cost using CostCalculator
-    if cost_calculator is not None:
-        new_cost = cost_calculator.calculate_estimated_cost(updated)
-        old_cost = updated.estimated_cost
-        if old_cost != new_cost:
-            has_activity = True
-            try:
-                updated.estimated_cost = new_cost
-                updated.change_log.append({
-                    "version": proposal.version + 1,
-                    "actor": "cost_calculator",
-                    "action": "recalculated",
-                    "parameter": "estimated_cost",
-                    "old": old_cost,
-                    "new": new_cost,
-                    "timestamp": timestamp,
-                })
-            except ValidationError:
-                min_bound, max_bound = PARAM_BOUNDS["estimated_cost"]
-                clamped_cost = max(min_bound, min(max_bound, new_cost))
-                bound_str = f"max {max_bound}" if new_cost > max_bound else f"min {min_bound}"
-                logger.warning(f"CostCalculator calculated estimated_cost={new_cost}, clamped to {bound_str}")
-                updated.estimated_cost = clamped_cost
-                updated.change_log.append({
-                    "version": proposal.version + 1,
-                    "actor": "cost_calculator",
-                    "action": "clamped",
-                    "parameter": "estimated_cost",
-                    "old": old_cost,
-                    "requested": new_cost,
-                    "new": clamped_cost,
-                    "timestamp": timestamp,
-                })
-
+    # 3. Handle scoring updates
     if has_activity:
         updated.version = proposal.version + 1
 
     return updated
-
-
-

@@ -13,10 +13,10 @@ from models.debate_round import DebateRound
 from models.agent_opinion import AgentOpinion
 from models.conflict import Conflict
 from tools.data_loader import DataLoader
-from tools.cost_calculator import CostCalculator
+from tools.cost_calculator import CostCalculator, CostBreakdown
 
 def test_evidence_grounding_rate():
-    session = CourtroomSession(current_proposal=Proposal(city_slug="phoenix_az", affordable_housing_pct=10.0, budget_limit=100.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0))
+    session = CourtroomSession(budget_limit=100.0, current_proposal=Proposal(city_slug="phoenix_az", affordable_housing_pct=10.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0))
     session.transcript.entries = [
         TranscriptEntry(round_number=1, agent="community", statement_type="evidence", content="grounded 1", is_grounding_warning=False),
         TranscriptEntry(round_number=1, agent="community", statement_type="evidence", content="ungrounded", is_grounding_warning=True),
@@ -61,17 +61,20 @@ def test_budget_sanity():
     cc = CostCalculator(dl)
     
     with patch.object(dl, "get_construction_costs", return_value={"city_index": 1.0}), \
-         patch.object(cc, "calculate_construction_cost", side_effect=[50_000_000.0, 65_000_000.0]):
+         patch.object(cc, "calculate_construction_cost", side_effect=[
+             CostBreakdown(0,0,0,0,0,0,0, 50_000_000.0), 
+             CostBreakdown(0,0,0,0,0,0,0, 65_000_000.0)
+         ]):
         
-        s1 = CourtroomSession(current_proposal=Proposal(city_slug="test", affordable_housing_pct=10.0, budget_limit=50_000_000.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0))
-        s2 = CourtroomSession(current_proposal=Proposal(city_slug="test", affordable_housing_pct=10.0, budget_limit=50_000_000.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0))
+        s1 = CourtroomSession(budget_limit=50_000_000.0, current_proposal=Proposal(city_slug="test", affordable_housing_pct=10.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0))
+        s2 = CourtroomSession(budget_limit=50_000_000.0, current_proposal=Proposal(city_slug="test", affordable_housing_pct=10.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0))
         
         rate = calculate_budget_sanity([s1, s2], dl, cc)
         assert rate == 50.0
 
 def test_conflict_escalation():
-    prop = Proposal(city_slug="phoenix_az", affordable_housing_pct=10.0, budget_limit=100.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0)
-    session = CourtroomSession(current_proposal=prop)
+    prop = Proposal(city_slug="phoenix_az", affordable_housing_pct=10.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0)
+    session = CourtroomSession(budget_limit=100.0, current_proposal=prop)
     c1 = Conflict(parameter="green_space_pct", agent_a="community", agent_b="finance", proposed_value_a=20.0, proposed_value_b=10.0, disagreement_severity="low")
     c2 = Conflict(parameter="affordable_housing_pct", agent_a="community", agent_b="finance", proposed_value_a=30.0, proposed_value_b=10.0, disagreement_severity="high")
     c3 = Conflict(parameter="housing_units", agent_a="community", agent_b="finance", proposed_value_a=200.0, proposed_value_b=100.0, disagreement_severity="medium")
@@ -92,11 +95,11 @@ def test_conflict_escalation():
     assert res["resolved_pct"] == pytest.approx((2/3) * 100.0)
 
 def test_score_consistency():
-    prop_phx = Proposal(city_slug="phoenix_az", affordable_housing_pct=10.0, budget_limit=100.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0)
-    prop_det = Proposal(city_slug="detroit_mi", affordable_housing_pct=10.0, budget_limit=100.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0)
-    s1 = CourtroomSession(current_proposal=prop_phx)
-    s2 = CourtroomSession(current_proposal=prop_phx)
-    s3 = CourtroomSession(current_proposal=prop_det)
+    prop_phx = Proposal(city_slug="phoenix_az", affordable_housing_pct=10.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0)
+    prop_det = Proposal(city_slug="detroit_mi", affordable_housing_pct=10.0, green_space_pct=10.0, parking_spaces=100, housing_units=100, community_center_sqft=100.0)
+    s1 = CourtroomSession(budget_limit=100.0, current_proposal=prop_phx)
+    s2 = CourtroomSession(budget_limit=100.0, current_proposal=prop_phx)
+    s3 = CourtroomSession(budget_limit=100.0, current_proposal=prop_det)
     
     op_phoenix_1 = AgentOpinion(agent="community", score=90.0, recommendation={}, tension="", position="", reasoning="", confidence=0.8)
     op_phoenix_2 = AgentOpinion(agent="community", score=70.0, recommendation={}, tension="", position="", reasoning="", confidence=0.8)

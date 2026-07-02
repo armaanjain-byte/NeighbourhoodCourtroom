@@ -177,23 +177,6 @@ class TestRunDebateRound:
         # Parking spaces -> high -> ignored -> original 100
         assert updated.parking_spaces == 100
 
-    def test_estimated_cost_proposals_ignored(self, base_proposal: Proposal) -> None:
-        outputs = {
-            "rogue_agent": _make_output("rogue_agent", {"estimated_cost": 99_000_000.0, "housing_units": 200.0})
-        }
-        
-        calc = MockCostCalculator()
-        round_record, updated = run_debate_round(base_proposal, outputs, cost_calculator=calc)
-        
-        # Housing units changed
-        assert updated.housing_units == 200
-        
-        # Cost should be derived from housing units (200*1000 + 100*500 + 20.0*100 = 252000), not the rogue agent's proposal
-        assert updated.estimated_cost == 252000.0
-        
-        # Summary should indicate housing units auto-resolved
-        assert "housing_units" in round_record.engine_summary
-
     def test_end_to_end_integration(self) -> None:
         """Full end to end test of State + Conflict + Debate engines."""
         # 1. create_initial_proposal
@@ -229,10 +212,6 @@ class TestRunDebateRound:
         assert updated.green_space_pct == 20.0
         assert updated.community_center_sqft == 6000.0
         
-        # 9. Verify Cost Recalculation
-        # Expected: (137*1000) + (150*500) + (20.0*100) = 137000 + 75000 + 2000 = 214000
-        assert updated.estimated_cost == 214000.0
-        
         # Version incremented
         assert updated.version == 2
         
@@ -241,9 +220,9 @@ class TestRunDebateRound:
         assert "community_center_sqft → 6000.0" in debate_round.engine_summary
         
         # Audit log tracks the changes
-        assert len(updated.change_log) == 3 # community center, housing units, and estimated_cost
+        assert len(updated.change_log) == 2 # community center and housing units
         log_params = {entry["parameter"] for entry in updated.change_log}
-        assert log_params == {"housing_units", "community_center_sqft", "estimated_cost"}
+        assert log_params == {"housing_units", "community_center_sqft"}
         # green_space_pct was 20.0 and proposed 20.0, so it's a no-op and skipped
 
     def test_llm_derived_outputs_trigger_conflict(self, base_proposal: Proposal) -> None:

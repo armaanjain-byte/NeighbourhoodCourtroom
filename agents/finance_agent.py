@@ -136,10 +136,9 @@ class FinanceAgent(BaseAgent):
                 community_center_sqft=args["community_center_sqft"],
                 city_slug=args["city_slug"],
                 affordable_housing_pct=0.0,
-                estimated_cost=0.0,
-                budget_limit=0.0,
             )
-            return {"estimated_cost": self.cost_calculator.calculate_estimated_cost(proposal)}
+            city_data = self.cost_calculator.data_loader.get_city(args["city_slug"])
+            return {"estimated_cost": self.cost_calculator.calculate_construction_cost(proposal, city_data).total_estimated_cost}
         elif name == "get_cost_benchmarks":
             standards = self.cost_calculator.data_loader.get_reference_standards(FINANCE_STANDARDS_FILE)
             category = args.get("category", "all")
@@ -199,15 +198,21 @@ class FinanceAgent(BaseAgent):
         4. Well under budget: High score, verdict "modify", boosts housing.
         5. On budget: High score, verdict "accept", no changes.
         """
-        local_budget = proposal.budget_limit
-        cost = self.cost_calculator.calculate_construction_cost(proposal)
+        local_budget = context.get("budget_limit", 0.0)
+        
+        # We must fetch city_data to pass to check_budget
+        city_data = self.cost_calculator.data_loader.load_city(proposal.city_slug)
+        budget_status = self.cost_calculator.check_budget(proposal, city_data, local_budget)
+        
+        cost = budget_status["breakdown"].total_estimated_cost
+        
         import logging
         if not local_budget or local_budget <= 0:
             logging.getLogger(__name__).warning("budget_limit is 0 or None, defaulting Finance score to 50")
             local_budget = 50_000_000.0 # fallback if unset
             score = 50.0
         else:
-            if cost > local_budget:
+            if not budget_status["within_budget"]:
                 # over budget
                 score = max(0.0, 100.0 - ((cost - local_budget) / local_budget) * 100.0)
             else:

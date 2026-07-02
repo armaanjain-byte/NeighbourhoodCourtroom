@@ -115,7 +115,6 @@ class TestCreateInitialProposal:
         assert base_proposal.housing_units == 100
         assert base_proposal.parking_spaces == 150
         assert base_proposal.community_center_sqft == 5000.0
-        assert base_proposal.estimated_cost == 25_000_000.0
 
     def test_custom_values(self, custom_proposal: Proposal) -> None:
         assert custom_proposal.city_slug == "detroit_mi"
@@ -230,42 +229,7 @@ class TestApplyChanges:
         assert v3.version == 3
         assert len(v3.change_log) == 2
 
-    def test_estimated_cost_modifications_ignored(self, base_proposal: Proposal, caplog: pytest.LogCaptureFixture) -> None:
-        """Agents modifying estimated_cost directly should be ignored with a warning."""
-        changes = {"estimated_cost": 50_000_000.0, "housing_units": 150}
-        updated = apply_changes(base_proposal, changes, "rogue_agent")
-        
-        # estimated_cost should remain unchanged
-        assert updated.estimated_cost == base_proposal.estimated_cost
-        assert updated.housing_units == 150
-        
-        # Warning should be logged
-        assert "rogue_agent" in caplog.text
-        assert "estimated_cost is a derived field" in caplog.text
 
-    def test_cost_recalculation_on_housing_increase(self, base_proposal: Proposal) -> None:
-        calc = MockCostCalculator()
-        updated = apply_changes(base_proposal, {"housing_units": 200}, "agent", cost_calculator=calc)
-        
-        expected_cost = (200 * 1000) + (150 * 500) + (20.0 * 100)
-        assert updated.estimated_cost == expected_cost
-        
-        # Verify recalculation logged
-        recalc_log = [e for e in updated.change_log if e["action"] == "recalculated"]
-        assert len(recalc_log) == 1
-        assert recalc_log[0]["parameter"] == "estimated_cost"
-
-    def test_cost_recalculation_on_parking_increase(self, base_proposal: Proposal) -> None:
-        calc = MockCostCalculator()
-        updated = apply_changes(base_proposal, {"parking_spaces": 300}, "agent", cost_calculator=calc)
-        expected_cost = (100 * 1000) + (300 * 500) + (20.0 * 100)
-        assert updated.estimated_cost == expected_cost
-
-    def test_cost_recalculation_on_green_space_increase(self, base_proposal: Proposal) -> None:
-        calc = MockCostCalculator()
-        updated = apply_changes(base_proposal, {"green_space_pct": 50.0}, "agent", cost_calculator=calc)
-        expected_cost = (100 * 1000) + (150 * 500) + (50.0 * 100)
-        assert updated.estimated_cost == expected_cost
 
     def test_out_of_bounds_change_clamps(self, base_proposal: Proposal, caplog: pytest.LogCaptureFixture) -> None:
         """Agent proposing out of bounds value should be clamped rather than crashing."""

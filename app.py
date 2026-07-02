@@ -655,10 +655,10 @@ def render_proposal_table(session: CourtroomSession) -> None:
     from tools.cost_calculator import CostCalculator
 
     calc = CostCalculator(DataLoader())
-    final_cost = calc.calculate_construction_cost(final)
-    open_cost = calc.calculate_construction_cost(opening) if opening else final_cost
+    final_cost = calc.calculate_construction_cost(final).total_estimated_cost
+    open_cost = calc.calculate_construction_cost(opening).total_estimated_cost if opening else final_cost
     
-    budget_limit = final.budget_limit
+    budget_limit = session.budget_limit
     
     # Render Budget Limit row
     rows += (
@@ -814,9 +814,9 @@ Agents negotiate across up to three rounds, proposing changes and responding to 
                 housing_units=housing_units,
                 parking_spaces=parking_spaces,
                 community_center_sqft=community_center_sqft,
-                estimated_cost=total_budget,
             )
             st.session_state["proposal"] = proposal
+            st.session_state["user_budget_input"] = total_budget
             st.session_state["city_slug"] = city_slug
             st.session_state["stage"] = "debating"
             st.rerun()
@@ -886,7 +886,7 @@ def stage_debating() -> None:
                 FinanceAgent(calc),
                 CommunityAgent(data_loader),
             ]
-            session = create_session(proposal)
+            session = create_session(proposal, budget_limit=st.session_state.get("user_budget_input", 0.0))
             st.session_state["debate_session"] = session
             st.session_state["debate_agents"] = agents
             st.session_state["debate_calc"] = calc
@@ -905,7 +905,7 @@ def stage_debating() -> None:
                 st.session_state["debate_exhausted"] = True
                 st.rerun()
                 return
-            st.session_state["debate_gen"] = session.stream_round(agents, {}, calc)
+            st.session_state["debate_gen"] = session.stream_round(agents, {"budget_limit": session.budget_limit}, calc)
 
         gen = st.session_state["debate_gen"]
 
@@ -957,7 +957,7 @@ def stage_result(is_override: bool = False) -> None:
         unsafe_allow_html=True,
     )
 
-    summary = generate_plain_language_summary(session)
+    summary = generate_plain_language_summary(session, CostCalculator(DataLoader()))
     st.markdown(
         f'''
         <div style="background:#ffffff;border:4px solid #121212;border-radius:0;padding:1.5rem;margin-bottom:1.5rem;box-shadow:6px 6px 0px 0px #121212;">
@@ -1358,7 +1358,7 @@ def stage_override_debating() -> None:
                 FinanceAgent(calc),
                 CommunityAgent(data_loader),
             ]
-            new_session = create_session(locked_proposal)
+            new_session = create_session(locked_proposal, budget_limit=st.session_state.get("user_budget_input", 0.0))
             st.session_state["override_session"] = new_session
             st.session_state["override_agents"] = agents
             st.session_state["override_calc"] = calc
@@ -1372,7 +1372,7 @@ def stage_override_debating() -> None:
                 st.session_state["override_exhausted"] = True
                 st.rerun()
                 return
-            st.session_state["override_gen"] = session.stream_round(agents, {}, calc)
+            st.session_state["override_gen"] = session.stream_round(agents, {"budget_limit": session.budget_limit}, calc)
 
         gen = st.session_state["override_gen"]
 

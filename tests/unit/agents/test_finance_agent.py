@@ -28,6 +28,11 @@ class MockDataLoader(DataLoader):
         if self.should_fail:
             raise RuntimeError("Database connection lost.")
         return {"city_index": self.city_index}
+        
+    def get_city(self, city_name: str) -> dict:
+        if self.should_fail:
+            raise RuntimeError("Database connection lost.")
+        return {"population": 1_000_000, "lot_sqft": 1_000_000}
 
     def get_reference_standards(self, filename: str) -> dict:
         """Return a minimal finance standards dict for testing."""
@@ -83,14 +88,17 @@ class MockCostCalculator(CostCalculator):
     def __init__(self, city_index: float, should_fail: bool = False):
         self.data_loader = MockDataLoader(city_index, should_fail)
 
-    def calculate_construction_cost(self, proposal: Proposal) -> float:
+    def calculate_construction_cost(self, proposal: Proposal, city_data: dict = None) -> Any:
         if self.data_loader.should_fail:
             raise RuntimeError("Database connection lost.")
         
-        # We simulate cost based on the budget limit to trigger different states
-        # The test cases will set the budget_limit differently to trigger these states.
-        # Let's say cost is always 50M.
-        return 50_000_000.0
+        from tools.cost_calculator import CostBreakdown
+        return CostBreakdown(
+            residential_cost=0, affordable_premium=0, parking_cost=0,
+            community_center_cost=0, green_space_cost=0,
+            subtotal_hard_costs=0, soft_costs=0,
+            total_estimated_cost=50_000_000.0
+        )
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
@@ -102,7 +110,6 @@ def proposal_over_budget() -> Proposal:
         green_space_pct=30.0,
         housing_units=100,
         parking_spaces=200,
-        budget_limit=40_000_000.0,  # 50M cost is over 40M limit
     )
 
 
@@ -111,7 +118,6 @@ def proposal_well_under_budget() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
         housing_units=100,
-        budget_limit=60_000_000.0,  # well under 60M limit
     )
 
 
@@ -120,7 +126,6 @@ def proposal_near_budget() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
         housing_units=100,
-        budget_limit=52_000_000.0,  # near 52M limit
     )
 
 
@@ -128,7 +133,6 @@ def proposal_near_budget() -> Proposal:
 def proposal_extreme_over_budget() -> Proposal:
     return create_initial_proposal(
         "phoenix_az",
-        budget_limit=10_000_000.0,  # 5x over budget
     )
 
 
@@ -141,7 +145,7 @@ class TestFinanceAgent:
 
     def test_over_budget_proposal(self, proposal_over_budget: Proposal) -> None:
         agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 55M
-        output = agent.evaluate(proposal_over_budget, {})
+        output = agent.evaluate(proposal_over_budget, {"budget_limit": 40_000_000.0})
         
         # cost = 50M, limit = 40M
         # overrun = (50M - 40M) / 40M = 0.25
@@ -160,7 +164,7 @@ class TestFinanceAgent:
 
     def test_well_under_budget_proposal(self, proposal_well_under_budget: Proposal) -> None:
         agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 50M
-        output = agent.evaluate(proposal_well_under_budget, {})
+        output = agent.evaluate(proposal_well_under_budget, {"budget_limit": 60_000_000.0})
         
         import pytest
         assert output.score == pytest.approx(83.33, abs=0.01)
@@ -175,7 +179,7 @@ class TestFinanceAgent:
 
     def test_near_budget_proposal(self, proposal_near_budget: Proposal) -> None:
         agent = FinanceAgent(MockCostCalculator(1.0)) # Local budget = 50M
-        output = agent.evaluate(proposal_near_budget, {})
+        output = agent.evaluate(proposal_near_budget, {"budget_limit": 52_000_000.0})
         
         import pytest
         assert output.score == pytest.approx(80.77, abs=0.01)
@@ -183,11 +187,8 @@ class TestFinanceAgent:
         assert output.proposed_changes == {}
         assert "utilized efficiently" in output.reasoning_and_evidence
 
-        # Data loader integration isn't used for calculated cost anymore in this mock,
-        # but let's change budget limit directly to trigger modify
-        proposal_near_budget.budget_limit = 40_000_000.0
         agent = FinanceAgent(MockCostCalculator(0.5))
-        output = agent.evaluate(proposal_near_budget, {})
+        output = agent.evaluate(proposal_near_budget, {"budget_limit": 40_000_000.0})
         
         assert output.verdict == "modify"
         assert "estimated_cost" not in output.proposed_changes
@@ -197,13 +198,13 @@ class TestFinanceAgent:
         agent = FinanceAgent(MockCostCalculator(1.0, should_fail=True))
         # Should crash during calculate_construction_cost
         with pytest.raises(RuntimeError):
-            agent.evaluate(proposal_near_budget, {})
+            agent.evaluate(proposal_near_budget, {"budget_limit": 52_000_000.0})
 
 
     def test_extreme_over_budget_score_bounding(self, proposal_extreme_over_budget: Proposal) -> None:
         """Test that the score does not drop below 0.0 when severely over budget."""
         agent = FinanceAgent(MockCostCalculator(1.0))
-        output = agent.evaluate(proposal_extreme_over_budget, {})
+        output = agent.evaluate(proposal_extreme_over_budget, {"budget_limit": 10_000_000.0})
         # overrun = 40M / 10M = 4.0
         # 100 - (4.0 * 100) = -300 -> max(0, -300) = 0.0
         assert output.score == 0.0
@@ -226,7 +227,7 @@ class TestFinanceAgent:
         }
         agent.llm_provider = mock_provider
         
-        agent.generate_opinion(proposal_near_budget, {})
+        agent.generate_opinion(proposal_near_budget, {"budget_limit": 52_000_000.0})
         
         mock_provider.generate_structured.assert_called_once()
         _, kwargs = mock_provider.generate_structured.call_args
@@ -247,7 +248,7 @@ class TestFinanceAgent:
         }
         agent.llm_provider = mock_provider
         
-        opinion = agent.generate_opinion(proposal_near_budget, {})
+        opinion = agent.generate_opinion(proposal_near_budget, {"budget_limit": 52_000_000.0})
         assert "using deterministic fallback" in opinion.position
 
 

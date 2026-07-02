@@ -25,7 +25,9 @@ def _fmt_val(param: str, val: float) -> str:
     return str(val)
 
 
-def generate_plain_language_summary(session: CourtroomSession) -> dict[str, str]:
+from tools.cost_calculator import CostCalculator
+
+def generate_plain_language_summary(session: CourtroomSession, cost_calculator: CostCalculator) -> dict[str, str]:
     """Generate a plain-language summary dictionary based on the session state.
 
     Returns a dict with the following keys:
@@ -97,7 +99,12 @@ def generate_plain_language_summary(session: CourtroomSession) -> dict[str, str]
     
     # Finance
     finance_score = _get_score("finance")
-    cost_diff = float(final.estimated_cost) - float(opening.estimated_cost)
+    
+    city_data = cost_calculator.data_loader.load_city(final.city_slug)
+    opening_cost = cost_calculator.calculate_construction_cost(opening, city_data).total_estimated_cost
+    final_cost = cost_calculator.calculate_construction_cost(final, city_data).total_estimated_cost
+    
+    cost_diff = final_cost - opening_cost
     if cost_diff > 0.01:
         fin_text = f"the final budget increased by {_fmt_val('estimated_cost', cost_diff)} to accommodate changes"
     elif cost_diff < -0.01:
