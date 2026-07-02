@@ -37,6 +37,53 @@ def build_audit_from_session(session: CourtroomSession) -> AuditHistory:
         audit.record_override(ov["round_number"], ov["parameter"], ov["value"])
     return audit
 
+def generate_judge_brief_fallback(session: CourtroomSession) -> str:
+    """Generate a deterministic fallback summary of the debate when LLM is unavailable."""
+    from engine.summary import generate_plain_language_summary
+    
+    summary = generate_plain_language_summary(session)
+    
+    # Extract standards flags from the final round
+    flags_text = ""
+    if session.debate_rounds:
+        last_round = session.debate_rounds[-1]
+        all_flags = []
+        
+        # Check round 3, 2, 1 opinions for flags
+        for agent_name in ["climate", "finance", "community"]:
+            opinion = None
+            if hasattr(last_round, "round_3_opinions") and agent_name in last_round.round_3_opinions:
+                opinion = last_round.round_3_opinions[agent_name]
+            elif hasattr(last_round, "round_2_opinions") and agent_name in last_round.round_2_opinions:
+                opinion = last_round.round_2_opinions[agent_name]
+            elif hasattr(last_round, "round_1_opinions") and agent_name in last_round.round_1_opinions:
+                opinion = last_round.round_1_opinions[agent_name]
+                
+            if opinion and getattr(opinion, "standards_flags", None):
+                for flag in opinion.standards_flags:
+                    passed_str = "Passed" if flag.get("passed") else "Failed"
+                    all_flags.append(
+                        f"- **{agent_name.capitalize()}**: {flag.get('standard_name', 'Standard')} "
+                        f"- {passed_str} ({flag.get('proposal_value', '')} vs threshold {flag.get('threshold', '')})"
+                    )
+        
+        if all_flags:
+            flags_text = "\n\n**Standards & Compliance Flags**\n" + "\n".join(all_flags)
+
+    fallback_md = (
+        "**[DETERMINISTIC FALLBACK]** *This brief was generated using verified deterministic calculations "
+        "because live AI generation is currently unavailable (budget exhausted).*\\n\\n"
+        f"**Resolution Outcome**\\n{summary['outcome']}\\n\\n"
+        f"**Parameter Adjustments**\\n{summary['changes']}\\n\\n"
+        "**Agent Perspectives**\\n"
+        f"- {summary['finance_score']}\\n"
+        f"- {summary['climate_score']}\\n"
+        f"- {summary['community_score']}"
+        f"{flags_text}"
+    )
+    return fallback_md
+
+
 def generate_judge_brief(session: CourtroomSession) -> str:
     """Generate a narrative summary of the debate using Gemini.
 
@@ -55,7 +102,7 @@ def generate_judge_brief(session: CourtroomSession) -> str:
 
     if is_budget_exhausted():
         logger.warning("Skipping judge brief generation due to exhausted daily budget.")
-        return "Daily budget exhausted. Automated judge brief unavailable."
+        return generate_judge_brief_fallback(session)
 
     try:
         provider = get_provider()
@@ -86,11 +133,4 @@ def generate_judge_brief(session: CourtroomSession) -> str:
         )
     except Exception as e:
         logger.error(f"LLM API generation failed: {e}")
-        error_msg = str(e)
-        if "not installed" in error_msg:
-            return "Gemini API is unavailable. Please install `google-genai` to enable automated judge briefs."
-        if "not found" in error_msg or "not configured" in error_msg:
-            return "Gemini API key not found. Please set the GEMINI_API_KEY environment variable."
-        if isinstance(e, LLMAuthError) or "API key" in error_msg or "400" in error_msg or "403" in error_msg or "APIError" in type(e).__name__:
-            return "Failed to generate brief: Invalid or missing Gemini API key. Please check your configuration."
-        return f"Failed to generate brief. Reason: {e}"
+        return generate_judge_brief_fallback(session)

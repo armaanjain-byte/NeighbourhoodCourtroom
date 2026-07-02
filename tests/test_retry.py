@@ -209,4 +209,4 @@ class TestGeminiProviderAdvanced:
             mock_session.current_proposal = proposal
 
             brief = generate_judge_brief(mock_session)
-            assert brief == "Daily budget exhausted. Automated judge brief unavailable."
+            assert "[DETERMINISTIC FALLBACK]" in brief
