@@ -653,7 +653,7 @@ def render_proposal_table(session: CourtroomSession) -> None:
 
     # Calculate final estimated cost
     from tools.cost_calculator import CostCalculator
-    from data.loader import DataLoader
+
     calc = CostCalculator(DataLoader())
     final_cost = calc.calculate_construction_cost(final)
     open_cost = calc.calculate_construction_cost(opening) if opening else final_cost

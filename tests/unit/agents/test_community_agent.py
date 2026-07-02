@@ -165,22 +165,24 @@ class TestCommunityAgent:
         assert flag["standard_name"] == "HUD Affordable Housing"
         assert flag["passed"]
 
-    def test_low_walkability(self, proposal_strong_community: Proposal) -> None:
-        # Force low base walkability, causing score to drop below 85.0
-        agent = CommunityAgent(MockDataLoader(base_walkability=10.0))
+    def test_no_community_center(self, proposal_strong_community: Proposal) -> None:
+        # Without a community center, walkability ratio is low (0.3) and cc_ratio is 0.
+        proposal_strong_community.community_center_sqft = 0.0
+        agent = CommunityAgent(MockDataLoader())
         output = agent.evaluate(proposal_strong_community, {})
         
-        # effective = 10 + 15 - 10 = 15.0. 15 * 0.3 = 4.5. score = 40+30+4.5 = 74.5
+        # cc_ratio = 0.0
+        # housing_ratio = 1.0
+        # walkability = 0.3
+        # raw_score = (0 + 0.3 + 0.3*0.3) * 100 = 39.0
         assert output.verdict == "modify"
         
         # Since verdict is modify, it should propose small walkability bumps
         changes = output.proposed_changes
-        assert changes["green_space_pct"] == proposal_strong_community.green_space_pct + 5.0
-        assert changes["parking_spaces"] == proposal_strong_community.parking_spaces - 20
+        assert "community_center_sqft" in changes
 
-    def test_high_walkability(self, proposal_strong_community: Proposal) -> None:
-        # High base walkability ensures accept
-        agent = CommunityAgent(MockDataLoader(base_walkability=100.0))
+    def test_high_community_score(self, proposal_strong_community: Proposal) -> None:
+        agent = CommunityAgent(MockDataLoader())
         output = agent.evaluate(proposal_strong_community, {})
         assert output.verdict == "accept"
         assert output.score > 90.0

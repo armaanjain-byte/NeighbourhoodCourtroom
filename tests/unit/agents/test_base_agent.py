@@ -471,3 +471,77 @@ class TestBaseAgentGenerateOpinion:
             
             # The reasoning should mention the omission
             assert "Note: Proposed changes to Green Space were omitted because they are locked by the human judge." in opinion.reasoning
+
+    def test_fallback_round_2_deadlock_breaker(self, agent: MockAgent) -> None:
+        """Fallback in Round 2 should adjust parameters to break deadlock."""
+        proposal = create_initial_proposal("phoenix_az", green_space_pct=10.0, housing_units=100)
+        
+        # Simulated opponent wants 20% green space
+        opp_opinion = AgentOpinion(
+            agent="climate",
+            score=50.0,
+            recommendation={"green_space_pct": 20.0},
+            tension="Tension",
+            position="Need green space",
+            reasoning="Reasoning",
+            evidence=[],
+            objections=[],
+            supports=[],
+            confidence=0.8,
+            grounding_warnings=[],
+            engagement_warnings=[]
+        )
+        
+        # Agent's own previous opinion was to keep it at 10.0
+        own_opinion = AgentOpinion(
+            agent=agent.agent_name,
+            score=80.0,
+            recommendation={"green_space_pct": 10.0},
+            tension="Tension",
+            position="Position",
+            reasoning="Reasoning",
+            evidence=[],
+            objections=[],
+            supports=[],
+            confidence=0.8,
+            grounding_warnings=[],
+            engagement_warnings=[]
+        )
+        
+        # Mock evaluate to return own_opinion values
+        with patch.object(agent, 'evaluate') as mock_eval:
+            mock_eval.return_value = agent.build_output(
+                score=80.0,
+                verdict="modify",
+                changes={"green_space_pct": 10.0},
+                reasoning="Reasoning"
+            )
+            
+            # Run fallback for Round 2
+            fallback_opinion = agent._fallback_opinion(
+                proposal, {},
+                round_number=2,
+                opponent_opinions={"climate": opp_opinion},
+                own_previous_opinion=own_opinion,
+                reason="test"
+            )
+            
+            # Because opponent asked for 20% and current is 10%, fallback concession should move to 15%
+            assert fallback_opinion.recommendation["green_space_pct"] != 10.0
+            
+            # Now test deadlock breaker by simulating identical output after concession
+            # This will be tested by running fallback with opponent wanting exactly what we want,
+            # so concession logic doesn't change it, forcing deadlock breaker.
+            opp_opinion.recommendation = {"green_space_pct": 10.0}
+            
+            fallback_opinion_deadlock = agent._fallback_opinion(
+                proposal, {},
+                round_number=2,
+                opponent_opinions={"climate": opp_opinion},
+                own_previous_opinion=own_opinion,
+                reason="test"
+            )
+            
+            # The result should be adjusted by 5% and thus not exactly 10.0
+            assert fallback_opinion_deadlock.recommendation != own_opinion.recommendation
+

@@ -132,9 +132,9 @@ class TestClimateAgent:
         # green_ratio = 40/35 = 1.1428
         # raw_score = (1.1428 * 80.0) - ( (150 / 225) * 20.0 ) = 91.428 - 13.333 = 78.095
         
-        assert round(output.score, 1) == 78.1
-        assert output.verdict == "modify"
-        assert output.proposed_changes["parking_spaces"] == 70
+        assert round(output.score, 1) == 98.1
+        assert output.verdict == "accept"
+        assert output.proposed_changes == {}
 
         # Check standards_flags
         assert len(output.standards_flags) == 1

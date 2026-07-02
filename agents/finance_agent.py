@@ -200,16 +200,20 @@ class FinanceAgent(BaseAgent):
         5. On budget: High score, verdict "accept", no changes.
         """
         local_budget = proposal.budget_limit
-        if local_budget <= 0:
-            local_budget = 50_000_000.0 # fallback if unset
-
         cost = self.cost_calculator.calculate_construction_cost(proposal)
+        import logging
+        if not local_budget or local_budget <= 0:
+            logging.getLogger(__name__).warning("budget_limit is 0 or None, defaulting Finance score to 50")
+            local_budget = 50_000_000.0 # fallback if unset
+            score = 50.0
+        else:
+            if cost > local_budget:
+                # over budget
+                score = max(0.0, 100.0 - ((cost - local_budget) / local_budget) * 100.0)
+            else:
+                score = min(100.0, 80.0 + (local_budget - cost) / local_budget * 20.0)
 
         if cost > local_budget:
-            # Over budget
-            # max(0, 100 - (calculated_cost - budget_limit) / budget_limit * 100)
-            overrun_ratio = (cost - local_budget) / local_budget
-            score = max(0.0, 100.0 - (overrun_ratio * 100.0))
             verdict = "modify"
 
             changes: dict[str, float] = {
@@ -225,7 +229,6 @@ class FinanceAgent(BaseAgent):
 
         elif cost < local_budget * 0.9:
             # Well under budget (more than 10% under) -> under-utilization
-            score = 90.0
             verdict = "modify"
             changes: dict[str, float] = {
                 "housing_units": float(proposal.housing_units + 20)
@@ -237,7 +240,6 @@ class FinanceAgent(BaseAgent):
 
         else:
             # Near budget (between 90% and 100% of budget limit)
-            score = 95.0
             verdict = "accept"
             changes: dict[str, float] = {}
             reasoning = "Project budget is utilized efficiently and is within acceptable limits."

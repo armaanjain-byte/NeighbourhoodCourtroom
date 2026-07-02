@@ -240,29 +240,15 @@ class CommunityAgent(BaseAgent):
 
 
         # Derived mock metrics
-        # Walkability improves with green space and decreases with excessive parking
-        effective_walkability = base_walkability + (proposal.green_space_pct * 0.5) - (proposal.parking_spaces * 0.1)
-        effective_walkability = max(0.0, min(100.0, effective_walkability))
-
-        target_sqft_per_unit = 5.0
-        if proposal.housing_units > 0:
-            community_ratio = proposal.community_center_sqft / (target_sqft_per_unit * proposal.housing_units)
-        else:
-            community_ratio = 1.0
-        affordable_ratio = proposal.affordable_housing_pct / target_affordable if target_affordable else 1.0
-
-        # High housing density without adequate community space causes a penalty
-        density_penalty = 0.0
-        if proposal.housing_units > 150 and community_ratio < 0.8:
-            density_penalty = 15.0
-
-        # Score mathematically: 40% amenities, 30% affordability, 30% walkability
-        raw_score = (min(1.0, community_ratio) * 40.0) + \
-                    (min(1.0, affordable_ratio) * 30.0) + \
-                    (effective_walkability * 0.3) - \
-                    density_penalty
-
+        cc_ratio = min(proposal.community_center_sqft / (proposal.housing_units * 5.0), 1.0) if proposal.housing_units > 0 else 0.0
+        housing_ratio = min(proposal.affordable_housing_pct / target_affordable, 1.0) if target_affordable > 0 else 0.0
+        walkability_ratio = 0.7 if proposal.community_center_sqft > 0 else 0.3
+        
+        raw_score = (cc_ratio * 0.40 + housing_ratio * 0.30 + walkability_ratio * 0.30) * 100.0
         score = max(0.0, min(100.0, raw_score))
+
+        if proposal.community_center_sqft > 50000 and proposal.affordable_housing_pct > 15:
+            assert score > 20, f"Score {score} is surprisingly low for 50k+ sqft CC and 15%+ affordable housing."
 
         if score < 85.0:
             verdict = "modify"
