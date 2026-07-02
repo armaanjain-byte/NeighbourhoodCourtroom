@@ -34,6 +34,9 @@ class MockDataLoader(DataLoader):
             raise RuntimeError("Land use data corrupted.")
         return {"max_parking_spaces": 150}
 
+    def load_city(self, city_name: str) -> dict:
+        return {"name": "Phoenix", "population": 500_000}
+
     def get_reference_standards(self, filename: str) -> dict:
         """Return a minimal climate standards dict for testing."""
         return {

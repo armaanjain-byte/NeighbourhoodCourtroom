@@ -180,16 +180,27 @@ class BaseAgent(abc.ABC):
             )
 
         # ── Build system instruction ─────────────────────────────────────────
-        system_instruction = (
-            f"You are the {self.agent_name.capitalize()} Expert in a city planning simulation. "
-            f"Your role is to evaluate a neighborhood development proposal purely from a "
-            f"{self.agent_name} perspective. "
-            f"{self.personality_brief} "
-            f"Your risk tolerance profile is: {self.risk_tolerance}. Your verdicts (accept/modify/reject) must reflect this consistent, explainable risk posture across all proposals. "
-            "You must base your analysis ONLY on the domain data provided to you via function calls. "
-            "Call the appropriate functions to fetch the data you need for your domain. "
-            "Do not invent data. Do not reference information not present in the inputs."
+        # Subclasses may override build_system_prompt() to provide a richer,
+        # domain-specific system instruction.  If they do, we use it; otherwise
+        # we fall back to the generic template.
+        custom_system_instruction = self.build_system_prompt(
+            proposal, context,
+            round_number=round_number,
+            opponent_opinions=opponent_opinions,
         )
+        if custom_system_instruction is not None:
+            system_instruction = custom_system_instruction
+        else:
+            system_instruction = (
+                f"You are the {self.agent_name.capitalize()} Expert in a city planning simulation. "
+                f"Your role is to evaluate a neighborhood development proposal purely from a "
+                f"{self.agent_name} perspective. "
+                f"{self.personality_brief} "
+                f"Your risk tolerance profile is: {self.risk_tolerance}. Your verdicts (accept/modify/reject) must reflect this consistent, explainable risk posture across all proposals. "
+                "You must base your analysis ONLY on the domain data provided to you via function calls. "
+                "Call the appropriate functions to fetch the data you need for your domain. "
+                "Do not invent data. Do not reference information not present in the inputs."
+            )
 
         # ── Build user prompt ────────────────────────────────────────────────
         user_prompt = (
@@ -663,6 +674,63 @@ class BaseAgent(abc.ABC):
         raise NotImplementedError(f"Tool {name} not implemented for {self.agent_name}")
 
     # ── Shared utilities ────────────────────────────────────────────────────
+
+    def build_system_prompt(
+        self,
+        proposal: Proposal,
+        context: dict[str, Any],
+        *,
+        round_number: int = 1,
+        opponent_opinions: dict[str, "AgentOpinion"] | None = None,
+    ) -> str | None:
+        """Return a domain-specific system instruction string, or None to use the generic fallback.
+
+        Subclasses should override this to inject pre-computed city data, cost facts,
+        and serialised opponent positions into the LLM system instruction.
+
+        Parameters
+        ----------
+        proposal : Proposal
+            The current proposal.
+        context : dict[str, Any]
+            Full session context (e.g. ``budget_limit``).
+        round_number : int
+            Current debate round (1 = independent, 2+ = rebuttal).
+        opponent_opinions : dict[str, AgentOpinion] | None
+            The other agents' opinions from the previous round.
+
+        Returns
+        -------
+        str | None
+            The system instruction to use, or None to fall back to the generic template.
+        """
+        return None  # default: use the generic template
+
+    @staticmethod
+    def _format_opponent_position(agent_name: str, opinion: "AgentOpinion | None") -> str:
+        """Serialise an opponent opinion into a compact one-liner for prompt injection.
+
+        Parameters
+        ----------
+        agent_name : str
+            Display name of the opponent agent.
+        opinion : AgentOpinion | None
+            The opponent's opinion from the previous round, or None if unavailable.
+
+        Returns
+        -------
+        str
+            A compact human-readable summary, e.g.:
+            "proposes green_space_pct→20.0, parking_spaces→100 — 'Parks matter for residents'"
+        """
+        if opinion is None:
+            return "(no position submitted yet)"
+        changes_str = ", ".join(
+            f"{k}→{v}" for k, v in opinion.recommendation.items()
+        ) if opinion.recommendation else "no parameter changes"
+        position_snippet = opinion.position[:120] if opinion.position else ""
+        return f"proposes {changes_str} — \"{position_snippet}\""
+
 
     def filter_unknown_parameters(self, changes: dict[str, float]) -> dict[str, float]:
         """Return a new dict containing only parameters that exist in MUTABLE_PARAMETERS.

@@ -137,7 +137,7 @@ class FinanceAgent(BaseAgent):
                 city_slug=args["city_slug"],
                 affordable_housing_pct=0.0,
             )
-            city_data = self.cost_calculator.data_loader.get_city(args["city_slug"])
+            city_data = self.cost_calculator.data_loader.load_city(args["city_slug"])
             return {"estimated_cost": self.cost_calculator.calculate_construction_cost(proposal, city_data).total_estimated_cost}
         elif name == "get_cost_benchmarks":
             standards = self.cost_calculator.data_loader.get_reference_standards(FINANCE_STANDARDS_FILE)
@@ -147,6 +147,114 @@ class FinanceAgent(BaseAgent):
             return {category: standards.get(category, {})}
         else:
             return super().execute_tool_call(name, args)
+
+    def build_system_prompt(
+        self,
+        proposal: "Proposal",
+        context: dict,
+        *,
+        round_number: int = 1,
+        opponent_opinions: dict | None = None,
+    ) -> str:
+        """Build a domain-grounded Finance Agent system prompt.
+
+        Pre-computes real construction cost figures via CostCalculator and
+        injects the other agents' previous positions so the LLM can engage
+        with their specific proposals rather than speaking in the abstract.
+        """
+        # ── Gather cost facts ────────────────────────────────────────────────
+        budget_limit: float = context.get("budget_limit", 0.0)
+        try:
+            city_raw = self.cost_calculator.data_loader.load_city(proposal.city_slug)
+            city_name: str = city_raw.get("name", proposal.city_slug.replace("_", " ").title())
+            population: int = city_raw.get("population", 0)
+        except Exception:
+            city_name = proposal.city_slug.replace("_", " ").title()
+            city_raw = {}
+            population = 0
+
+        # Determine city tier for residential cost benchmark
+        if population > 1_000_000:
+            cost_per_unit = 450_000
+            tier_label = "Tier 1 (major metro)"
+        elif population > 500_000:
+            cost_per_unit = 300_000
+            tier_label = "Tier 2 (mid-size city)"
+        else:
+            cost_per_unit = 200_000
+            tier_label = "Tier 3 (affordable/midsize)"
+
+        # Compute current estimated cost
+        try:
+            city_data = self.cost_calculator.data_loader.get_construction_costs(proposal.city_slug)
+            breakdown = self.cost_calculator.calculate_construction_cost(proposal, city_data)
+            calculated_cost = breakdown.total_estimated_cost
+        except Exception:
+            calculated_cost = cost_per_unit * proposal.housing_units
+
+        over_budget = budget_limit > 0 and calculated_cost > budget_limit
+        if budget_limit > 0:
+            if over_budget:
+                overage = calculated_cost - budget_limit
+                budget_status = f"OVER BUDGET by ${overage:,.0f}"
+            else:
+                margin = budget_limit - calculated_cost
+                budget_status = f"Within budget by ${margin:,.0f}"
+        else:
+            budget_status = "No budget limit set"
+
+        # ── Serialise opponent positions ─────────────────────────────────────
+        ops = opponent_opinions or {}
+        climate_pos = self._format_opponent_position("climate", ops.get("climate"))
+        community_pos = self._format_opponent_position("community", ops.get("community"))
+
+        # ── Build prompt ─────────────────────────────────────────────────────
+        prompt = f"""You are the Finance Agent in an urban development debate. \
+Your ONLY job is to ensure the proposed development stays within the hard budget \
+limit of ${budget_limit:,.0f}.
+
+REAL CONSTRUCTION COST FACTS you must use (do not invent numbers):
+- Each residential unit costs approximately ${cost_per_unit:,} to build in {city_name} \
+({tier_label} — NAHB 2024 and RSMeans data)
+- Each structured parking space costs ~$30,000 (WGI 2024 Parking Cost Outlook)
+- Each surface parking space costs ~$4,000
+- Community center / rec facility costs ~$403/sqft (RSMeans commercial 2024)
+- Affordable housing units cost 25% more than market-rate units to build
+- These are hard costs. Add ~25% for soft costs (permits, design, contingency)
+
+CURRENT ESTIMATED COST: ${calculated_cost:,.0f} (computed from current parameters)
+BUDGET LIMIT: ${budget_limit:,.0f}
+BUDGET STATUS: {budget_status}
+
+CURRENT PROPOSAL PARAMETERS:
+- Housing units: {proposal.housing_units}
+- Parking spaces: {proposal.parking_spaces}
+- Community center: {proposal.community_center_sqft:,.0f} sqft
+- Green space: {proposal.green_space_pct}%
+- Affordable housing: {proposal.affordable_housing_pct}%
+
+WHAT THE OTHER AGENTS SAID LAST ROUND:
+- Climate Agent: {climate_pos}
+- Community Agent: {community_pos}
+
+YOUR TASK THIS ROUND:
+You must respond SPECIFICALLY to what Climate and Community said. \
+If Climate wants more green space, calculate the exact cost of their proposed \
+green space increase and say whether it fits in the budget. \
+If Community wants a bigger community center, calculate the exact cost delta and \
+say whether it can be absorbed. If you must concede, specify WHICH parameter you \
+will reduce and by HOW MUCH to compensate. \
+Never say "the project can be brought within limits" without specifying exactly \
+which numbers change. Never propose increasing the budget — it is fixed.
+
+DOMAIN CONSTRAINTS: You may ONLY argue about: total cost, housing unit count, \
+parking spaces, community center sqft. You may NOT argue about green space \
+percentage or affordable housing percentage — those are Climate and Community's \
+domains respectively.
+
+{self.PERSONALITY_BRIEF}
+Your risk tolerance: {self.RISK_TOLERANCE}."""
+        return prompt
 
     def generate_opinion(
         self,

@@ -23,16 +23,21 @@ class MockDataLoader(DataLoader):
     def __init__(self, city_index: float, should_fail: bool = False):
         self.city_index = city_index
         self.should_fail = should_fail
+        self._cache: dict = {}  # required by DataLoader base methods
 
     def get_construction_costs(self, city_name: str) -> dict[str, float]:
         if self.should_fail:
             raise RuntimeError("Database connection lost.")
         return {"city_index": self.city_index}
-        
-    def get_city(self, city_name: str) -> dict:
+
+    def load_city(self, city_name: str) -> dict:
         if self.should_fail:
             raise RuntimeError("Database connection lost.")
-        return {"population": 1_000_000, "lot_sqft": 1_000_000}
+        return {"name": "Phoenix", "population": 1_000_000, "lot_sqft": 1_000_000}
+
+    # legacy alias kept for any test that still uses get_city
+    def get_city(self, city_name: str) -> dict:
+        return self.load_city(city_name)
 
     def get_reference_standards(self, filename: str) -> dict:
         """Return a minimal finance standards dict for testing."""

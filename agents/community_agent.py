@@ -128,6 +128,90 @@ class CommunityAgent(BaseAgent):
         else:
             return super().execute_tool_call(name, args)
 
+    def build_system_prompt(
+        self,
+        proposal: "Proposal",
+        context: dict,
+        *,
+        round_number: int = 1,
+        opponent_opinions: dict | None = None,
+    ) -> str:
+        """Build a domain-grounded Community Agent system prompt.
+
+        Pre-fetches city demographic targets, computes community center
+        adequacy per housing unit, and injects Finance/Climate positions
+        so the LLM responds to specific trade-offs rather than in the abstract.
+        """
+        # ── Gather community facts ───────────────────────────────────────────
+        try:
+            demographics = self.data_loader.get_demographics(proposal.city_slug)
+            city_affordable_target: float = demographics.get("target_affordable_housing_pct", 20.0)
+        except Exception:
+            city_affordable_target = 20.0
+
+        try:
+            city_raw = self.data_loader.load_city(proposal.city_slug)
+            city_name: str = city_raw.get("name", proposal.city_slug.replace("_", " ").title())
+        except Exception:
+            city_name = proposal.city_slug.replace("_", " ").title()
+
+        # Community center adequacy
+        housing_units = max(proposal.housing_units, 1)
+        sqft_per_unit: float = proposal.community_center_sqft / housing_units
+        min_needed_sqft = housing_units * 7  # 7 sqft/unit minimum
+
+        if sqft_per_unit > 20:
+            cc_adequacy = (
+                f"ADEQUATE — do NOT advocate for increases "
+                f"({sqft_per_unit:.1f} sqft/unit already exceeds the 20 sqft/unit standard)"
+            )
+        else:
+            cc_adequacy = (
+                f"BELOW minimum — advocate for increase to at least {min_needed_sqft:,} sqft "
+                f"({sqft_per_unit:.1f} sqft/unit is below the 5–10 sqft/unit minimum)"
+            )
+
+        aff_status = "BELOW" if proposal.affordable_housing_pct < city_affordable_target else "MEETS"
+
+        # ── Serialise opponent positions ─────────────────────────────────────
+        ops = opponent_opinions or {}
+        finance_pos = self._format_opponent_position("finance", ops.get("finance"))
+        climate_pos = self._format_opponent_position("climate", ops.get("climate"))
+
+        # ── Build prompt ─────────────────────────────────────────────────────
+        prompt = f"""You are the Community Agent in an urban development debate. \
+Your job is to advocate for the people who will live in this development in {city_name}.
+
+REAL COMMUNITY STANDARDS you must cite:
+- HUD recommends minimum 15–20% affordable housing for mixed-income developments
+- {city_name} affordable housing target: {city_affordable_target}%
+- Current proposal: {proposal.affordable_housing_pct}% \
+({aff_status} target)
+- Community center adequacy: {proposal.community_center_sqft:,.0f} sqft for \
+{proposal.housing_units} units = {sqft_per_unit:.1f} sqft/unit \
+(standard: 5–10 sqft/unit minimum for functional rec space)
+- {sqft_per_unit:.1f} sqft/unit is {cc_adequacy}
+
+WHAT THE OTHER AGENTS SAID LAST ROUND:
+- Finance Agent: {finance_pos}
+- Climate Agent: {climate_pos}
+
+YOUR TASK THIS ROUND:
+Respond SPECIFICALLY to what Finance and Climate said. If Finance says cost is tight, \
+prioritize affordable housing over community center size — housing is more impactful \
+per dollar. If Climate wants more green space, support it — green space improves quality \
+of life for residents.
+
+DOMAIN CONSTRAINTS: You may ONLY argue about: affordable housing percentage, community \
+center sqft (ONLY if sqft/unit < 10), walkability/transit access. You may NOT argue \
+about budget totals or green space — those are other agents' domains. \
+If community_center_sqft / housing_units > 20, you must acknowledge the community \
+center is already excellent and NOT advocate for increasing it further.
+
+{self.PERSONALITY_BRIEF}
+Your risk tolerance: {self.RISK_TOLERANCE}."""
+        return prompt
+
     def generate_opinion(
         self,
         proposal: Proposal,

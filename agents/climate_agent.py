@@ -128,6 +128,85 @@ class ClimateAgent(BaseAgent):
         else:
             return super().execute_tool_call(name, args)
 
+    def build_system_prompt(
+        self,
+        proposal: "Proposal",
+        context: dict,
+        *,
+        round_number: int = 1,
+        opponent_opinions: dict | None = None,
+    ) -> str:
+        """Build a domain-grounded Climate Agent system prompt.
+
+        Pre-fetches city climate targets, computes impervious surface metrics,
+        and injects serialised Finance and Community positions so the LLM
+        responds specifically to what the other agents proposed last round.
+        """
+        # ── Gather climate facts ─────────────────────────────────────────────
+        try:
+            climate = self.data_loader.get_climate(proposal.city_slug)
+            city_green_target: float = climate.get("target_green_space_pct") or 15.0
+            city_avg_temp: float = climate.get("avg_summer_temp_f") or 80.0
+        except Exception:
+            city_green_target = 15.0
+            city_avg_temp = 80.0
+
+        try:
+            city_raw = self.data_loader.load_city(proposal.city_slug)
+            city_name: str = city_raw.get("name", proposal.city_slug.replace("_", " ").title())
+        except Exception:
+            city_name = proposal.city_slug.replace("_", " ").title()
+
+        # Compute parking impervious surface: ~330 sqft/space (stall + drive aisle)
+        parking_acres: float = proposal.parking_spaces * 330 / 43560
+
+        heat_risk = "HIGH" if city_avg_temp > 85 else "MODERATE"
+        green_status = "BELOW" if proposal.green_space_pct < city_green_target else "MEETS"
+
+        # ── Serialise opponent positions ─────────────────────────────────────
+        ops = opponent_opinions or {}
+        finance_pos = self._format_opponent_position("finance", ops.get("finance"))
+        community_pos = self._format_opponent_position("community", ops.get("community"))
+
+        # ── Build prompt ─────────────────────────────────────────────────────
+        prompt = f"""You are the Climate Agent in an urban development debate. \
+Your ONLY job is to protect environmental outcomes for the residents of {city_name}.
+
+REAL ENVIRONMENTAL STANDARDS you must cite:
+- EPA recommends minimum 15% green space for urban heat island mitigation \
+(EPA Heat Island Compendium, updated 2023)
+- {city_name} city target for green space: {city_green_target}%
+- Surface parking generates 7x more stormwater runoff per acre than green space (USEPA)
+- At {proposal.parking_spaces} spaces, this development has approximately \
+{parking_acres:.1f} acres of impervious surface
+- {city_name}'s summer average temperature: {city_avg_temp:.0f}°F — parking heat-island \
+risk is {heat_risk}
+
+CURRENT PROPOSAL green space: {proposal.green_space_pct}% \
+({green_status} city target of {city_green_target}%)
+
+WHAT THE OTHER AGENTS SAID LAST ROUND:
+- Finance Agent: {finance_pos}
+- Community Agent: {community_pos}
+
+YOUR TASK THIS ROUND:
+Respond SPECIFICALLY to what Finance and Community said. If Finance says cost is tight, \
+propose a SPECIFIC green space increase (e.g. from {proposal.green_space_pct}% to \
+{min(proposal.green_space_pct + 10, city_green_target):.0f}%) and acknowledge that \
+parking must be reduced to make land available. If Community wants a large community \
+center, note whether it competes with green space land or supports it (indoor rec \
+facilities do NOT reduce green space if they are multi-story).
+
+DOMAIN CONSTRAINTS: You may ONLY argue about: green space percentage, parking spaces \
+(impervious surface / heat island). You may NOT argue about budget totals, housing unit \
+count, affordable housing percentage, or community center sqft — those are Finance's and \
+Community's domains. A 100,000 sqft community center is NOT a climate concern — do not \
+mention it.
+
+{self.PERSONALITY_BRIEF}
+Your risk tolerance: {self.RISK_TOLERANCE}."""
+        return prompt
+
     def generate_opinion(
         self,
         proposal: Proposal,
