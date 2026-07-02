@@ -12,7 +12,7 @@ def test_debate_round_creation():
         housing_units=200,
         parking_spaces=300,
         community_center_sqft=5000,
-        estimated_cost=45000000.0
+        
     )
     
     out = AgentOutput(

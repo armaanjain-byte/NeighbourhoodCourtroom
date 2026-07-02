@@ -8,6 +8,7 @@ class Proposal(BaseModel):
     proposal_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
     city_slug: str
     version: int = 1
+    budget_limit: float = 0.0
     
     # Core Parameters
     # Sensible real-world bounds: green_space_pct as 0.0-100.0 (percentages of lot allocated to green space)
@@ -21,7 +22,7 @@ class Proposal(BaseModel):
     # Sensible real-world bounds: community_center_sqft as 0.0-1000000.0 to prevent absurd facility sizes while accommodating large community centers up to 1M sqft
     community_center_sqft: float = Field(ge=0.0, le=1000000.0)
     # Sensible real-world bounds: estimated_cost as 0.0 with a high but finite upper bound (10 billion) to prevent overflow-style abuse, not because city budgets are actually capped there
-    estimated_cost: float = Field(ge=0.0, le=10_000_000_000.0)
+    estimated_cost: float = Field(default=0.0, ge=0.0, le=10_000_000_000.0)
     
     # Scores & Overrides
     agent_scores: dict[str, float] = Field(default_factory=dict)

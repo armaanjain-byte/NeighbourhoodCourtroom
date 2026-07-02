@@ -10,7 +10,7 @@ def test_proposal_creation():
         housing_units=200,
         parking_spaces=300,
         community_center_sqft=5000,
-        estimated_cost=45000000.0
+        
     )
     assert p.version == 1
     assert isinstance(p.proposal_id, str)
@@ -27,7 +27,7 @@ def test_proposal_out_of_bounds_creation_raises():
             housing_units=200,
             parking_spaces=300,
             community_center_sqft=5000,
-            estimated_cost=45000000.0
+            
         )
 
 def test_proposal_validate_assignment_raises():
@@ -38,7 +38,7 @@ def test_proposal_validate_assignment_raises():
         housing_units=200,
         parking_spaces=300,
         community_center_sqft=5000,
-        estimated_cost=45000000.0
+        
     )
     with pytest.raises(ValidationError):
         p.housing_units = 500000  # invalid > 100000

@@ -38,10 +38,8 @@ FINANCE_STANDARDS_FILE = "finance_standards.json"
 class FinanceAgent(BaseAgent):
     """The Finance Agent evaluates proposals strictly on budget and density."""
 
-    # Recalibrated to 50,000,000.0 after fixing green space cost bugs and running the eval harness.
-    # At 50M, standard opening proposals start at 0.5x to 1.1x of budget, allowing realistic negotiation
-    # to succeed, while oversized adversarial proposals (2.5x+) still correctly fail.
-    BASE_TARGET_BUDGET = 55_000_000.0
+    # Budget is now passed in via proposal.budget_limit.
+    # We no longer rely on BASE_TARGET_BUDGET.
     RISK_TOLERANCE = "low risk tolerance on budget overruns"
     PERSONALITY_BRIEF = (
         "You are a pragmatic municipal budget officer who has personally seen projects fail from severe cost overruns. "
@@ -127,8 +125,7 @@ class FinanceAgent(BaseAgent):
             city_index = costs.get("city_index", 1.0)
             return {
                 "construction_costs": costs,
-                "base_target_budget": self.BASE_TARGET_BUDGET,
-                "local_budget": self.BASE_TARGET_BUDGET * city_index
+                "local_budget": args.get("budget_limit", 0.0)
             }
         elif name == "calculate_cost_estimate":
             from models.proposal import Proposal
@@ -140,6 +137,7 @@ class FinanceAgent(BaseAgent):
                 city_slug=args["city_slug"],
                 affordable_housing_pct=0.0,
                 estimated_cost=0.0,
+                budget_limit=0.0,
             )
             return {"estimated_cost": self.cost_calculator.calculate_estimated_cost(proposal)}
         elif name == "get_cost_benchmarks":
@@ -195,34 +193,23 @@ class FinanceAgent(BaseAgent):
         """Evaluate the proposal against city-adjusted budget limits.
 
         Flow:
-        1. Fetch city_index from DataLoader's construction_costs.
-        2. Calculate local budget = BASE_TARGET_BUDGET * city_index.
-        3. Compare proposal.estimated_cost to local budget.
-        4. Over budget: Score drops, verdict "modify", cuts amenities, boosts housing.
-        5. Well under budget: High score, verdict "modify", boosts housing.
-        6. On budget: High score, verdict "accept", no changes.
+        1. Calculate calculated_cost using cost_calculator.
+        2. Compare calculated_cost to proposal.budget_limit.
+        3. Over budget: Score drops based on overrun, verdict "modify", cuts amenities, boosts housing.
+        4. Well under budget: High score, verdict "modify", boosts housing.
+        5. On budget: High score, verdict "accept", no changes.
         """
-        try:
-            costs = self.cost_calculator.data_loader.get_construction_costs(proposal.city_slug)
-            raw_index = costs.get("city_index", 1.0)
-            city_index = raw_index / 100.0 if raw_index > 10.0 else raw_index
-        except Exception as e:
-            # Invalid dataset handling
-            return self.build_output(
-                score=0.0,
-                verdict="reject",
-                changes={},
-                reasoning=f"Failed to load cost data for {proposal.city_slug}: {e}"
-            )
+        local_budget = proposal.budget_limit
+        if local_budget <= 0:
+            local_budget = 50_000_000.0 # fallback if unset
 
-        local_budget = self.BASE_TARGET_BUDGET * city_index
-        cost = self.cost_calculator.calculate_estimated_cost(proposal)
+        cost = self.cost_calculator.calculate_construction_cost(proposal)
 
         if cost > local_budget:
             # Over budget
-            ratio = cost / local_budget
-            # e.g., 30M / 25M = 1.2 -> score = 100 - (1.2 * 40) = 52
-            score = max(0.0, 100.0 - (ratio * 40))
+            # max(0, 100 - (calculated_cost - budget_limit) / budget_limit * 100)
+            overrun_ratio = (cost - local_budget) / local_budget
+            score = max(0.0, 100.0 - (overrun_ratio * 100.0))
             verdict = "modify"
 
             changes: dict[str, float] = {
@@ -259,6 +246,7 @@ class FinanceAgent(BaseAgent):
 
         return self.build_output(
             score=score,
+            score_rationale="Score based on budget utilization and cost limits.",
             verdict=verdict,
             changes=filtered,
             reasoning=reasoning

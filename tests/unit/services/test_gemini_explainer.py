@@ -17,7 +17,7 @@ def sample_session():
         housing_units=1000,
         parking_spaces=500,
         community_center_sqft=5000.0,
-        estimated_cost=1000000.0,
+        
     )
     
     # Create an initial debate round to give opening_state

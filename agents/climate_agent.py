@@ -206,8 +206,11 @@ class ClimateAgent(BaseAgent):
         parking_ratio = max_parking / max(1, proposal.parking_spaces)  # >1 is good
 
         # Base score on green space ratio, adjusted by parking penalty
-        raw_score = (green_ratio * 80.0) + (min(1.0, parking_ratio) * 20.0)
+        raw_score = (green_ratio * 80.0) - ( (proposal.parking_spaces / max(1, max_parking)) * 20.0 )
         score = max(0.0, min(100.0, raw_score))
+
+        if proposal.green_space_pct < (target_green_space * 0.5):
+            score = min(score, 35.0)
 
         if score < 85.0:
             verdict = "modify"
@@ -286,11 +289,11 @@ class ClimateAgent(BaseAgent):
 
         filtered = self.filter_unknown_parameters(changes)
 
-        out = self.build_output(
+        return self.build_output(
             score=score,
+            score_rationale=f"Score derived from green space ratio ({green_ratio:.2f}) and parking impact.",
             verdict=verdict,
             changes=filtered,
-            reasoning=reasoning
+            reasoning=reasoning,
+            standards_flags=standards_flags
         )
-        out.standards_flags = standards_flags
-        return out

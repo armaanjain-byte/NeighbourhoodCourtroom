@@ -59,7 +59,6 @@ def custom_proposal() -> Proposal:
         housing_units=50,
         parking_spaces=80,
         community_center_sqft=2000.0,
-        estimated_cost=10_000_000.0,
     )
 
 

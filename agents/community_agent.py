@@ -227,6 +227,7 @@ class CommunityAgent(BaseAgent):
                 filtered = self.filter_unknown_parameters(changes)
                 out = self.build_output(
                     score=10.0,
+                    score_rationale="SEVERE VIOLATION: Proposal egregiously violates HUD/Furman Center standards.",
                     verdict="modify",
                     changes=filtered,
                     reasoning=reasoning
@@ -243,7 +244,11 @@ class CommunityAgent(BaseAgent):
         effective_walkability = base_walkability + (proposal.green_space_pct * 0.5) - (proposal.parking_spaces * 0.1)
         effective_walkability = max(0.0, min(100.0, effective_walkability))
 
-        community_ratio = proposal.community_center_sqft / target_community_sqft if target_community_sqft else 1.0
+        target_sqft_per_unit = 5.0
+        if proposal.housing_units > 0:
+            community_ratio = proposal.community_center_sqft / (target_sqft_per_unit * proposal.housing_units)
+        else:
+            community_ratio = 1.0
         affordable_ratio = proposal.affordable_housing_pct / target_affordable if target_affordable else 1.0
 
         # High housing density without adequate community space causes a penalty
@@ -319,9 +324,14 @@ class CommunityAgent(BaseAgent):
 
         out = self.build_output(
             score=score,
+            score_rationale="Score based on amenities, affordability, and walkability.",
             verdict=verdict,
             changes=filtered,
-            reasoning=reasoning
+            reasoning=reasoning,
         )
         out.standards_flags = standards_flags
+        # Since build_output doesn't natively accept score_rationale, we assign it directly if we modify the AgentOutput model, or wait - we modified AgentOutput to not have score_rationale! 
+        # Ah! AgentOpinion has score_rationale, but AgentOutput does not.
+        # Wait, if AgentOpinion has score_rationale but AgentOutput doesn't, how does the UI get it? 
+        # Let's check session.py to see how AgentOutput maps to AgentOpinion.
         return out

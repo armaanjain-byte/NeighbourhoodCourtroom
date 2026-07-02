@@ -29,16 +29,16 @@ def render_courtroom_scene(session: CourtroomSession) -> None:
     session : CourtroomSession
         The courtroom session containing debate rounds and final state.
     """
-    st.markdown('<div class="section-header">🎬 Courtroom Playback Mode</div>', unsafe_allow_html=True)
-    mode = st.radio(
-        "Playback Mode",
-        options=["Real-time", "Cinematic Replay (~3 min, for demo recording)"],
-        horizontal=True,
-        key="courtroom_playback_mode",
-    )
-    is_cinematic = mode == "Cinematic Replay (~3 min, for demo recording)"
-    html = build_courtroom_scene_html(session, is_cinematic=is_cinematic)
-    components.html(html, height=850, scrolling=True)
+    with st.expander("🎬 Courtroom Playback", expanded=False):
+        mode = st.radio(
+            "Playback Mode",
+            options=["Real-time", "Cinematic Replay (~3 min, for demo recording)"],
+            horizontal=True,
+            key="courtroom_playback_mode",
+        )
+        is_cinematic = mode == "Cinematic Replay (~3 min, for demo recording)"
+        html = build_courtroom_scene_html(session, is_cinematic=is_cinematic)
+        components.html(html, height=850, scrolling=True)
 
 
 def render_live_feed(events: list) -> None:
@@ -989,6 +989,11 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
         }}
         .hide-scrollbar::-webkit-scrollbar {{ display: none; }}
         .hide-scrollbar {{ -ms-overflow-style: none; scrollbar-width: none; }}
+        #content-finance > div, #content-climate > div, #content-community > div {{
+            box-sizing: border-box !important;
+            width: 100% !important;
+            word-wrap: break-word !important;
+        }}
         details > summary {{ list-style: none; }}
         details > summary::-webkit-details-marker {{ display: none; }}
     </style>
@@ -1015,7 +1020,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                     </div>
                     <span class="text-xs font-bold px-3 py-1 bg-[#fefcbf] text-[#744210] border-2 border-[#121212]">AGENT</span>
                 </div>
-                <div id="content-finance" class="flex-1 flex flex-col space-y-4">
+                <div id="content-finance" class="flex-1 flex flex-col space-y-4 overflow-y-auto hide-scrollbar" style="min-height: 200px;">
                     <div class="h-full flex items-center justify-center text-sm font-bold italic text-[#fefcbf]">Awaiting statement...</div>
                 </div>
             </div>
@@ -1029,7 +1034,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                     </div>
                     <span class="text-xs font-bold px-3 py-1 bg-[#c6f6d5] text-[#276749] border-2 border-[#121212]">AGENT</span>
                 </div>
-                <div id="content-climate" class="flex-1 flex flex-col space-y-4">
+                <div id="content-climate" class="flex-1 flex flex-col space-y-4 overflow-y-auto hide-scrollbar" style="min-height: 200px;">
                     <div class="h-full flex items-center justify-center text-sm font-bold italic text-[#c6f6d5]">Awaiting statement...</div>
                 </div>
             </div>
@@ -1043,7 +1048,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                     </div>
                     <span class="text-xs font-bold px-3 py-1 bg-[#e9d8fd] text-[#553c9a] border-2 border-[#121212]">AGENT</span>
                 </div>
-                <div id="content-community" class="flex-1 flex flex-col space-y-4">
+                <div id="content-community" class="flex-1 flex flex-col space-y-4 overflow-y-auto hide-scrollbar" style="min-height: 200px;">
                     <div class="h-full flex items-center justify-center text-sm font-bold italic text-[#e9d8fd]">Awaiting statement...</div>
                 </div>
             </div>
@@ -1262,7 +1267,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                 }});
                 const startTitle = (beat.session_attempt > 1) ? `⚖️ Session Attempt ${{beat.session_attempt}} (Round ${{beat.negotiation_round}}) Commencing` : `⚖️ Round ${{beat.negotiation_round || beat.round_number}} Commencing`;
                 document.getElementById('status-banner').innerHTML = `
-                    <div class="text-center animate-bounce max-w-xl mx-auto" style="background:#121212; color:#F0F0F0; border: 4px solid #F0F0F0; padding: 1.5rem 2rem; box-shadow: 8px 8px 0px 0px rgba(240,240,240,0.3); border-radius: 0; font-family: Outfit, sans-serif;">
+                    <div class="text-center animate-bounce max-w-xl mx-auto" style="background:#121212; color:#F0F0F0; border: 4px solid #F0F0F0; padding: 1.5rem 2rem; box-shadow: 8px 8px 0px 0px rgba(240,240,240,0.3); border-radius: 0; font-family: Outfit, sans-serif; animation-iteration-count: 1; animation-fill-mode: forwards;">
                         <h2 style="font-size:1.5rem; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#fefcbf;">${{startTitle}}</h2>
                         <p style="font-size:0.82rem; margin-top:0.5rem; font-weight:700; color:#c6f6d5; letter-spacing:0.04em;">${{beat.content.message || ''}}</p>
                     </div>
@@ -1361,7 +1366,7 @@ def build_courtroom_scene_html(session: CourtroomSession, is_cinematic: bool = F
                 drawConnectionLine(beat.agent, beat.target_agent, colorHex, `${{c.parameter}} (${{beat.severity.toUpperCase()}})`, true);
 
                 document.getElementById('status-banner').innerHTML = `
-                    <div class="bg-white border-4 border-[#121212] p-6 shadow-[8px_8px_0px_0px_#121212] text-[#121212] text-center animate-bounce max-w-2xl mx-auto">
+                    <div class="bg-white border-4 border-[#121212] p-6 shadow-[8px_8px_0px_0px_#121212] text-[#121212] text-center animate-bounce max-w-2xl mx-auto" style="animation-iteration-count: 1; animation-fill-mode: forwards;">
                         <div class="flex items-center justify-center gap-2 font-black text-xl tracking-wide uppercase" style="color: ${{colorHex}}">
                             <span class="material-symbols-outlined text-[28px]">warning</span>
                             Conflict Flare: ${{c.parameter}} (${{beat.severity.toUpperCase()}} Severity)

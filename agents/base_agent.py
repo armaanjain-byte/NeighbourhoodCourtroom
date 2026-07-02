@@ -248,7 +248,7 @@ class BaseAgent(abc.ABC):
             "Return a single strictly-valid JSON object with EXACTLY these fields:\n"
             "{\n"
             '  "score": <float 0.0–100.0, your approval score>,\n'
-            '  "verdict": <"accept" | "modify" | "reject">,\n'
+            '  "score_rationale": <string, a one-sentence explanation of why the score is what it is>,\n'
             '  "proposed_changes": <dict of param->value; empty dict {} if no changes>,\n'
             '  "concession_rationale": <string or null, required ONLY when proposed_changes differs from your own previous round position (i.e. when making a concession)>,\n'
             '  "tension": <string, 1-2 sentences. Before giving your position, state the single strongest reason someone might disagree with your domain\'s typical stance on this proposal — a real consideration, not a strawman. Then explain specifically why it doesn\'t change your conclusion (or, if it\'s strong enough that it SHOULD change your conclusion, say so).>,\n'
@@ -557,6 +557,7 @@ class BaseAgent(abc.ABC):
         return AgentOpinion(
             agent=self.agent_name,
             score=math_results.score,
+            score_rationale=getattr(math_results, "score_rationale", "Score calculated deterministically based on domain models."),
             recommendation=filtered_changes,
             tension="Considered alternative viewpoints, but fell back to deterministic mathematical modeling due to execution constraints.",
             position=fallback_position,
@@ -675,6 +676,8 @@ class BaseAgent(abc.ABC):
         verdict: str,
         changes: dict[str, float],
         reasoning: str,
+        score_rationale: str = "",
+        standards_flags: list[dict] | None = None,
     ) -> AgentOutput:
         """Construct and validate an AgentOutput object.
 
@@ -705,7 +708,9 @@ class BaseAgent(abc.ABC):
         return AgentOutput(
             agent_name=self.agent_name,
             score=score,
+            score_rationale=score_rationale,
             verdict=verdict,  # type: ignore
             proposed_changes=changes,
             reasoning_and_evidence=reasoning,
+            standards_flags=standards_flags or [],
         )

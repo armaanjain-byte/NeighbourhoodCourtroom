@@ -21,7 +21,7 @@ def test_override_initialization() -> None:
         housing_units=200,
         parking_spaces=300,
         community_center_sqft=5000.0,
-        estimated_cost=45000000.0,
+        
     )
     
     # Act: Apply human override

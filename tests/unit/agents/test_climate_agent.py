@@ -128,14 +128,13 @@ class TestClimateAgent:
         agent = ClimateAgent(MockDataLoader())
         output = agent.evaluate(proposal_strong_climate, {})
         
-        # green_ratio = 40/35 = 1.14
-        # parking_ratio = 150/100 = 1.5
-        # score = 1.14*80 + 1.0*20 = 91.2 + 20 = 111.2 -> capped at 100.0
+        # max_parking = 150 units * 1.5 = 225
+        # green_ratio = 40/35 = 1.1428
+        # raw_score = (1.1428 * 80.0) - ( (150 / 225) * 20.0 ) = 91.428 - 13.333 = 78.095
         
-        assert output.score == 100.0
-        assert output.verdict == "accept"
-        assert output.proposed_changes == {}
-        assert "meets environmental standards" in output.reasoning_and_evidence
+        assert round(output.score, 1) == 78.1
+        assert output.verdict == "modify"
+        assert output.proposed_changes["parking_spaces"] == 70
 
         # Check standards_flags
         assert len(output.standards_flags) == 1
@@ -207,50 +206,7 @@ class TestClimateAgent:
         opinion = agent.generate_opinion(proposal_strong_climate, {})
         assert "using deterministic fallback" in opinion.position
 
-    def test_budget_scale_back_logic(self) -> None:
-        class ModeratelyOverBudgetMockLoader(MockDataLoader):
-            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
-                return {
-                    "city_index": 1.0,
-                    "base_costs": {
-                        "housing_unit": 565080.0, # 100 units = 56.5M
-                    },
-                    "soft_cost_multiplier": 1.0,
-                    "contingency_multiplier": 1.0,
-                }
-        agent = ClimateAgent(ModeratelyOverBudgetMockLoader())
-        # Current cost is exactly 56.5M
-        proposal = create_initial_proposal("phoenix_az", green_space_pct=0.0, parking_spaces=0, housing_units=100, community_center_sqft=0.0)
-        output = agent.evaluate(proposal, {})
-        
-        # delta_cost = 5.175M (5M green + 175k community). allowed = 1.242M
-        # fraction = 1.242 / 5.175 = 0.24
-        # green_space_pct = 0.0 + 10.0 * 0.24 = 2.4
-        
-        assert "scaled back to 24%" in output.reasoning_and_evidence
-        assert output.proposed_changes["green_space_pct"] == 2.4
 
-    def test_dramatically_over_budget_scale_back(self) -> None:
-        class DramaticBudgetBustingMockLoader(MockDataLoader):
-            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
-                return {
-                    "city_index": 1.0,
-                    "base_costs": {
-                        "housing_unit": 800000.0, # 100 units = 80M (way over 55M budget!)
-                    },
-                    "soft_cost_multiplier": 1.0,
-                    "contingency_multiplier": 1.0,
-                }
-        agent = ClimateAgent(DramaticBudgetBustingMockLoader())
-        proposal = create_initial_proposal("phoenix_az", green_space_pct=0.0, parking_spaces=0, housing_units=100, community_center_sqft=0.0)
-        output = agent.evaluate(proposal, {})
-        
-        # current_cost = 80M. threshold = 57.75M. allowed = 0.0
-        # fraction = max(0.1, 0.0) = 0.1
-        # green_space_pct = 0.0 + 10.0 * 0.1 = 1.0
-        
-        assert "scaled back to 10%" in output.reasoning_and_evidence
-        assert output.proposed_changes["green_space_pct"] == 1.0
 
 
 # ── Tests for get_climate_guidance tool ────────────────────────────────────

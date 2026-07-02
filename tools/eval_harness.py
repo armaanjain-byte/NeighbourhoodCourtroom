@@ -64,11 +64,10 @@ def calculate_budget_sanity(sessions: list[CourtroomSession], data_loader: DataL
         raw_index = cost_data.get("city_index", 1.0)
         city_index = raw_index / 100.0 if raw_index > 10.0 else raw_index
         
-        # Base target budget is hardcoded in FinanceAgent, fetching it here.
-        base_budget = FinanceAgent.BASE_TARGET_BUDGET
-        local_budget = base_budget * city_index
+        # Base target budget is fetched from proposal.
+        local_budget = proposal.budget_limit
         
-        final_cost = cost_calculator.calculate_estimated_cost(proposal)
+        final_cost = cost_calculator.calculate_construction_cost(proposal)
         if final_cost <= local_budget * 1.1:
             sane_count += 1
             

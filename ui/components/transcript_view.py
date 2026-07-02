@@ -93,7 +93,7 @@ def build_card_html(agent_name: str, phase_idx: int, phase_label: str, op: Agent
         card_border_style = f"border: 4px dashed #121212; border-top: 6px solid {accent}; box-shadow: 4px 4px 0px 0px #121212;"
 
     html = f'''
-    <div style="background:{card_bg};{card_border_style};padding:1.25rem;position:relative;margin-bottom:1.5rem;" id="{card_id}">
+    <div class="tx-entry" style="background:{card_bg};{card_border_style};padding:1.25rem;position:relative;margin-bottom:1.5rem;white-space:normal;word-wrap:break-word;overflow:visible;height:auto;" id="{card_id}">
         <!-- Phase label — Bauhaus square tag -->
         <span style="position:absolute;top:-14px;left:12px;background:#121212;color:#F0F0F0;font-family:Outfit,sans-serif;font-size:0.6rem;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;padding:2px 8px;border:2px solid #121212;">{phase_label}</span>
         {fallback_header}
@@ -143,12 +143,15 @@ def build_transcript_html(session: CourtroomSession) -> str:
 
         cards_html = ""
         for phase_idx, (phase_label, opinions) in enumerate(phases):
+            if phase_label.endswith("- R1"):
+                r_num = phase_label.split(" ")[0].replace("D", "")
+                cards_html += f'<div style="background:#121212;color:#fefcbf;font-weight:900;padding:0.4rem 1rem;font-size:0.75rem;letter-spacing:0.12em;margin-bottom:1rem;text-align:center;">ROUND {r_num}</div>'
             op = opinions.get(agent_name)
             if op:
                 cards_html += build_card_html(agent_name, phase_idx, phase_label, op)
 
         col = f'''
-        <div style="flex:1;border-right:4px solid #121212;background:{light_bg};padding:1.5rem;" id="col-{agent_name}">
+        <div style="min-width: 280px; flex: 1 1 280px; overflow: visible; border-right:4px solid #121212;background:{light_bg};padding:1.5rem;" id="col-{agent_name}">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:2rem;padding-bottom:0.75rem;border-bottom:4px solid #121212;">
                 <span style="font-size:1.5rem;">{emoji}</span>
                 <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:1rem;text-transform:uppercase;letter-spacing:0.12em;color:{accent};">{agent_name}</h3>
@@ -227,7 +230,7 @@ def build_transcript_html(session: CourtroomSession) -> str:
         <main style="display:flex;height:100%;overflow:hidden;">
             <section style="flex:1;overflow-x:auto;position:relative;" class="hide-scrollbar">
                 <div style="position:absolute;inset:0;pointer-events:none;" id="conflict-lines-container"></div>
-                <div style="display:flex;height:100%;min-width:900px;border:4px solid #121212;box-shadow:8px 8px 0px 0px #121212;">
+                <div style="display: flex; flex-wrap: nowrap; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; height:100%;min-width:900px;border:4px solid #121212;box-shadow:8px 8px 0px 0px #121212;">
                     {columns_html}
                 </div>
             </section>

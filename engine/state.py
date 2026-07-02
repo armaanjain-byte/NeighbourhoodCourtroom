@@ -35,7 +35,6 @@ MUTABLE_PARAMETERS: set[str] = {
     "housing_units",
     "parking_spaces",
     "community_center_sqft",
-    "estimated_cost",
 }
 
 PARAM_BOUNDS: dict[str, tuple[float, float]] = {
@@ -76,6 +75,7 @@ def create_initial_proposal(
     parking_spaces: int = 150,
     community_center_sqft: float = 5000.0,
     estimated_cost: float = 25_000_000.0,
+    budget_limit: float = 0.0,
 ) -> Proposal:
     """Create a fresh Proposal with sensible defaults.
 
@@ -95,6 +95,8 @@ def create_initial_proposal(
         Square-footage of community center area.
     estimated_cost : float
         Total estimated project cost in USD.
+    budget_limit : float
+        The absolute budget limit set by the user.
 
     Returns
     -------
@@ -110,6 +112,7 @@ def create_initial_proposal(
         parking_spaces=parking_spaces,
         community_center_sqft=community_center_sqft,
         estimated_cost=estimated_cost,
+        budget_limit=budget_limit,
     )
 
 

@@ -205,11 +205,26 @@ class CourtroomSession(BaseModel):
         # ── LLM-derived Phase (Replaces deterministic Phase 1 inputs) ────────
         llm_agent_outputs: dict[str, AgentOutput] = {}
         for agent_name, opinion in round_2_opinions.items():
+            final_recc = {}
+            if opinion.objections:
+                for obj in opinion.objections:
+                    target_agent = obj.target_agent
+                    if target_agent in round_1_opinions:
+                        for param in round_1_opinions[target_agent].recommendation:
+                            if param not in opinion.recommendation:
+                                # Revert to this agent's Round 1 stance, or original value
+                                if agent_name in round_1_opinions and param in round_1_opinions[agent_name].recommendation:
+                                    final_recc[param] = round_1_opinions[agent_name].recommendation[param]
+                                else:
+                                    final_recc[param] = getattr(self.current_proposal, param)
+            final_recc.update(opinion.recommendation)
+
             llm_agent_outputs[agent_name] = AgentOutput(
                 agent_name=agent_name,
                 score=opinion.score,
-                verdict="modify" if opinion.recommendation else "accept",
-                proposed_changes=opinion.recommendation,
+                score_rationale=getattr(opinion, "score_rationale", ""),
+                verdict="modify" if final_recc else "accept",
+                proposed_changes=final_recc,
                 reasoning_and_evidence=opinion.reasoning,
                 confidence=opinion.confidence,
             )
@@ -221,6 +236,27 @@ class CourtroomSession(BaseModel):
             round_number=debate_round_number,
             cost_calculator=cost_calculator
         )
+
+        # Pre-resolution check: flag budget overruns as high-severity
+        if cost_calculator and updated_proposal.budget_limit > 0:
+            new_cost = cost_calculator.calculate_construction_cost(updated_proposal)
+            if new_cost > updated_proposal.budget_limit:
+                # Find which parameters pushed it over budget and add a high severity conflict
+                from models.conflict import Conflict
+                for agent_name, out in llm_agent_outputs.items():
+                    for param, val in out.proposed_changes.items():
+                        if param not in debate_round.human_review_params:
+                            debate_round.detected_conflicts.append(Conflict(
+                                parameter=param,
+                                agent_a=agent_name,
+                                agent_b="finance_rules",
+                                proposed_value_a=val,
+                                proposed_value_b=getattr(self.current_proposal, param),
+                                disagreement_severity="high"
+                            ))
+                            debate_round.human_review_params.append(param)
+                            # Revert the parameter in the updated_proposal
+                            setattr(updated_proposal, param, getattr(self.current_proposal, param))
 
         # ── Attach opinion records to the DebateRound ────────────────────────
         debate_round.round_1_opinions = round_1_opinions

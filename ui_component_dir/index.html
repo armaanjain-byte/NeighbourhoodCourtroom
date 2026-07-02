@@ -67,8 +67,17 @@
         box-shadow: 3px 3px 0px 0px #121212;
     }
     input[type="range"]:focus::-webkit-slider-runnable-track { background: #C6F6D5; border-color: #276749; }
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    /* ── City container scrollbar ── */
+    #city-container {
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+    #city-container::-webkit-scrollbar { height: 6px; }
+    #city-container::-webkit-scrollbar-track { background: transparent; }
+    #city-container::-webkit-scrollbar-thumb {
+        background: #121212;
+        border-radius: 0;
+    }
 
     /* ── City card base ── */
     .city-card {
@@ -115,9 +124,9 @@
     <section class="mb-8">
         <div class="flex items-center justify-between mb-4" style="border-bottom: 3px solid #121212; padding-bottom: 0.4rem;">
             <h2 class="section-header w-auto" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Select City</h2>
-            <span class="text-xs font-black uppercase tracking-wider opacity-50" style="font-family: Outfit, sans-serif; letter-spacing: 0.1em; color: #121212;">Scroll for more →</span>
+            <span id="scroll-affordance" style="display: none; font-family: Outfit, sans-serif; letter-spacing: 0.1em; color: #121212;" class="text-xs font-black uppercase tracking-wider opacity-50">Scroll for more →</span>
         </div>
-        <div class="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x" id="city-container">
+        <div class="flex gap-4 overflow-x-auto pb-4 snap-x" id="city-container">
             <!-- Cities will be injected dynamically via JS -->
         </div>
     </section>
@@ -303,6 +312,13 @@
         
         if (firstCity) {
             selectCity(firstCity);
+        }
+
+        const affordance = document.getElementById("scroll-affordance");
+        if (Object.keys(citiesDict).length > 3) {
+            affordance.style.display = "inline";
+        } else {
+            affordance.style.display = "none";
         }
     }
 

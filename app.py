@@ -148,6 +148,10 @@ header[data-testid="stHeader"] [data-testid="stMainMenu"] button:hover {
     font-family: 'Outfit', sans-serif !important;
     font-weight: 900 !important;
 }
+div[data-testid="stRadio"] label {
+    color: #121212 !important;
+    font-weight: 700 !important;
+}
 
 /* ── Hero title ─────────────────────────────────────────────────────────── */
 .hero-title {
@@ -610,7 +614,7 @@ def render_debate_transcript(session: CourtroomSession) -> None:
         return
 
     html = build_transcript_html(session)
-    components.html(html, height=1200, scrolling=True)
+    components.html(html, height=1600, scrolling=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -632,6 +636,8 @@ def render_proposal_table(session: CourtroomSession) -> None:
 
     rows = ""
     for param, label in PARAM_LABELS.items():
+        if param == "estimated_cost":
+            continue
         final_val = getattr(final, param)
         open_val = getattr(opening, param) if opening else final_val
         changed = abs(float(final_val) - float(open_val)) > 0.01
@@ -644,6 +650,39 @@ def render_proposal_table(session: CourtroomSession) -> None:
             f'<td class="{cls}">{_fmt_value(param, final_val)}{arrow}</td>'
             f"</tr>"
         )
+
+    # Calculate final estimated cost
+    from tools.cost_calculator import CostCalculator
+    from data.loader import DataLoader
+    calc = CostCalculator(DataLoader())
+    final_cost = calc.calculate_construction_cost(final)
+    open_cost = calc.calculate_construction_cost(opening) if opening else final_cost
+    
+    budget_limit = final.budget_limit
+    
+    # Render Budget Limit row
+    rows += (
+        f"<tr>"
+        f"<td><strong>Budget Limit (Your Input)</strong></td>"
+        f"<td>{_fmt_value('estimated_cost', budget_limit)}</td>"
+        f"<td>{_fmt_value('estimated_cost', budget_limit)}</td>"
+        f"</tr>"
+    )
+
+    # Render Estimated Construction Cost row
+    changed_cost = abs(float(final_cost) - float(open_cost)) > 0.01
+    cost_cls = "param-changed" if changed_cost else ""
+    cost_arrow = " ↑" if changed_cost and float(final_cost) > float(open_cost) else (" ↓" if changed_cost else "")
+    over_budget = final_cost > budget_limit and budget_limit > 0
+    cost_color = 'color: #e53e3e; font-weight: bold;' if over_budget else ''
+    
+    rows += (
+        f"<tr>"
+        f"<td><strong>Estimated Construction Cost</strong></td>"
+        f"<td>{_fmt_value('estimated_cost', open_cost)}</td>"
+        f'<td class="{cost_cls}" style="{cost_color}">{_fmt_value("estimated_cost", final_cost)}{cost_arrow}</td>'
+        f"</tr>"
+    )
 
     html = (
         f'<table class="param-table">'
@@ -949,26 +988,26 @@ def stage_result(is_override: bool = False) -> None:
                     fallback_statements += 1
                     
     if fallback_statements > 0:
-        st.warning(
-            f"**Note:** {fallback_statements} of {total_statements} agent statements in this session used verified deterministic calculations "
-            f"instead of live AI reasoning, due to API unavailability. This does not affect the safety or correctness of the final proposal "
-            f"— see flagged statements below.",
-            icon="⚙️"
+        st.markdown(
+            f"""<div style="background:#fefcbf;border:3px solid #744210;border-radius:0;padding:1rem 1.2rem;margin-bottom:1.2rem;box-shadow:4px 4px 0px 0px #121212;font-family:Outfit,sans-serif;font-size:0.88rem;color:#121212;font-weight:500;">
+  ⚙️ <strong>Note:</strong> {fallback_statements} of {total_statements} agent statements in this session used verified deterministic calculations instead of live AI reasoning, due to API unavailability. This does not affect the safety or correctness of the final proposal — see flagged statements below.
+</div>""",
+            unsafe_allow_html=True
         )
 
 
     # Helper to get scores
-    def _get_score(sess: CourtroomSession, name: str) -> float:
-        if not sess.debate_rounds: return 0.0
+    def _get_score_info(sess: CourtroomSession, name: str) -> tuple[float, str]:
+        if not sess.debate_rounds: return (0.0, "")
         last_round = sess.debate_rounds[-1]
         r3 = getattr(last_round, "round_3_opinions", {})
         r2 = last_round.round_2_opinions
         r1 = last_round.round_1_opinions
-        if name in r3: return r3[name].score
-        if name in r2: return r2[name].score
-        if name in r1: return r1[name].score
+        if name in r3: return (r3[name].score, getattr(r3[name], "score_rationale", ""))
+        if name in r2: return (r2[name].score, getattr(r2[name], "score_rationale", ""))
+        if name in r1: return (r1[name].score, getattr(r1[name], "score_rationale", ""))
         out = last_round.agent_outputs.get(name)
-        return out.score if out else 0.0
+        return (out.score, getattr(out, "score_rationale", "")) if out else (0.0, "")
 
 
     st.markdown('<div class="section-header">📊 Agent Scores</div>', unsafe_allow_html=True)
@@ -991,24 +1030,27 @@ def stage_result(is_override: bool = False) -> None:
     cols = st.columns(3)
     
     for i, agent_name in enumerate(["finance", "climate", "community"]):
-        new_score = _get_score(session, agent_name)
+        new_score, rationale = _get_score_info(session, agent_name)
+        delta_html = ""
         if is_override:
             old_session = st.session_state["pre_override_session"]
-            old_score = _get_score(old_session, agent_name)
+            old_score, _ = _get_score_info(old_session, agent_name)
             delta = new_score - old_score
-            with cols[i]:
-                st.metric(f"{agent_name.title()} Agent", f"{new_score:.0f} / 100", f"{delta:+.0f}")
-        else:
-            cls = _score_class(new_score)
-            with cols[i]:
-                st.markdown(
-                    f'<div class="score-card-{agent_name}">'
-                    f'<div class="agent-name">{agent_name} Agent</div>'
-                    f'<div class="score-value">{new_score:.0f}</div>'
-                    f'<div class="score-label">/ 100</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+            delta_color = "#276749" if delta > 0 else "#9B2C2C" if delta < 0 else "#121212"
+            delta_bg = "#C6F6D5" if delta > 0 else "#FED7D7" if delta < 0 else "#E2E8F0"
+            delta_html = f'<div style="margin-top:0.5rem;"><span style="background:{delta_bg};color:{delta_color};padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:900;font-family:Outfit,sans-serif;">{delta:+.0f}</span></div>'
+            
+        with cols[i]:
+            st.markdown(
+                f'<div class="score-card-{agent_name}">'
+                f'<div class="agent-name">{agent_name.capitalize()} Agent</div>'
+                f'<div class="score-value">{new_score:.0f}</div>'
+                f'<div class="score-label">/ 100</div>'
+                f'{delta_html}'
+                f'<div style="margin-top:1rem;font-size:0.75rem;color:#718096;font-family:Outfit,sans-serif;line-height:1.2;font-style:italic;">{rationale}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
     if is_override:
         old_proposal = st.session_state["pre_override_session"].current_proposal
@@ -1119,15 +1161,16 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
                 icon = "✅" if flag["passed"] else "❌"
                 color = "#276749" if flag["passed"] else "#742a2a"
                 bg_color = "#eafaf0" if flag["passed"] else "#fff0f0"
+                cls_name = "standards-pass" if flag["passed"] else "standards-fail"
                 
                 st.markdown(
                     f'''
-                    <div style="background:{bg_color}; border: 3px solid #121212; border-left: 8px solid {color}; padding: 1rem; margin-bottom: 0.8rem; box-shadow: 4px 4px 0px 0px #121212;">
-                        <div style="font-weight:900; font-size:1.05rem; margin-bottom:0.3rem; font-family:'Outfit', sans-serif;">{icon} {flag["standard_name"]}</div>
-                        <div style="font-size:0.9rem; margin-bottom:0.2rem; font-family:'Outfit', sans-serif;">
-                            <strong>Proposed:</strong> {flag["proposal_value"]} &nbsp;|&nbsp; <strong>Standard:</strong> {flag["threshold"]}
+                    <div class="{cls_name}" style="background:{bg_color}; border: 3px solid #121212; border-left: 8px solid {color}; padding: 1rem; margin-bottom: 0.8rem; box-shadow: 4px 4px 0px 0px #121212; color: #121212 !important;">
+                        <div style="font-weight:900; font-size:1.05rem; margin-bottom:0.3rem; font-family:'Outfit', sans-serif; color: #121212 !important;">{icon} {flag["standard_name"]}</div>
+                        <div style="font-size:0.9rem; margin-bottom:0.2rem; font-family:'Outfit', sans-serif; color: #121212 !important;">
+                            <strong style="color: #121212 !important;">Proposed:</strong> {flag["proposal_value"]} &nbsp;|&nbsp; <strong style="color: #121212 !important;">Standard:</strong> {flag["threshold"]}
                         </div>
-                        <div style="font-size:0.75rem; color:#4a5568; font-style:italic; font-family:'Outfit', sans-serif;">
+                        <div style="font-size:0.8rem; color:#555555 !important; font-style:italic; font-family:'Outfit', sans-serif;">
                             Citation: {flag["source_citation"]}
                         </div>
                     </div>
@@ -1167,6 +1210,35 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
                     st.session_state.judge_brief = brief
                 st.rerun()
 
+    # ── High Severity Conflicts ───────────────────────────────────────────
+    last_round = session.debate_rounds[-1] if session.debate_rounds else None
+    if last_round:
+        high_conflicts = [
+            c for c in last_round.detected_conflicts
+            if c.disagreement_severity == "high" and c.parameter not in session.current_proposal.human_locks
+        ]
+        if high_conflicts:
+            st.markdown('<div class="section-header" style="color: #c53030;">⚠️ High Severity Conflicts</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="legend-text" style="display:block; border-left: 4px solid #c53030; padding-left: 1rem; margin-bottom: 1.5rem;">'
+                'The engine could not auto-resolve these disputes because the agents\' proposals were too far apart. '
+                '<strong>These parameters have been kept at their opening values.</strong> You must step in as the judge and explicitly set their values below.'
+                '</div>',
+                unsafe_allow_html=True
+            )
+            for hc in high_conflicts:
+                label = PARAM_LABELS.get(hc.parameter, hc.parameter)
+                st.markdown(
+                    f'<div style="background:#fff5f5; border: 1px solid #feb2b2; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">'
+                    f'<div style="font-weight: 700; color: #c53030; margin-bottom: 0.5rem;">{label}</div>'
+                    f'<ul style="margin:0; padding-left:1.5rem; font-size:0.9rem; color:#121212;">'
+                    f'<li><strong>{hc.agent_a.capitalize()}</strong> proposed: <code>{hc.proposed_value_a}</code></li>'
+                    f'<li><strong>{hc.agent_b.capitalize()}</strong> proposed: <code>{hc.proposed_value_b}</code></li>'
+                    f'</ul>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
     # ── Override panel ────────────────────────────────────────────────────
     st.markdown('<div class="section-header">🔨 Your Ruling</div>', unsafe_allow_html=True)
     st.markdown(
@@ -1178,11 +1250,11 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
         unsafe_allow_html=True
     )
 
-    ov_param = st.selectbox(
+    selected_param = st.selectbox(
         "Select parameter to lock",
-        options=["green_space_pct", "affordable_housing_pct", "parking_spaces", "housing_units"],
+        options=list(PARAM_LABELS.keys()),
         format_func=lambda p: PARAM_LABELS.get(p, p),
-        key="ov_param",
+        key="judge_param_select",
     )
     
     LOCK_DESCRIPTIONS = {
@@ -1190,14 +1262,23 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
         "affordable_housing_pct": "Locking Affordable Housing means agents cannot propose changing it to meet community equity or budget targets.",
         "parking_spaces": "Locking Parking Spaces means agents cannot propose changing it to accommodate density or reduce environmental impact.",
         "housing_units": "Locking Housing Density means agents cannot propose changing the number of units to hit revenue or community targets.",
+        "community_center_sqft": "Locking Community Center Area means agents cannot propose changing it to meet community equity or budget targets.",
+        "commercial_space_pct": "Locking Commercial Space means agents cannot propose changing it to meet revenue or community targets.",
     }
-    st.caption(f"ℹ️ {LOCK_DESCRIPTIONS.get(ov_param, '')}")
     
-    ov_value = render_override_slider(session, ov_param, key="ov_slider")
+    desc = LOCK_DESCRIPTIONS.get(selected_param, "Locking this parameter means agents cannot propose changing it in future rounds.")
+    st.markdown(
+        f'<div style="background:#eafaf0; border: 3px solid #121212; border-left: 8px solid #276749; padding: 1rem; margin-bottom: 1.5rem; box-shadow: 4px 4px 0px 0px #121212; font-family: Outfit, sans-serif; font-size: 0.9rem; font-weight: 500; color: #121212;">'
+        f'ℹ️ <strong>Impact of locking:</strong> {desc}'
+        f'</div>',
+        unsafe_allow_html=True
+    )
+    
+    ov_value = render_override_slider(session, selected_param, key="ov_slider")
     
     if ov_value is not None:
         # Store override parameters and switch to a dedicated override-debating stage
-        st.session_state["locked_param"] = ov_param
+        st.session_state["locked_param"] = selected_param
         st.session_state["locked_value"] = ov_value
         st.session_state["pre_override_session"] = session
         # Reset override streaming state
@@ -1207,7 +1288,7 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
         st.session_state["override_round_num"] = 1
         st.session_state["override_exhausted"] = False
         st.session_state["override_locked_proposal"] = apply_human_override(
-            session.current_proposal, ov_param, ov_value
+            session.current_proposal, selected_param, ov_value
         )
         st.session_state["judge_brief"] = None
         st.session_state["stage"] = "override_debating"

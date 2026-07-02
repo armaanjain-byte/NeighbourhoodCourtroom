@@ -9,8 +9,9 @@ class TargetStatement(BaseModel):
 
 class AgentOpinion(BaseModel):
     agent: str
-    score: float
-    recommendation: dict[str, float]
+    score: float = Field(ge=0.0, le=100.0)
+    score_rationale: str = Field(default="Based on initial domain-specific evaluation of physical parameters.")
+    recommendation: dict[str, float] = Field(default_factory=dict)
     tension: str
     position: str
     reasoning: str

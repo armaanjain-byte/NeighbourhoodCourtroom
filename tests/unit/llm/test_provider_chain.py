@@ -1,4 +1,4 @@
-﻿"""Tests for ProviderChain and failover behaviour."""
+"""Tests for ProviderChain and failover behaviour."""
 
 import pytest
 from unittest.mock import MagicMock, patch

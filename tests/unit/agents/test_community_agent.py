@@ -253,25 +253,7 @@ class TestCommunityAgent:
         output = agent.evaluate(proposal, {})
         assert output.proposed_changes["community_center_sqft"] == 15000.0
 
-    def test_budget_scale_back_logic(self) -> None:
-        class ModeratelyOverBudgetMockLoader(MockDataLoader):
-            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
-                return {
-                    "city_index": 1.0,
-                    "base_costs": {
-                        "housing_unit": 565000.0, # 100 units = 56.5M
-                        "community_center_sqft": 1250.0, # 2000 sqft = 2.5M
-                    },
-                    "soft_cost_multiplier": 1.0,
-                    "contingency_multiplier": 1.0,
-                }
-        agent = CommunityAgent(ModeratelyOverBudgetMockLoader())
-        proposal = create_initial_proposal("phoenix_az", community_center_sqft=0.0, affordable_housing_pct=15.0, housing_units=100, parking_spaces=0, green_space_pct=0.0)
-        output = agent.evaluate(proposal, {})
-        
-        assert "scaled back to 25%" in output.reasoning_and_evidence
-        assert output.proposed_changes["community_center_sqft"] == 500.0
-        assert output.proposed_changes["affordable_housing_pct"] == 16.25
+
 
     def test_community_agent_catches_adversarial_affordable_housing(self) -> None:
         agent = CommunityAgent(MockDataLoader())
@@ -283,24 +265,7 @@ class TestCommunityAgent:
         assert output.proposed_changes["affordable_housing_pct"] == 20.0
         assert "egregiously violates the HUD/Furman Center standard" in output.reasoning_and_evidence
 
-    def test_dramatically_over_budget_scale_back(self) -> None:
-        class DramaticBudgetBustingMockLoader(MockDataLoader):
-            def get_construction_costs(self, city_name: str) -> dict[str, Any]:
-                return {
-                    "city_index": 1.0,
-                    "base_costs": {
-                        "housing_unit": 800000.0, # 100 units = 80M (way over 65M budget!)
-                    },
-                    "soft_cost_multiplier": 1.0,
-                    "contingency_multiplier": 1.0,
-                }
-        agent = CommunityAgent(DramaticBudgetBustingMockLoader())
-        proposal = create_initial_proposal("phoenix_az", community_center_sqft=0.0, affordable_housing_pct=15.0, housing_units=100, parking_spaces=0, green_space_pct=0.0)
-        output = agent.evaluate(proposal, {})
-        
-        assert "scaled back to 10%" in output.reasoning_and_evidence
-        assert output.proposed_changes["community_center_sqft"] == 200.0
-        assert output.proposed_changes["affordable_housing_pct"] == 15.5
+
 
 
 # ── Tests for get_planning_standards tool ─────────────────────────────

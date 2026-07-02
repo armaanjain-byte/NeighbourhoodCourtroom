@@ -113,6 +113,10 @@ class CostCalculator:
         breakdown = self.calculate_cost_breakdown(proposal)
         return breakdown["total_estimated_cost"]
 
+    def calculate_construction_cost(self, proposal: Proposal) -> float:
+        """Alias for calculate_estimated_cost to compute the actual estimated construction cost."""
+        return self.calculate_estimated_cost(proposal)
+
     def calculate_cost_delta(self, old_proposal: Proposal, new_proposal: Proposal) -> float:
         """Calculate the change in cost between two proposals.
 
