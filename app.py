@@ -115,6 +115,40 @@ header[data-testid="stHeader"] [data-testid="stMainMenu"] button:hover {
     max-width: 1100px;
 }
 
+/* ── Streamlit Native Overrides (Expander & Metric) ─────────────────────── */
+[data-testid="stExpander"] {
+    border: 4px solid #121212 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: 6px 6px 0px 0px #121212 !important;
+    margin-bottom: 1.5rem !important;
+}
+[data-testid="stExpander"] summary {
+    background: #ffffff !important;
+}
+[data-testid="stExpander"] summary p {
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 1.1rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+}
+[data-testid="stExpander"] summary svg {
+    color: #121212 !important;
+    fill: #121212 !important;
+}
+[data-testid="stMetricLabel"] * {
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+}
+[data-testid="stMetricValue"] * {
+    color: #121212 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 900 !important;
+}
+
 /* ── Hero title ─────────────────────────────────────────────────────────── */
 .hero-title {
     font-family: 'Outfit', sans-serif;
@@ -710,8 +744,15 @@ Agents negotiate across up to three rounds, proposing changes and responding to 
     component_dir = os.path.join(os.path.dirname(__file__), "ui_component_dir")
     proposal_intake_form = components.declare_component("proposal_intake_form", path=component_dir)
 
+    import json
+    try:
+        with open("data/cities.json", "r") as f:
+            cities_data = json.load(f)
+    except Exception:
+        cities_data = {}
+
     # Render the component
-    result = proposal_intake_form(key="intake_form")
+    result = proposal_intake_form(key="intake_form", cities=cities_data)
 
     # Handle the submission
     if result:

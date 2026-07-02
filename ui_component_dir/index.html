@@ -39,8 +39,8 @@
     body {
         font-family: 'Outfit', sans-serif;
         background-color: #F0F0F0;
-        background-image: radial-gradient(#121212 1.5px, transparent 1.5px);
-        background-size: 22px 22px;
+        background-image: radial-gradient(rgba(18, 18, 18, 0.15) 1.5px, transparent 1.5px);
+        background-size: 24px 24px;
         color: #121212;
         margin: 0;
         padding: 0;
@@ -113,54 +113,12 @@
 <main class="max-w-[800px] mx-auto px-4 pt-6 pb-12">
     <!-- City Selection Section -->
     <section class="mb-8">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="section-header w-full">Select City</h2>
+        <div class="flex items-center justify-between mb-4" style="border-bottom: 3px solid #121212; padding-bottom: 0.4rem;">
+            <h2 class="section-header w-auto" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Select City</h2>
+            <span class="text-xs font-black uppercase tracking-wider opacity-50" style="font-family: Outfit, sans-serif; letter-spacing: 0.1em; color: #121212;">Scroll for more →</span>
         </div>
         <div class="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x" id="city-container">
-            <!-- Phoenix -->
-            <button data-city="phoenix_az" class="city-card selected flex-shrink-0 w-64 snap-start text-left p-4">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="icon-bg w-10 h-10 bg-black bg-opacity-20 flex items-center justify-center">
-                        <span class="loc-icon material-symbols-outlined text-[#fefcbf]" style="font-variation-settings: 'FILL' 1;">location_on</span>
-                    </div>
-                    <span class="chk-icon material-symbols-outlined text-[#fefcbf]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
-                </div>
-                <div class="font-display font-black text-lg city-name text-[#fefcbf]">Phoenix, AZ</div>
-                <div class="text-xs city-pop opacity-70 mt-1 text-[#fefcbf]">Population: 1,600,000</div>
-            </button>
-            <!-- Detroit -->
-            <button data-city="detroit_mi" class="city-card flex-shrink-0 w-64 snap-start text-left p-4">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="icon-bg w-10 h-10 bg-[#F0F0F0] flex items-center justify-center">
-                        <span class="loc-icon material-symbols-outlined text-[#553c9a]" style="font-variation-settings: 'FILL' 0;">location_on</span>
-                    </div>
-                    <span class="chk-icon material-symbols-outlined text-[#E0E0E0]" style="font-variation-settings: 'FILL' 0;">check_circle</span>
-                </div>
-                <div class="font-display font-black text-lg city-name text-[#121212]">Detroit, MI</div>
-                <div class="text-xs city-pop opacity-55 mt-1 text-[#121212]">Population: 639,000</div>
-            </button>
-            <!-- Seattle -->
-            <button data-city="seattle_wa" class="city-card flex-shrink-0 w-64 snap-start text-left p-4">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="icon-bg w-10 h-10 bg-[#F0F0F0] flex items-center justify-center">
-                        <span class="loc-icon material-symbols-outlined text-[#553c9a]" style="font-variation-settings: 'FILL' 0;">location_on</span>
-                    </div>
-                    <span class="chk-icon material-symbols-outlined text-[#E0E0E0]" style="font-variation-settings: 'FILL' 0;">check_circle</span>
-                </div>
-                <div class="font-display font-black text-lg city-name text-[#121212]">Seattle, WA</div>
-                <div class="text-xs city-pop opacity-55 mt-1 text-[#121212]">Population: 737,000</div>
-            </button>
-            <!-- Austin -->
-            <button data-city="austin_tx" class="city-card flex-shrink-0 w-64 snap-start text-left p-4">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="icon-bg w-10 h-10 bg-[#F0F0F0] flex items-center justify-center">
-                        <span class="loc-icon material-symbols-outlined text-[#553c9a]" style="font-variation-settings: 'FILL' 0;">location_on</span>
-                    </div>
-                    <span class="chk-icon material-symbols-outlined text-[#E0E0E0]" style="font-variation-settings: 'FILL' 0;">check_circle</span>
-                </div>
-                <div class="font-display font-black text-lg city-name text-[#121212]">Austin, TX</div>
-                <div class="text-xs city-pop opacity-55 mt-1 text-[#121212]">Population: 961,000</div>
-            </button>
+            <!-- Cities will be injected dynamically via JS -->
         </div>
     </section>
 
@@ -261,7 +219,9 @@
 
     window.addEventListener("message", function(event) {
         if (event.data.type === "streamlit:render") {
-            // we could restore state here if needed, but not necessary for simple input form
+            if (event.data.args && event.data.args.cities) {
+                renderCities(event.data.args.cities);
+            }
             sendMessageToStreamlitClient("streamlit:setFrameHeight", {height: document.getElementById("root-body").scrollHeight});
         }
     });
@@ -275,40 +235,76 @@
     }
 
     // City Selection — Bauhaus selected state using Finance amber
-    let selectedCity = "phoenix_az";
-    const cityCards = document.querySelectorAll('.city-card');
-    cityCards.forEach(card => {
-        card.addEventListener('click', () => {
-            selectedCity = card.getAttribute('data-city');
-            cityCards.forEach(c => {
-                c.classList.remove('selected');
-                c.style.background = '#ffffff';
-                c.querySelector('.city-name').style.color = '#121212';
-                c.querySelector('.city-pop').style.color = '#121212';
-                const iconBg = c.querySelector('.icon-bg');
-                iconBg.style.background = '#F0F0F0';
-                const locIcon = c.querySelector('.loc-icon');
-                locIcon.style.color = '#553c9a';
-                locIcon.style.fontVariationSettings = "'FILL' 0";
-                const chkIcon = c.querySelector('.chk-icon');
-                chkIcon.style.color = '#E0E0E0';
-                chkIcon.style.fontVariationSettings = "'FILL' 0";
-            });
-            // Set Finance amber selected state
-            card.classList.add('selected');
-            card.style.background = '#744210';
-            card.querySelector('.city-name').style.color = '#fefcbf';
-            card.querySelector('.city-pop').style.color = 'rgba(254,252,191,0.7)';
-            const iconBg = card.querySelector('.icon-bg');
-            iconBg.style.background = 'rgba(0,0,0,0.25)';
-            const locIcon = card.querySelector('.loc-icon');
-            locIcon.style.color = '#fefcbf';
-            locIcon.style.fontVariationSettings = "'FILL' 1";
-            const chkIcon = card.querySelector('.chk-icon');
-            chkIcon.style.color = '#fefcbf';
-            chkIcon.style.fontVariationSettings = "'FILL' 1";
+    let selectedCity = "";
+    
+    function selectCity(citySlug) {
+        selectedCity = citySlug;
+        const cityCards = document.querySelectorAll('.city-card');
+        cityCards.forEach(c => {
+            c.classList.remove('selected');
+            c.style.background = '#ffffff';
+            c.querySelector('.city-name').style.color = '#121212';
+            c.querySelector('.city-pop').style.color = '#121212';
+            const iconBg = c.querySelector('.icon-bg');
+            iconBg.style.background = '#F0F0F0';
+            const locIcon = c.querySelector('.loc-icon');
+            locIcon.style.color = '#553c9a';
+            locIcon.style.fontVariationSettings = "'FILL' 0";
+            const chkIcon = c.querySelector('.chk-icon');
+            chkIcon.style.color = '#E0E0E0';
+            chkIcon.style.fontVariationSettings = "'FILL' 0";
+            
+            if (c.getAttribute('data-city') === citySlug) {
+                c.classList.add('selected');
+                c.style.background = '#744210';
+                c.querySelector('.city-name').style.color = '#fefcbf';
+                c.querySelector('.city-pop').style.color = 'rgba(254,252,191,0.7)';
+                iconBg.style.background = 'rgba(0,0,0,0.25)';
+                locIcon.style.color = '#fefcbf';
+                locIcon.style.fontVariationSettings = "'FILL' 1";
+                chkIcon.style.color = '#fefcbf';
+                chkIcon.style.fontVariationSettings = "'FILL' 1";
+            }
         });
-    });
+    }
+
+    let citiesRendered = false;
+    function renderCities(citiesDict) {
+        if (citiesRendered) return;
+        citiesRendered = true;
+        const container = document.getElementById("city-container");
+        container.innerHTML = "";
+        
+        let firstCity = null;
+        for (const [slug, city] of Object.entries(citiesDict)) {
+            if (!firstCity) firstCity = slug;
+            
+            const btn = document.createElement("button");
+            btn.setAttribute("data-city", slug);
+            btn.className = "city-card flex-shrink-0 w-64 snap-start text-left p-4";
+            
+            btn.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="icon-bg w-10 h-10 bg-[#F0F0F0] flex items-center justify-center">
+                        <span class="loc-icon material-symbols-outlined text-[#553c9a]" style="font-variation-settings: 'FILL' 0;">location_on</span>
+                    </div>
+                    <span class="chk-icon material-symbols-outlined text-[#E0E0E0]" style="font-variation-settings: 'FILL' 0;">check_circle</span>
+                </div>
+                <div class="font-display font-black text-lg city-name text-[#121212]">${city.name}, ${city.state}</div>
+                <div class="text-xs city-pop opacity-55 mt-1 text-[#121212]">Population: ${city.population.toLocaleString()}</div>
+            `;
+            
+            btn.addEventListener("click", () => {
+                selectCity(slug);
+            });
+            
+            container.appendChild(btn);
+        }
+        
+        if (firstCity) {
+            selectCity(firstCity);
+        }
+    }
 
     // Budget Input
     const budgetInput = document.getElementById('inp-budget');
