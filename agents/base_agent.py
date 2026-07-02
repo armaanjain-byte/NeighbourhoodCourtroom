@@ -539,13 +539,28 @@ class BaseAgent(abc.ABC):
         }.get(reason, f"{self.agent_name.capitalize()} using deterministic fallback. Reason: {reason}")
 
         math_results = self.evaluate(proposal, context)
+        
+        filtered_changes = {}
+        dropped_locks = []
+        for param, val in math_results.proposed_changes.items():
+            if param in proposal.human_locks:
+                dropped_locks.append(param)
+            else:
+                filtered_changes[param] = val
+                
+        reasoning = math_results.reasoning_and_evidence
+        if dropped_locks:
+            from engine.state import PARAM_LABELS
+            labels = [PARAM_LABELS.get(p, p) for p in dropped_locks]
+            reasoning += f" (Note: Proposed changes to {', '.join(labels)} were omitted because they are locked by the human judge.)"
+
         return AgentOpinion(
             agent=self.agent_name,
             score=math_results.score,
-            recommendation=math_results.proposed_changes,
+            recommendation=filtered_changes,
             tension="Considered alternative viewpoints, but fell back to deterministic mathematical modeling due to execution constraints.",
             position=fallback_position,
-            reasoning=math_results.reasoning_and_evidence,
+            reasoning=reasoning,
             evidence=[],
             objections=[],
             supports=[],

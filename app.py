@@ -632,18 +632,20 @@ def stage_input() -> None:
     )
 
     # ── First-time onboarding card ─────────────────────────────────────────
-    if not st.session_state.get("onboarding_dismissed"):
-        with st.container():
-            st.markdown("""
+    is_first_visit = not st.session_state.get("has_seen_onboarding", False)
+    if is_first_visit:
+        st.session_state["has_seen_onboarding"] = True
+
+    with st.expander("👋 New here? Here's what this is", expanded=is_first_visit):
+        st.markdown("""
 <div style="
     background: #ffffff;
     border: 4px solid #121212;
     border-radius: 0;
     padding: 1.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
     box-shadow: 6px 6px 0px 0px #121212;
 ">
-<div style="font-family:Outfit,sans-serif;font-size:1.1rem;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#121212;margin-bottom:0.75rem;">👋 New here? Here's what this is</div>
 <div style="font-family:Outfit,sans-serif;color:#121212;font-size:0.88rem;line-height:1.65;font-weight:500;">
 This app simulates a <strong>city council–style review</strong> of a real estate development proposal.
 <br><br>
@@ -661,9 +663,6 @@ Agents negotiate across up to three rounds, proposing changes and responding to 
 </div>
 </div>
 """, unsafe_allow_html=True)
-            if st.button("Got it — let's go ✓", key="dismiss_onboarding"):
-                st.session_state["onboarding_dismissed"] = True
-                st.rerun()
 
     # ── System Quality Panel (Eval Harness Results) ─────────────────────────
     @st.cache_data
@@ -1145,6 +1144,14 @@ The coloured dots on the bar below show each agent's proposed value; the red bar
         key="ov_param",
     )
     
+    LOCK_DESCRIPTIONS = {
+        "green_space_pct": "Locking Green Space means agents cannot propose changing it to meet budget or environmental targets.",
+        "affordable_housing_pct": "Locking Affordable Housing means agents cannot propose changing it to meet community equity or budget targets.",
+        "parking_spaces": "Locking Parking Spaces means agents cannot propose changing it to accommodate density or reduce environmental impact.",
+        "housing_units": "Locking Housing Density means agents cannot propose changing the number of units to hit revenue or community targets.",
+    }
+    st.caption(f"ℹ️ {LOCK_DESCRIPTIONS.get(ov_param, '')}")
+    
     ov_value = render_override_slider(session, ov_param, key="ov_slider")
     
     if ov_value is not None:
@@ -1195,11 +1202,18 @@ def stage_override_debating() -> None:
     Mirrors stage_debating but uses the override-specific session_state keys
     so the main debate feed is preserved for the result tabs.
     """
+    from llm.budget import is_budget_exhausted
     st.markdown('<div class="hero-title">⚖️ Neighbourhood Courtroom</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="hero-sub">Agents are re-negotiating your ruling — watch live…</div>',
-        unsafe_allow_html=True,
-    )
+    if is_budget_exhausted():
+        st.markdown(
+            '<div class="hero-sub">Agents are re-negotiating your ruling (using verified deterministic calculations)...</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="hero-sub">Agents are re-negotiating your ruling — watch live…</div>',
+            unsafe_allow_html=True,
+        )
 
     events: list = st.session_state.get("override_live_events") or []
 

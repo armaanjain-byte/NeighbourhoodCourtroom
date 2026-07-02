@@ -443,3 +443,31 @@ class TestBaseAgentGenerateOpinion:
                 assert "using deterministic fallback" in opinion.position
                 assert raw_error_msg not in opinion.position
                 assert raw_error_msg not in opinion.reasoning
+
+    def test_fallback_opinion_respects_human_locks(self, agent: MockAgent) -> None:
+        """Test that fallback deterministic evaluate omits locked parameters from proposed_changes."""
+        proposal = create_initial_proposal("phoenix_az")
+        proposal.human_locks = {"green_space_pct": 20.0}
+        
+        # Force a fallback by raising an exception
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate_structured.side_effect = Exception("force fallback")
+        agent.llm_provider = mock_provider
+        
+        with patch.object(agent, 'evaluate') as mock_eval:
+            # Mock evaluate to propose changes to a locked parameter and an unlocked parameter
+            mock_eval.return_value = agent.build_output(
+                score=50.0, 
+                verdict="modify", 
+                changes={"green_space_pct": 25.0, "housing_units": 200}, 
+                reasoning="Fallback reasoning"
+            )
+            opinion = agent.generate_opinion(proposal, {})
+            
+            assert opinion.is_fallback is True
+            # The locked parameter should be dropped from recommendation
+            assert "green_space_pct" not in opinion.recommendation
+            assert opinion.recommendation["housing_units"] == 200
+            
+            # The reasoning should mention the omission
+            assert "Note: Proposed changes to Green Space were omitted because they are locked by the human judge." in opinion.reasoning

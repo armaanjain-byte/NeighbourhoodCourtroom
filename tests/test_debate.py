@@ -293,7 +293,7 @@ class TestRunDebateRound:
         
         class RealMockCostCalculator(CostCalculator):
             def __init__(self):
-                super().__init__(MockDataLoader())
+                super().__init__(MockDataLoader())  # type: ignore
             def calculate_estimated_cost(self, p: Proposal) -> float:
                 # 100k per housing unit, 10k per parking, 500k per green space pct
                 return (p.housing_units * 100000) + (p.parking_spaces * 10000) + (p.green_space_pct * 500000)
