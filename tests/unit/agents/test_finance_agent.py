@@ -254,7 +254,10 @@ class TestFinanceAgent:
         agent.llm_provider = mock_provider
         
         opinion = agent.generate_opinion(proposal_near_budget, {"budget_limit": 52_000_000.0})
-        assert "using deterministic fallback" in opinion.position
+        # The new structured fallback produces a domain-specific position, not the old generic string.
+        assert opinion.is_fallback is True
+        # The position should contain real cost data (either a dollar figure or budget mention)
+        assert "$" in opinion.position or "budget" in opinion.position.lower()
 
 
 # ── Tests for get_cost_benchmarks tool ──────────────────────────────────

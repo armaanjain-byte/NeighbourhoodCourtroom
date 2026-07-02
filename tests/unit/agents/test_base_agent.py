@@ -262,7 +262,7 @@ class TestBaseAgentGenerateOpinion:
             opinion = agent.generate_opinion(proposal, {})
             
             # Verify fallback was triggered
-            assert "using deterministic fallback" in opinion.position
+            assert opinion.is_fallback is True
             assert opinion.score == 50.0
 
     def test_generate_opinion_function_calling(self) -> None:
@@ -375,7 +375,7 @@ class TestBaseAgentGenerateOpinion:
             mock_eval.return_value = agent.build_output(score=50.0, verdict="modify", changes={"green_space_pct": 21.0}, reasoning="Fallback")
             proposal = create_initial_proposal("phoenix_az")
             op_fallback = agent.generate_opinion(proposal, {}, round_number=2, own_previous_opinion=prev_opinion)
-            assert "using deterministic fallback" in op_fallback.position
+            assert op_fallback.is_fallback is True
 
         # Providing concession_rationale succeeds
         mock_provider.generate_structured.return_value["concession_rationale"] = "Trading green space for budget."
@@ -440,7 +440,6 @@ class TestBaseAgentGenerateOpinion:
                 opinion = agent.generate_opinion(proposal, {})
                 
                 assert opinion.is_fallback is True
-                assert "using deterministic fallback" in opinion.position
                 assert raw_error_msg not in opinion.position
                 assert raw_error_msg not in opinion.reasoning
 
@@ -472,11 +471,32 @@ class TestBaseAgentGenerateOpinion:
             # The reasoning should mention the omission
             assert "Note: Proposed changes to Green Space were omitted because they are locked by the human judge." in opinion.reasoning
 
-    def test_fallback_round_2_deadlock_breaker(self, agent: MockAgent) -> None:
-        """Fallback in Round 2 should adjust parameters to break deadlock."""
+    def test_fallback_round_2_structured_response(self) -> None:
+        """Round 2 fallback uses structured opponent-response logic, not random deadlock-breaking.
+
+        The new fallback (Du et al. 2024) produces a domain-specific response to opponent
+        proposals.  It should produce a different position string from Round 1 and set
+        is_fallback=True.
+        """
+        from agents.finance_agent import FinanceAgent
+        from tools.cost_calculator import CostCalculator
+        from tools.data_loader import DataLoader
+
+        agent = FinanceAgent(CostCalculator(DataLoader(skip_validation=True)))
+        context = {"budget_limit": 25_000_000.0}
         proposal = create_initial_proposal("phoenix_az", green_space_pct=10.0, housing_units=100)
-        
-        # Simulated opponent wants 20% green space
+
+        own_opinion = AgentOpinion(
+            agent=agent.agent_name,
+            score=80.0,
+            recommendation={"green_space_pct": 10.0},
+            tension="Tension",
+            position="Round 1 position",
+            reasoning="Reasoning",
+            evidence=[], objections=[], supports=[],
+            confidence=0.8,
+        )
+
         opp_opinion = AgentOpinion(
             agent="climate",
             score=50.0,
@@ -484,64 +504,33 @@ class TestBaseAgentGenerateOpinion:
             tension="Tension",
             position="Need green space",
             reasoning="Reasoning",
-            evidence=[],
-            objections=[],
-            supports=[],
+            evidence=[], objections=[], supports=[],
             confidence=0.8,
-            grounding_warnings=[],
-            engagement_warnings=[]
         )
-        
-        # Agent's own previous opinion was to keep it at 10.0
-        own_opinion = AgentOpinion(
-            agent=agent.agent_name,
-            score=80.0,
-            recommendation={"green_space_pct": 10.0},
-            tension="Tension",
-            position="Position",
-            reasoning="Reasoning",
-            evidence=[],
-            objections=[],
-            supports=[],
-            confidence=0.8,
-            grounding_warnings=[],
-            engagement_warnings=[]
+
+        # Run Round 1 fallback
+        r1_opinion = agent._fallback_opinion(
+            proposal, context,
+            round_number=1,
+            opponent_opinions=None,
+            own_previous_opinion=None,
+            reason="test",
         )
-        
-        # Mock evaluate to return own_opinion values
-        with patch.object(agent, 'evaluate') as mock_eval:
-            mock_eval.return_value = agent.build_output(
-                score=80.0,
-                verdict="modify",
-                changes={"green_space_pct": 10.0},
-                reasoning="Reasoning"
-            )
-            
-            # Run fallback for Round 2
-            fallback_opinion = agent._fallback_opinion(
-                proposal, {},
-                round_number=2,
-                opponent_opinions={"climate": opp_opinion},
-                own_previous_opinion=own_opinion,
-                reason="test"
-            )
-            
-            # Because opponent asked for 20% and current is 10%, fallback concession should move to 15%
-            assert fallback_opinion.recommendation["green_space_pct"] != 10.0
-            
-            # Now test deadlock breaker by simulating identical output after concession
-            # This will be tested by running fallback with opponent wanting exactly what we want,
-            # so concession logic doesn't change it, forcing deadlock breaker.
-            opp_opinion.recommendation = {"green_space_pct": 10.0}
-            
-            fallback_opinion_deadlock = agent._fallback_opinion(
-                proposal, {},
-                round_number=2,
-                opponent_opinions={"climate": opp_opinion},
-                own_previous_opinion=own_opinion,
-                reason="test"
-            )
-            
-            # The result should be adjusted by 5% and thus not exactly 10.0
-            assert fallback_opinion_deadlock.recommendation != own_opinion.recommendation
+
+        # Run Round 2 fallback with opponent opinion
+        r2_opinion = agent._fallback_opinion(
+            proposal, context,
+            round_number=2,
+            opponent_opinions={"climate": opp_opinion},
+            own_previous_opinion=own_opinion,
+            reason="test",
+        )
+
+        # The fallback should have fired and produced an is_fallback opinion
+        assert r1_opinion.is_fallback is True
+        assert r2_opinion.is_fallback is True
+        # Round 2 position must differ from Round 1
+        assert r2_opinion.position != r1_opinion.position
+
+
 

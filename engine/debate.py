@@ -172,9 +172,24 @@ def run_debate_round(
 
 
     # 4 & 5. Apply resolved changes and produce closing state
+    resolved = resolution["resolved_changes"]
+
+    # ── Budget-integrity post-apply guard ────────────────────────────────────
+    # These assertions are the second line of defense (first is in apply_changes).
+    # If the conflict engine ever accidentally included a frozen parameter in the
+    # resolved dict, we catch it here before it reaches the proposal state.
+    assert "budget_limit" not in resolved, (
+        "BUG: budget_limit was included in negotiated changes — "
+        "this is not a mutable parameter and must never be negotiated."
+    )
+    assert "estimated_cost" not in resolved, (
+        "BUG: estimated_cost is not a negotiable parameter — "
+        "remove it from agent proposals before passing to the conflict engine."
+    )
+
     closing_state = apply_resolved_changes(
-        opening_state, 
-        resolution["resolved_changes"],
+        opening_state,
+        resolved,
         cost_calculator=cost_calculator,
     )
 

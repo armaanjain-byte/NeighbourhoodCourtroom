@@ -535,14 +535,22 @@ class BaseAgent(abc.ABC):
         own_previous_opinion: AgentOpinion | None = None,
         reason: str,
     ) -> AgentOpinion:
-        """Run evaluate() deterministically and wrap its result as an AgentOpinion.
+        """Generate a round-aware, cost-grounded deterministic fallback AgentOpinion.
+
+        Delegates to :func:`engine.fallback.generate_fallback_opinion` when a
+        CostCalculator is available, so the fallback *actually responds* to what
+        the other agents said last round with specific dollar figures (Du et al. 2024).
+
+        Falls back to the old ``evaluate()``-based path only when no cost data is
+        accessible (unknown agent type or missing data_loader/cost_calculator).
 
         Parameters
         ----------
         proposal : Proposal
             The current proposal.
         context : dict[str, Any]
-            Full context for evaluate().
+            Full context for evaluate() and cost calculations. Should contain
+            ``budget_limit`` and optionally ``city_data``.
         round_number : int
             The debate round number.
         opponent_opinions : dict[str, AgentOpinion] | None
@@ -556,6 +564,67 @@ class BaseAgent(abc.ABC):
         -------
         AgentOpinion
         """
+        from engine.fallback import generate_fallback_opinion
+        from tools.cost_calculator import CostCalculator
+
+        budget_limit: float = context.get("budget_limit", 0.0)
+
+        # Resolve city_data — prefer what the context gives us, then fetch it
+        city_data: dict[str, Any] = context.get("city_data") or {}
+        data_loader = getattr(self, "data_loader", None) or getattr(
+            getattr(self, "cost_calculator", None), "data_loader", None
+        )
+        if not city_data and data_loader:
+            try:
+                city_data = data_loader.load_city(proposal.city_slug)
+            except Exception:
+                city_data = {}
+
+        # Resolve a CostCalculator — Finance already has one; Climate/Community
+        # can construct one on the fly from their data_loader.
+        cost_calculator: CostCalculator | None = getattr(self, "cost_calculator", None)
+        if cost_calculator is None and data_loader is not None:
+            cost_calculator = CostCalculator(data_loader)
+
+        # ── Structured fallback (Du et al. 2024) ─────────────────────────────
+        if cost_calculator is not None and self.agent_name in ("finance", "climate", "community"):
+            try:
+                opinion = generate_fallback_opinion(
+                    agent_type=self.agent_name,
+                    round_num=round_number,
+                    proposal=proposal,
+                    city_data=city_data,
+                    budget_limit=budget_limit,
+                    opponent_opinions=opponent_opinions,
+                    cost_calculator=cost_calculator,
+                    own_previous_opinion=own_previous_opinion,
+                )
+                # Respect human locks — strip locked params from recommendation
+                filtered = {
+                    k: v for k, v in opinion.recommendation.items()
+                    if k not in proposal.human_locks
+                }
+                dropped = [k for k in opinion.recommendation if k in proposal.human_locks]
+                if dropped:
+                    from engine.state import PARAM_LABELS
+                    labels = [PARAM_LABELS.get(p, p) for p in dropped]
+                    suffix = f" (Note: changes to {', '.join(labels)} omitted — locked by human judge.)"
+                    opinion = opinion.model_copy(update={
+                        "recommendation": filtered,
+                        "reasoning": opinion.reasoning + suffix,
+                    })
+                logger.info(
+                    "Agent '%s' used structured fallback (round %d, reason: %s).",
+                    self.agent_name, round_number, reason,
+                )
+                return opinion
+            except Exception as exc:
+                logger.warning(
+                    "Structured fallback failed for '%s': %s — falling back to evaluate().",
+                    self.agent_name, exc,
+                )
+
+        # ── Legacy evaluate()-based fallback ──────────────────────────────────
         fallback_position = {
             "quota_exhausted": "AI reasoning quota temporarily exhausted — using deterministic fallback with verified baseline calculations instead.",
             "auth_error": "AI reasoning unconfigured (please check API key configuration) — using deterministic fallback with verified baseline calculations instead.",
@@ -567,64 +636,20 @@ class BaseAgent(abc.ABC):
         }.get(reason, f"{self.agent_name.capitalize()} using deterministic fallback. Reason: {reason}")
 
         math_results = self.evaluate(proposal, context)
-        
-        filtered_changes = {}
-        dropped_locks = []
+
+        filtered_changes: dict[str, Any] = {}
+        dropped_locks: list[str] = []
         for param, val in math_results.proposed_changes.items():
             if param in proposal.human_locks:
                 dropped_locks.append(param)
             else:
                 filtered_changes[param] = val
-                
+
         reasoning = math_results.reasoning_and_evidence
         if dropped_locks:
             from engine.state import PARAM_LABELS
             labels = [PARAM_LABELS.get(p, p) for p in dropped_locks]
             reasoning += f" (Note: Proposed changes to {', '.join(labels)} were omitted because they are locked by the human judge.)"
-
-        if round_number > 1 and opponent_opinions and own_previous_opinion:
-            import random
-            opponent_changes = {}
-            for opp_name, opp_opinion in opponent_opinions.items():
-                for param, val in opp_opinion.recommendation.items():
-                    if param not in proposal.human_locks:
-                        opponent_changes[param] = val
-
-            if opponent_changes:
-                concede_param = random.choice(list(opponent_changes.keys()))
-                target_val = opponent_changes[concede_param]
-                current_val = getattr(proposal, concede_param)
-                is_int = isinstance(current_val, int)
-                
-                new_val = current_val + (target_val - current_val) * 0.5
-                if is_int:
-                    new_val = int(new_val)
-                if new_val == current_val:
-                    new_val = target_val
-                    
-                filtered_changes[concede_param] = new_val
-                reasoning += f"\n\nRound {round_number} Fallback Concession: Adjusted {concede_param} towards opponent's request."
-
-            # Deadlock breaker
-            if filtered_changes == own_previous_opinion.recommendation:
-                available_params = list(filtered_changes.keys()) or [p for p in MUTABLE_PARAMETERS if p not in proposal.human_locks]
-                if available_params:
-                    param_to_tweak = random.choice(available_params)
-                    current_val = filtered_changes.get(param_to_tweak, getattr(proposal, param_to_tweak))
-                    is_int = isinstance(getattr(proposal, param_to_tweak), int)
-                    adjustment = random.choice([0.95, 1.05])
-                    
-                    if current_val == 0:
-                        new_val = 1 if is_int else 1.0
-                    else:
-                        new_val = current_val * adjustment
-                        if is_int:
-                            new_val = int(new_val)
-                            if new_val == current_val:
-                                new_val += 1 if adjustment > 1 else -1
-                                
-                    filtered_changes[param_to_tweak] = new_val
-                    reasoning += f"\n\nDeadlock Breaker: Adjusted {param_to_tweak} by +/- 5% to force progression."
 
         return AgentOpinion(
             agent=self.agent_name,

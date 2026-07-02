@@ -207,7 +207,15 @@ class TestClimateAgent:
         agent.llm_provider = mock_provider
         
         opinion = agent.generate_opinion(proposal_strong_climate, {})
-        assert "using deterministic fallback" in opinion.position
+        # The new structured fallback produces domain-specific content, not the old generic string.
+        assert opinion.is_fallback is True
+        # The position should contain real climate data (green space % or EPA reference or parking acres)
+        assert (
+            "%" in opinion.position
+            or "green" in opinion.position.lower()
+            or "climate" in opinion.position.lower()
+            or "parking" in opinion.position.lower()
+        )
 
 
 

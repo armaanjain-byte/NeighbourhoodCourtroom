@@ -43,7 +43,7 @@ PARAM_BOUNDS: dict[str, tuple[float, float]] = {
     "housing_units": (0, 100000),
     "parking_spaces": (0, 100000),
     "community_center_sqft": (0.0, 1000000.0),
-    "estimated_cost": (0.0, 10_000_000_000.0),
+    # estimated_cost is derived, not negotiable.
 }
 
 # Parameters whose Proposal field type is int (agents send floats)
@@ -155,18 +155,18 @@ def apply_changes(
         recognised changes were supplied, returns a deep copy with the
         same version (no version bump).
     """
+    assert "budget_limit" not in changes, (
+        "BUG: budget_limit was included in negotiated changes - "
+        "budget_limit is not a mutable parameter and must never be negotiated."
+    )
+    assert "estimated_cost" not in changes, (
+        "BUG: estimated_cost is not a negotiable parameter - "
+        "remove it from agent proposals before applying changes."
+    )
+
     updated = proposal.model_copy(deep=True)
     timestamp = datetime.now(timezone.utc).isoformat()
     has_activity = False  # Track whether anything meaningful happened
-
-    # 1. Filter out estimated_cost modifications by agents
-    if "estimated_cost" in changes:
-        logger.warning(
-            f"Agent '{actor}' attempted to modify estimated_cost directly. "
-            "estimated_cost is a derived field and was ignored."
-        )
-        changes = {k: v for k, v in changes.items() if k != "estimated_cost"}
-
     for param, raw_value in changes.items():
         if param not in MUTABLE_PARAMETERS:
             continue
